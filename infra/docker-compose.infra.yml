@@ -1,0 +1,136 @@
+# Инфраструктура проекта: PostgreSQL, RabbitMQ, Redis, MinIO.
+#
+# Отдельный compose-проект с собственным жизненным циклом: инфраструктура
+# переживает перекатку приложений, а `down` у приложений не трогает данные.
+# Поднимать первым:
+#
+#   make -C infra up-infra
+#
+# Значения берутся из infra/.env — compose читает его сам как .env каталога
+# проекта (см. infra/.env.example). Дефолты продублированы здесь, чтобы
+# запуск работал и без .env.
+name: curier-flow-infra
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      # initdb-аргументы: без них локаль контейнера влияет на порядок сортировки
+      # и индексы расходятся с продовыми.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-app}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      # check_running говорит, что поднялась нода; check_local_alarms ловит
+      # исчерпание диска и памяти, при котором брокер молча перестаёт принимать
+      # публикации.
+      test:
+        [
+          "CMD-SHELL",
+          "rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_local_alarms",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Result backend TaskIQ: результаты задач переживают перезапуск контейнера,
+    # но не являются источником истины, поэтому хватает RDB без AOF.
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # Одноразовое создание бакета: /health/ready у бекенда делает HEAD по бакету
+  # сервиса, а не листинг всех бакетов (в проде у сервиса ключи только на свой
+  # бакет), и на пустом MinIO проверка иначе была бы красной с первого запуска.
+  # Бакет заводится здесь, а не в apps-файле: приложение получает хранилище
+  # готовым, как в проде, и не умеет создавать себе бакет само.
+  # Тот же образ, что и у minio: `mc` лежит в нём, отдельный тянуть незачем.
+  minio-init:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Профиль выключает сервис из обычного `up`: одноразовая задача завершается,
+    # а `up --wait` умеет ждать только running|healthy и считает вышедший
+    # контейнер упавшим — даже с кодом 0. Запускается отдельно, из Makefile.
+    profiles: ["init"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-app-files}
+    # $$ экранирует подстановку compose: переменные раскрывает шелл внутри
+    # контейнера, иначе пароль попал бы в текст команды и в `docker inspect`.
+    entrypoint:
+      [
+        "sh",
+        "-c",
+        'mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" && mc mb --ignore-existing "local/$$S3_BUCKET"',
+      ]
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+  redis-data:
+  minio-data:
+
+# Общая сеть проекта. Имя задано явно, без префикса compose-проекта, — по нему
+# к сети подключается docker-compose.apps.yml (там она external). Создаётся
+# вместе с этим файлом, поэтому инфраструктура поднимается первой.
+networks:
+  default:
+    name: curier-flow

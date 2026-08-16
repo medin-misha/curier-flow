@@ -1,0 +1,16 @@
+# В образ попадают только pyproject.toml, uv.lock, src/, alembic/ и alembic.ini.
+# Всё остальное исключено, чтобы не инвалидировать слои кеша при правках
+# документации и не тащить внутрь секреты и локальные окружения.
+*
+!pyproject.toml
+!uv.lock
+!src/
+!alembic/
+!alembic.ini
+
+# Даже из разрешённых каталогов мусор внутрь не нужен.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/

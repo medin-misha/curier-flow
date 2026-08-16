@@ -1,0 +1,91 @@
+# Процессы приложений проекта: api и worker бекенда из apps/backend.
+#
+# Отдельный compose-проект: приложения перекатываются, не трогая данные в
+# volume'ах инфраструктуры. Инфраструктура должна быть поднята заранее — она
+# создаёт сеть curier-flow, к которой подключается этот файл:
+#
+#   make -C infra up
+#
+# depends_on до сервисов инфраструктуры дотянуться не может: compose умеет
+# зависимости только внутри одного проекта. Поэтому порядок держит Makefile
+# (infra поднимается с --wait), а сбой инфраструктуры на ходу отрабатывает
+# restart: unless-stopped вместе с healthcheck.
+#
+# Все значения берутся из infra/.env (см. infra/.env.example): compose читает
+# его сам как .env каталога проекта, и он же целиком отдаётся контейнерам
+# через env_file. Пути ниже относительны этого файла, то есть каталога infra.
+name: curier-flow-apps
+
+# Общая часть процессов бекенда. В infra/.env адреса записаны так, как их
+# видно с хоста (localhost) — этим же файлом пользуется запуск `make run` из
+# apps/backend. Внутри compose те же сервисы зовутся по именам, поэтому блок
+# environment перекрывает env_file и подставляет DSN'ы с именами сервисов.
+# Сам .env необязателен — без него работают дефолты.
+x-backend: &backend
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_DSN: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
+    RABBITMQ_DSN: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+    REDIS_DSN: redis://redis:6379/0
+    # Внутренний адрес хранилища: по нему в MinIO ходит само приложение.
+    S3_ENDPOINT_URL: http://minio:9000
+    # Ключи приложения — это корневые ключи MinIO, взятые из тех же переменных,
+    # что и сам контейнер minio: заданные отдельно, они разъезжаются при смене
+    # пароля, и расхождение вылезает не на старте, а на первой загрузке файла.
+    S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+    S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    # Адрес, по которому в MinIO приходит браузер. Подпись SigV4 накрывает
+    # Host, поэтому ссылка, подписанная на http://minio:9000, снаружи отдала бы
+    # SignatureDoesNotMatch: presigned-ссылки подписываются по этому адресу.
+    S3_PUBLIC_ENDPOINT_URL: http://localhost:${MINIO_PORT:-9000}
+
+services:
+  api:
+    <<: *backend
+    build:
+      context: ../apps/backend
+      target: api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      # Строго /health/live: readiness падает вместе с любой зависимостью, и
+      # healthcheck на нём перезапускал бы исправный контейнер из-за чужой
+      # аварии. Liveness отвечает, пока жив процесс, — это и есть повод
+      # перезапускать. В образе python:3.12-slim нет ни curl, ни wget, поэтому
+      # проверка делается интерпретатором: urlopen кидает на любом не-2xx.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  worker:
+    <<: *backend
+    build:
+      context: ../apps/backend
+      target: worker
+    # Healthcheck не задан намеренно: честной проверки у воркера нет. Порта он
+    # не слушает, а «процесс не умер» docker знает и без нас — такая проверка
+    # создавала бы только видимость контроля.
+    #
+    # После SIGTERM воркер дожидается начатой работы WORKER_SHUTDOWN_TIMEOUT
+    # секунд (по умолчанию 30). Дефолтные 10 секунд docker добили бы его
+    # SIGKILL посреди обработки сообщения, поэтому запас задан явно.
+    stop_grace_period: 40s
+
+# Сеть создаёт docker-compose.infra.yml; здесь она внешняя. Если её нет,
+# compose падает с внятной ошибкой — это лучше молчаливого старта приложения
+# в собственной сети, где postgres не резолвится.
+networks:
+  default:
+    name: curier-flow
+    external: true

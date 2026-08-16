@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+
+# Виртуальное окружение и кеши инструментов
+.venv/
+.uv/
+.cache/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Секреты: в репозиторий попадает только .env.example
+.env
+.env.*
+!.env.example
+
+# Редакторы и ОС
+.idea/
+.vscode/
+*.swp
+.DS_Store

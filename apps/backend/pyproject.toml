@@ -1,0 +1,239 @@
+[project]
+name = "backend-template"
+version = "0.1.0"
+description = "Production-ready backend service template: FastAPI + SQLAlchemy 2.0 async + PostgreSQL"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "aio-pika>=10.0.1",
+    "aiobotocore>=3.9.0",
+    "alembic>=1.19.1",
+    "argon2-cffi>=25.1.0",
+    "asyncpg>=0.31.0",
+    "fastapi>=0.141.1",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.15.0",
+    "pyjwt>=2.13.0",
+    "sqlalchemy[asyncio]>=2.0.51",
+    "structlog>=26.1.0",
+    "taskiq>=0.12.4",
+    "taskiq-aio-pika>=0.6.0",
+    "taskiq-redis>=1.2.3",
+    "uuid-utils>=0.17.0",
+    "uvicorn[standard]>=0.52.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.13",
+    "mypy>=2.3.0",
+    "pre-commit>=4.6.1",
+    "ruff>=0.16.2",
+    "types-aiobotocore[s3]>=3.9.0",
+]
+test = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "testcontainers[minio,postgres,rabbitmq,redis]>=4.15.0",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ruff
+# ─────────────────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# ruff умеет форматировать python-блоки внутри markdown. Документация и
+# спецификации содержат намеренно «неформатные» фрагменты кода, править их
+# автоматически нельзя.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "A",     # flake8-builtins
+    "ARG",   # неиспользуемые аргументы
+    "ASYNC", # блокирующие вызовы в async-коде
+    "B",     # flake8-bugbear
+    "C4",    # comprehensions
+    "D",     # pydocstyle: включён глобально, снят per-file-ignores везде,
+             # кроме kernel и platform — докстринги обязательны только там
+    "DTZ",   # наивные datetime
+    "E",     # pycodestyle errors
+    "ERA",   # закомментированный код
+    "F",     # pyflakes
+    "G",     # logging-format
+    "I",     # isort
+    "LOG",   # корректность логирования
+    "N",     # pep8-naming
+    "PIE",
+    "PL",    # pylint
+    "PTH",   # pathlib вместо os.path
+    "RET",
+    "RSE",
+    "RUF",
+    "S",     # bandit
+    "SIM",
+    "T20",   # print/pprint в проде
+    "TID",   # tidy-imports, здесь же banned-api
+    "UP",    # pyupgrade
+    "W",     # pycodestyle warnings
+]
+ignore = [
+    # FastAPI передаёт зависимости параметрами хендлера, их легко больше пяти.
+    "PLR0913",
+    # Докстринги на __init__ и дандер-методах дублируют докстринг класса.
+    "D105",
+    "D107",
+    # Комментарии и докстринги в проекте на русском: кириллица целиком состоит
+    # из символов, которые ruff считает «похожими на латиницу».
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Имена прикладных ошибок (NotFound, Conflict, ValidationFailed, ...) заданы
+# контрактом ядра и читаются в сервисах как название ситуации, а не как «класс
+# исключения». Суффикс Error, которого требует N818, здесь только шумит.
+"src/app/kernel/errors.py" = ["N818"]
+# Пакет app.platform намеренно назван так же, как стандартный модуль platform:
+# это адаптеры к внешнему миру, и имя менять нельзя. Затенения не происходит —
+# внутри пакета абсолютный `import platform` по-прежнему берёт stdlib.
+"src/app/platform/**" = ["A005"]
+# app.kernel.logging назван по своему содержимому: это настройка логирования
+# приложения. Импорты в проекте абсолютные, поэтому stdlib-модуль logging он не
+# затеняет — в том числе внутри самого себя.
+"src/app/kernel/logging.py" = ["A005"]
+# Докстринги обязательны только в kernel и platform: там они объясняют «почему»
+# и читаются всеми. В точках входа, api и бизнес-модулях требование избыточно.
+"src/app/*.py" = ["D"]
+"src/app/api/**" = ["D"]
+"src/app/modules/**" = ["D"]
+"alembic/**" = ["D"]
+# В тестах assert — рабочий инструмент, а не подозрительный код.
+"tests/**" = ["D", "S101", "PLR2004"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# Запреты уровня архитектуры: нарушение ловится линтером, а не ревьюером.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fastapi.HTTPException".msg = "Raise an AppError subclass from app.kernel.errors: the API layer converts it to RFC 9457 problem+json."
+"fastapi.exceptions.HTTPException".msg = "Raise an AppError subclass from app.kernel.errors: the API layer converts it to RFC 9457 problem+json."
+"starlette.exceptions.HTTPException".msg = "Raise an AppError subclass from app.kernel.errors: the API layer converts it to RFC 9457 problem+json."
+"datetime.datetime.utcnow".msg = "Naive UTC is a bug waiting to happen. Use datetime.now(tz=UTC)."
+"datetime.datetime.utcfromtimestamp".msg = "Naive UTC is a bug waiting to happen. Use datetime.fromtimestamp(ts, tz=UTC)."
+"os.getenv".msg = "Configuration is read only through pydantic-settings (app.kernel.config or a module Settings class)."
+"os.environ".msg = "Configuration is read only through pydantic-settings (app.kernel.config or a module Settings class)."
+
+# ─────────────────────────────────────────────────────────────────────────────
+# mypy
+# ─────────────────────────────────────────────────────────────────────────────
+
+[tool.mypy]
+python_version = "3.12"
+# alembic проверяется наравне с кодом: env.py импортирует ядро и реестр, а
+# миграции правят схему боевой базы — ошибка типа там дороже, чем в сервисе.
+files = ["src", "tests", "alembic"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+show_error_codes = true
+pretty = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
+
+# pika приезжает вместе с testcontainers[rabbitmq] и типов не поставляет.
+# Нужна она ровно в одном тесте — опубликовать сообщение клиентом, который не
+# подставляет message_id сам, как это делает aio-pika.
+[[tool.mypy.overrides]]
+module = ["pika.*"]
+ignore_missing_imports = true
+
+# Фундамент проверяется по-настоящему строго: ошибка в kernel/platform
+# расходится по всем модулям сразу.
+# Флаги перечислены поимённо, а не через `strict = true`: mypy 2.x применяет
+# `strict` из секции overrides ко всему проекту, а не к перечисленным модулям.
+# Остальные составляющие --strict уже включены глобально.
+[[tool.mypy.overrides]]
+module = ["app.kernel", "app.kernel.*", "app.platform", "app.platform.*"]
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# import-linter
+# ─────────────────────────────────────────────────────────────────────────────
+
+[tool.importlinter]
+root_packages = ["app"]
+
+[[tool.importlinter.contracts]]
+name = "Layers: api -> modules -> platform -> kernel"
+type = "layers"
+layers = ["app.api", "app.modules", "app.platform", "app.kernel"]
+
+[[tool.importlinter.contracts]]
+name = "Business modules never import each other"
+type = "independence"
+modules = ["app.modules.*"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# pytest / coverage
+# ─────────────────────────────────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "error",
+    # testcontainers 4.15 объявляет RabbitMqContainer через собственный
+    # устаревший декоратор готовности. Предупреждение вылетает на импорте
+    # модуля контейнера, чинится только в testcontainers и к нашему коду
+    # отношения не имеет. Гасится по тексту, а не по категории целиком:
+    # остальные DeprecationWarning обязаны оставаться ошибками.
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/app"]
+branch = true
+# SQLAlchemy в async-режиме исполняет драйвер в отдельном greenlet: без этой
+# настройки coverage теряет трассировку на его границе, и строки, которые на
+# самом деле выполнялись, показываются непокрытыми. Порог по ядру считался бы
+# по заниженным числам.
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
