@@ -1,7 +1,7 @@
 # Управление стеком. Перед первым запуском: cp infra/.env.example infra/.env
 
 .DEFAULT_GOAL := help
-.PHONY: help \
+.PHONY: help check \
 	up up-all up-infra up-apps \
 	reboot reboot-all reboot-infra reboot-apps \
 	down down-all down-infra down-apps \
@@ -16,6 +16,11 @@ APPS  := docker compose -f $(HERE)/docker-compose.apps.yml
 help: ## Показать список целей
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}'
+
+check: ## Проверить compose-файлы и контекст агента
+	$(INFRA) config --quiet
+	$(APPS) config --quiet
+	../scripts/check-agent-context.sh
 
 up: up-all ## Поднять весь стек
 

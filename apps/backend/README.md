@@ -22,20 +22,21 @@
 | --- | --- |
 | **Docker** и **docker compose** | PostgreSQL, RabbitMQ, Redis, MinIO; тесты поднимают свои контейнеры через testcontainers |
 | **[uv](https://docs.astral.sh/uv/)** | зависимости и запуск: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| **make** | единственный интерфейс запуска |
+| **make** | команды разработки backend и управление стеком через `infra/` |
 
 Python ставить отдельно не нужно: версию из `.python-version` (3.12) uv скачает
 сам.
 
 ## Быстрый старт
 
-Пять команд подряд, без единого шага между ними:
+Все команды выполняются из корня репозитория. Единственная точка запуска и
+управления контейнерами — `infra/`:
 
 ```bash
-cp .env.example .env
-make install
-make up
-make migrate
+cp infra/.env.example infra/.env
+make -C apps/backend install
+make -C infra up
+docker compose -f infra/docker-compose.apps.yml exec api alembic upgrade head
 curl -s localhost:8000/health/ready
 ```
 
@@ -52,13 +53,12 @@ curl -s localhost:8000/health/ready
 
 Что произошло:
 
-1. `.env` — все настройки с объяснением каждой; значения по умолчанию рабочие,
-   править для локального запуска ничего не нужно;
-2. `make install` — зависимости всех групп и git-хуки;
-3. `make up` — поднимает PostgreSQL, RabbitMQ, Redis, MinIO **и сами процессы**
-   `api` (порт 8000) и `worker`. Первый запуск собирает образы, это несколько
-   минут; дальше — секунды;
-4. `make migrate` — схема базы;
+1. `infra/.env` — единое окружение всего docker-стека;
+2. `make -C apps/backend install` — зависимости всех групп и git-хуки;
+3. `make -C infra up` — поднимает PostgreSQL, RabbitMQ, Redis, MinIO, затем
+   процессы `api` (порт 8000) и `worker`. Первый запуск собирает образы, это
+   несколько минут; дальше — секунды;
+4. Alembic внутри контейнера `api` накатывает схему базы в том же окружении;
 5. проверка готовности.
 
 Дальше можно потрогать шаблон руками:
@@ -71,25 +71,22 @@ open http://localhost:15672                        # RabbitMQ, guest/guest
 open http://localhost:9001                         # консоль MinIO, minioadmin/minioadmin
 ```
 
-### Разработка с автоперезагрузкой
+### Применить изменения backend
 
-`make up` уже занял порт 8000 контейнером `api`. Чтобы запускать процессы с
-хоста и видеть правки без пересборки образа:
+Процессы backend не запускаются отдельно с хоста. После изменения кода
+пересоберите и пересоздайте контейнеры приложений через `infra/`:
 
 ```bash
-docker compose stop api worker
-make run      # первый терминал: uvicorn --reload
-make worker   # второй терминал: TaskIQ, консьюмеры, релей outbox
+make -C infra reboot-apps
 ```
 
-Инфраструктура (`postgres`, `rabbitmq`, `redis`, `minio`) при этом остаётся в
-docker: адреса в `.env` рассчитаны именно на такой режим.
+Инфраструктура и её данные при этом сохраняются.
 
 ### Остановить
 
 ```bash
-make down                  # остановить, данные в volume'ах остаются
-docker compose down -v     # остановить и стереть данные
+make -C infra down         # остановить, данные в volume'ах остаются
+make -C infra delete       # остановить и удалить данные с подтверждением
 ```
 
 ## Что уже готово из коробки
@@ -134,8 +131,8 @@ docker compose down -v     # остановить и стереть данные
 
 - модуль `health`: `/health/live`, `/health/ready`, `/health/info` —
   с правильным разделением liveness и readiness;
-- `Dockerfile` с отдельными целями `api` и `worker`, `docker-compose.yml` со
-  всем стеком, healthcheck'и настроены;
+- `Dockerfile` с отдельными целями `api` и `worker`, compose-файлы в `infra/`
+  со всем стеком, healthcheck'и настроены;
 - JWT (access/refresh) и argon2 для паролей в `kernel/security`.
 
 **Контроль качества**
@@ -149,14 +146,17 @@ docker compose down -v     # остановить и стереть данные
 
 **AI-native**
 
-- `.claude/CLAUDE.md` — инварианты проекта одним экраном, по утверждению на
-  правило;
-- `.claude/rules/` — правила по путям: разбор транзакций, событий,
-  идемпотентности и остального подгружается ровно тогда, когда агент правит
-  подходящий файл, и у каждого правила указана команда, которая его проверяет;
-- `.claude/skills/` — порядок действий: `new-module`, `background-effect`,
-  `db-migration`, `pre-commit`;
-- у каждого модуля свой `.claude/CLAUDE.md` рядом с кодом.
+- запускайте backend-задачи через `codex --cd apps/backend`, а существующий
+  модуль — через `codex --cd apps/backend/src/app/modules/<name>`;
+- `AGENTS.md` содержит только обязательные инварианты и маршрутизацию;
+- `.agents/rules/` хранит подробные backend-правила по типам изменений;
+- `.agents/skills/` хранит backend-процессы: `new-module`,
+  `background-effect`, `db-migration`, `pre-commit`;
+- у сложного модуля есть короткий `AGENTS.md` и локальный skill с
+  тематическими `references/`.
+
+Полная схема областей запуска и контекстные бюджеты описаны в
+[`../../docs/codex-context.md`](../../docs/codex-context.md).
 
 ## Архитектура
 
@@ -238,11 +238,11 @@ src/app/modules/orders/
   subscribers.py         обработчики чужих событий
   tasks.py               периодические задачи
   module.py              манифест Module — всё, что модуль отдаёт приложению
-  .claude/CLAUDE.md      правила модуля
+  AGENTS.md              правила модуля
 ```
 
 Файла, которому нечего содержать, нет: модуль `health` обходится без `models/`
-и `subscribers.py`, и в его `.claude/CLAUDE.md` объяснено почему.
+и `subscribers.py`, и в его `AGENTS.md` объяснено почему.
 
 Состав сервиса объявлен в одном месте — `src/app/modules/__init__.py`:
 
@@ -256,10 +256,11 @@ MODULES: Final[tuple[Module, ...]] = (health_module, storage_module, orders_modu
 
 ## Как добавить модуль
 
-Не пишите каркас руками — есть скилл: **`.claude/skills/new-module/SKILL.md`**.
+Не пишите каркас руками — запустите `codex --cd apps/backend` и используйте
+skill **`.agents/skills/new-module/SKILL.md`**.
 Скажите агенту «создай модуль orders с ресурсом заказов и событием о создании»,
 и он пройдёт весь путь: файлы, манифест, строка в `MODULES`, миграция,
-`.claude/CLAUDE.md` модуля, тесты.
+`AGENTS.md` модуля, тесты.
 
 Скилл знает то, что легко забыть:
 
@@ -391,8 +392,8 @@ after_commit(session, lambda: cache.warm(order.id))
 
 ## Воркер: что в нём живёт и почему не в uvicorn
 
-`make worker` (он же контейнер `worker`, он же `python -m app.worker`) — один
-процесс, в котором крутится вся фоновая работа:
+Контейнер `worker` из `infra/docker-compose.apps.yml` запускает
+`python -m app.worker` — один процесс, в котором крутится вся фоновая работа:
 
 | Что | Зачем |
 | --- | --- |
@@ -437,11 +438,19 @@ after_commit(session, lambda: cache.warm(order.id))
 | `make install` | зависимости всех групп и git-хуки |
 | `make check` | `ruff format --check`, `ruff check`, `mypy`, `lint-imports` |
 | `make test` | pytest с покрытием; отдельный порог 85% на `app.kernel` |
-| `make up` / `make down` | поднять / остановить стек docker compose |
 | `make migrate` | `alembic upgrade head` |
 | `make revision m="add orders"` | сгенерировать миграцию по моделям |
-| `make run` | uvicorn с автоперезагрузкой |
-| `make worker` | фоновый процесс |
+
+Команды выше выполняются из `apps/backend/`. Контейнеры запускаются только из
+корня репозитория через `infra/`:
+
+| Команда | Что делает |
+| --- | --- |
+| `make -C infra help` | показать команды управления стеком |
+| `make -C infra up` | поднять весь стек |
+| `make -C infra up-infra` | поднять только инфраструктуру |
+| `make -C infra reboot-apps` | пересобрать и пересоздать `api` и `worker` |
+| `make -C infra down` | остановить весь стек с сохранением данных |
 
 `make check` и `make test` обязаны быть зелёными перед каждым коммитом. Тестам
 нужен Docker: они поднимают настоящие Postgres, RabbitMQ, Redis и MinIO —
@@ -452,14 +461,15 @@ after_commit(session, lambda: cache.warm(order.id))
 
 | Где | Что |
 | --- | --- |
-| `.claude/CLAUDE.md` | инварианты проекта одним экраном и указатель на остальное |
-| `.claude/rules/` | правило на тему, подгружается по пути правимого файла; у каждого указана команда, которая его проверяет |
-| `.claude/skills/new-module/SKILL.md` | как создаётся модуль |
-| `.claude/skills/background-effect/SKILL.md` | чем делать побочный эффект: outbox, хук, задача, консьюмер |
-| `.claude/skills/db-migration/SKILL.md` | как менять схему базы |
-| `.claude/skills/pre-commit/SKILL.md` | что проверить перед коммитом, включая правила без автоматики |
-| `src/app/modules/health/.claude/CLAUDE.md` | liveness против readiness; как выглядит модуль без моделей |
-| `src/app/modules/storage/.claude/CLAUDE.md` | двухфазная загрузка; внешний I/O вне транзакции |
+| `AGENTS.md` | инварианты проекта одним экраном и указатель на остальное |
+| `.agents/rules/` | правила по темам; таблица триггеров находится в `AGENTS.md` |
+| `.agents/skills/new-module/SKILL.md` | как создаётся модуль |
+| `.agents/skills/background-effect/SKILL.md` | чем делать побочный эффект: outbox, хук, задача, консьюмер |
+| `.agents/skills/db-migration/SKILL.md` | как менять схему базы |
+| `.agents/skills/pre-commit/SKILL.md` | что проверить перед коммитом, включая правила без автоматики |
+| `src/app/modules/health/AGENTS.md` + локальный skill | liveness, readiness и dependency probes |
+| `src/app/modules/storage/AGENTS.md` + локальный skill | двухфазная загрузка и S3 вне транзакции |
+| `../../docs/codex-context.md` | как выбирать `codex --cd` и как устроен progressive disclosure |
 | `docs/adr/` | почему приняты спорные решения |
 | `.env.example` | каждая переменная с объяснением, зачем она и чем грозит |
 

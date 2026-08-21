@@ -52,7 +52,8 @@ pytest + pytest-asyncio + testcontainers.
 ```
 pyproject.toml
 Makefile
-docker-compose.yml
+<repo-root>/infra/docker-compose.infra.yml
+<repo-root>/infra/docker-compose.apps.yml
 .env.example
 alembic/
   env.py
@@ -84,8 +85,8 @@ src/app/
     health/
     storage/
 tests/
-.claude/
-  CLAUDE.md
+AGENTS.md
+<repo-root>/apps/backend/.agents/
   skills/new-module/
 ```
 
@@ -110,7 +111,7 @@ api → modules → platform → kernel
 - `subscribers.py` — обработчики доменных событий (опционально).
 - `tasks.py` — задачи TaskIQ (опционально).
 - `module.py` — манифест `Module`.
-- `.claude/CLAUDE.md` — контекст модуля.
+- `AGENTS.md` — контекст модуля.
 
 **Транзакции:**
 
@@ -379,7 +380,9 @@ class Module:
   - `independence` для пакетов внутри `app.modules`.
 - `Makefile`: `install`, `check` (ruff + mypy + lint-imports), `test`, `up`, `down`,
   `migrate`, `revision`, `run`, `worker`.
-- `docker-compose.yml`: postgres:16, rabbitmq:3-management, minio — с healthcheck'ами.
+- `<repo-root>/infra/docker-compose.infra.yml`: postgres:16, rabbitmq:3-management,
+  redis и minio — с healthcheck'ами.
+- `<repo-root>/infra/docker-compose.apps.yml`: процессы `api` и `worker` backend.
 - `.env.example` с исчерпывающим списком переменных и комментариями.
 - `.gitignore`, `.dockerignore`, `pre-commit` конфиг (ruff + mypy + lint-imports).
 - `Dockerfile` (multi-stage, uv, отдельные команды запуска api и worker).
@@ -392,7 +395,7 @@ class Module:
 - `make check` зелёный на пустом дереве.
 - `lint-imports` действительно падает, если временно добавить импорт `app.api` в `app.kernel`
   (проверить руками, потом откатить) — приложить вывод в отчёт.
-- `docker compose up -d` поднимает три сервиса, все healthy.
+- `make -C infra up` поднимает инфраструктуру, затем приложения.
 
 ---
 
@@ -545,7 +548,7 @@ class Module:
 
 **Суб-агент 7.** Первый живой модуль. Он же — эталон для скилла генерации модулей.
 
-Создать `src/app/modules/health/` с полным набором файлов по §1, включая `.claude/CLAUDE.md`.
+Создать `src/app/modules/health/` с полным набором файлов по §1, включая `AGENTS.md`.
 
 - `GET /health/live` — процесс жив, event loop не заблокирован. **Никаких походов в БД.**
 - `GET /health/ready` — пул БД отвечает, брокер подключен, S3 доступен. Возвращает 503 и
@@ -556,7 +559,7 @@ class Module:
 **Критерии готовности:**
 
 - В `docker-compose` healthcheck API настроен на `/health/live`, а не на `/health/ready`.
-- В `.claude/CLAUDE.md` модуля явно объяснено, чем live отличается от ready и почему
+- В `AGENTS.md` модуля явно объяснено, чем live отличается от ready и почему
   их нельзя путать (liveness роняет контейнер, readiness только выводит из балансировки).
 - Тест: при остановленном Postgres `/health/live` → 200, `/health/ready` → 503.
 
@@ -593,7 +596,7 @@ class Module:
 - Тест: `confirm` с превышением размера → 422, объект удалён из бакета.
 - Тест: клиент «пропал» после получения URL → сборщик сирот убирает строку и объект.
 - Тест: `FileConfirmed` попал в `outbox` в той же транзакции, что и смена статуса.
-- В `.claude/CLAUDE.md` модуля описан жизненный цикл файла и запрет на проксирование
+- В `AGENTS.md` модуля описан жизненный цикл файла и запрет на проксирование
   файлов через backend.
 
 ---
@@ -618,7 +621,7 @@ class Module:
   второй ответ идентичен первому.
 - Тест: тот же ключ с другим телом → 409.
 - Тест: ключ сохраняется в той же транзакции, что и данные (откат откатывает и ключ).
-- В `.claude/CLAUDE.md` объяснено, почему при at-least-once доставке идемпотентность
+- В `AGENTS.md` объяснено, почему при at-least-once доставке идемпотентность
   на записи обязательна.
 
 ---
@@ -636,7 +639,7 @@ class Module:
   - `CRUD` не импортируется в `**/handlers.py`;
   - `HTTPException` не встречается в `**/services.py`;
   - каждый пакет в `modules/` есть в `MODULES`;
-  - каждый модуль имеет `.claude/CLAUDE.md`.
+  - каждый модуль имеет `AGENTS.md`.
 - Тест миграций в CI: пустая БД → `alembic upgrade head` → `alembic check` (нет
   несгенерированных изменений) → `alembic downgrade base`.
 - Замер покрытия, порог для `kernel` — не ниже 85%.
@@ -654,12 +657,13 @@ class Module:
 
 **Суб-агент 11.** Именно это делает шаблон AI-native.
 
-- `.claude/CLAUDE.md` корня: карта проекта, правила слоёв, правила транзакций, правило
-  выбора «outbox или after_commit», разграничение TaskIQ/RabbitMQ, чек-лист перед коммитом,
-  команды `make`. Пиши в форме проверяемых утверждений, не абстрактных принципов.
-- `.claude/skills/new-module/SKILL.md` — скилл создания модуля. Генерирует полную структуру:
+- корневой `AGENTS.md`: только карта сервисов, правила выбора рабочей директории и общие
+  команды. Backend-инварианты живут в `apps/backend/AGENTS.md`, а детали по типам файлов —
+  в `apps/backend/.agents/rules/`. Запускай задачу на минимальном уровне через
+  `codex --cd apps/backend` или `codex --cd apps/backend/src/app/modules/<name>`.
+- `apps/backend/.agents/skills/new-module/SKILL.md` — скилл создания модуля. Генерирует полную структуру:
   `handlers.py`, `services.py`, `models/`, `schemas/{requests,responses}.py`, `module.py`,
-  `.claude/CLAUDE.md`, заготовки тестов; вносит модуль в `MODULES`; напоминает про миграцию.
+  `AGENTS.md`, заготовки тестов; вносит модуль в `MODULES`; напоминает про миграцию.
 - `README.md`: быстрый старт (5 команд), схема архитектуры, объяснение outbox на примере
   «создал заказ → уведомление в Telegram», как добавить модуль, как запускать воркер.
 - `docs/adr/` — краткие ADR по спорным решениям: почему не «2xx → publish», почему keyset,
@@ -668,11 +672,14 @@ class Module:
 
 **Критерии готовности:**
 
-- Пройди путь пользователя вживую: склонировать в чистую директорию, `cp .env.example .env`,
-  `make up`, `make migrate`, вызвать скилл, создать модуль `demo` с одним CRUD-ресурсом и
-  одним событием, `make run` + `make worker`, дёрнуть эндпоинт, увидеть событие у подписчика.
+- Пройди путь пользователя вживую: склонировать в чистую директорию,
+  `cp infra/.env.example infra/.env`, `make -C infra up`, накатить миграции в
+  контейнере `api`, вызвать скилл, создать модуль `demo` с одним CRUD-ресурсом
+  и одним событием, `make -C infra reboot-apps`, дёрнуть эндпоинт, увидеть
+  событие у подписчика.
   Приложить в отчёт лог этого прохода.
-- Каждое правило в корневом `CLAUDE.md` сопровождается указанием, какая команда его проверяет.
+- Каждое обязательное правило в соответствующем `AGENTS.md` сопровождается указанием,
+  какая команда его проверяет.
   Правило, которое ничем не проверяется, либо получает проверку, либо удаляется.
 
 ---
@@ -681,8 +688,9 @@ class Module:
 
 Шаблон считается готовым, когда одновременно верно:
 
-1. На чистой машине с Docker: `git clone` → `cp .env.example .env` → `make up` →
-   `make migrate` → `make run` даёт работающий API с открытым `/docs`.
+1. На чистой машине с Docker: `git clone` →
+   `cp infra/.env.example infra/.env` → `make -C infra up` → миграции внутри
+   контейнера `api` дают работающий API с открытым `/docs`.
 2. `make check` и `make test` зелёные; CI зелёный.
 3. Создание нового модуля через скилл требует правок **только** внутри директории модуля
    плюс одна строка в `MODULES`. Ни `config.py`, ни `lifecycle`, ни `alembic/env.py`,

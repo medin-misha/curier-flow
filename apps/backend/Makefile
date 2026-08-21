@@ -20,6 +20,7 @@ install: ## Поставить зависимости (включая dev и tes
 	uv run pre-commit install
 
 check: ## Формат, линтер, типы, правила зависимостей
+	../../scripts/check-agent-context.sh
 	uv run ruff format --check .
 	uv run ruff check .
 	uv run mypy

@@ -41,7 +41,7 @@ CRUD_MODULE = "app.kernel.db.crud"
 
 #: Файл, который обязан лежать в каждом бизнес-модуле: инструкции для агента,
 #: работающего с этим модулем.
-MODULE_INSTRUCTIONS = Path(".claude") / "CLAUDE.md"
+MODULE_INSTRUCTIONS = Path("AGENTS.md")
 
 #: Зависимость пишущей транзакции. Объявлять её без `scope="function"` нельзя
 #: нигде: с областью по умолчанию FastAPI закрывает генератор уже после
@@ -223,7 +223,7 @@ def test_every_module_package_is_registered() -> None:
 
 
 def test_every_module_carries_agent_instructions() -> None:
-    """Модуль без своего CLAUDE.md — модуль, который агент будет писать наугад."""
+    """Модуль без своего AGENTS.md — модуль, который агент будет писать наугад."""
     missing = sorted(
         name
         for name in module_packages(MODULES_ROOT)
