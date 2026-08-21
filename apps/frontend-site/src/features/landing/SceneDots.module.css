@@ -1,0 +1,28 @@
+.root {
+  position: fixed;
+  left: var(--mfs-gutter);
+  bottom: 52px;
+  z-index: var(--z-hud);
+  display: none;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(var(--mfs-fg-rgb) / 0.3);
+  transition: width 0.5s ease, background 0.5s ease;
+}
+
+.dot[data-active='true'] {
+  width: 28px;
+  background: var(--mfs-accent);
+}
+
+@media (min-width: 768px) {
+  .root {
+    display: flex;
+  }
+}

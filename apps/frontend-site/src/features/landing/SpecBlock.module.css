@@ -1,0 +1,30 @@
+.root {
+  pointer-events: none;
+  text-align: left;
+}
+
+.root[data-align='right'] {
+  text-align: right;
+}
+
+.label {
+  margin-bottom: 8px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--mfs-accent);
+}
+
+.value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+.note {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgb(var(--mfs-fg-rgb) / 0.6);
+}

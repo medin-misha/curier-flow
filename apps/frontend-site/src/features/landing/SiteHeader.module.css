@@ -1,0 +1,121 @@
+.root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-header);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 14px 18px 12px;
+  backdrop-filter: blur(10px);
+  background: linear-gradient(
+    180deg,
+    rgb(var(--mfs-bg-rgb) / 0.82) 0%,
+    rgb(var(--mfs-bg-rgb) / 0.6) 62%,
+    rgb(var(--mfs-bg-rgb) / 0) 100%
+  );
+}
+
+.top,
+.bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bottom {
+  gap: 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  display: block;
+  height: 34px;
+  width: auto;
+}
+
+.brandName {
+  max-width: 78px;
+  font-size: 8px;
+  line-height: 1.35;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: rgb(var(--mfs-fg-rgb) / 0.5);
+}
+
+.bikeName {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--mfs-accent);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.bikeName[data-visible='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.navLink {
+  padding: 0 0 5px;
+  appearance: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-pixel), monospace;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgb(var(--mfs-fg-rgb) / 0.58);
+  transition: color 0.35s ease, border-color 0.35s ease;
+}
+
+.navLink[data-active='true'] {
+  color: var(--mfs-accent);
+  border-bottom-color: var(--mfs-accent);
+}
+
+.headerCta {
+  display: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s var(--mfs-ease-back), box-shadow 0.3s ease;
+}
+
+.headerCta[data-visible='true'] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+@media (min-width: 768px) {
+  .headerCta {
+    display: inline-flex;
+  }
+
+  .bikeName {
+    font-size: 33px;
+  }
+}

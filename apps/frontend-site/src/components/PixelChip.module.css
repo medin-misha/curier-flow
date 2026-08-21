@@ -1,0 +1,39 @@
+.chip,
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  clip-path: var(--mfs-clip-3);
+}
+
+.chip {
+  appearance: none;
+  cursor: pointer;
+  padding: 9px 13px;
+  font-size: 13.5px;
+  border: 1px solid var(--mfs-line-soft);
+  background: var(--mfs-surface);
+  color: rgb(var(--mfs-fg-rgb) / 0.65);
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.chip[data-wide='true'] {
+  min-height: 50px;
+  padding: 0 13px;
+  font-size: 14.5px;
+}
+
+.chip[data-selected='true'] {
+  border-color: var(--mfs-accent);
+  background: rgb(var(--mfs-accent-rgb) / 0.2);
+  color: var(--mfs-gold);
+}
+
+.badge {
+  padding: 7px 10px;
+  font-size: 12px;
+  border: 1px solid rgb(var(--mfs-accent-rgb) / 0.5);
+  background: rgb(var(--mfs-accent-rgb) / 0.16);
+  color: var(--mfs-accent);
+}

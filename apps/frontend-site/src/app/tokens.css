@@ -1,0 +1,85 @@
+:root {
+  --mfs-bg: #0d0a1b;
+  --mfs-fg: #f4efe6;
+  --mfs-accent: #ff7a5e;
+  --mfs-accent-deep: #e2503a;
+
+  --mfs-red: #c9312f;
+  --mfs-red-light: #e85a4f;
+  --mfs-red-dark: #8f1f1e;
+  --mfs-red-muted: #9e2624;
+  --mfs-red-muted-light: #b83f3a;
+  --mfs-red-muted-dark: #6d1615;
+
+  --mfs-gold: #ffd6a2;
+  --mfs-gold-soft: #ffe6b3;
+  --mfs-gold-dim: #ffdca8;
+
+  /* Базовые цвета триплетами: компонентный CSS берёт нужную прозрачность
+     через rgb(var(--…-rgb) / α), поэтому токен на каждое сочетание
+     цвет+альфа не нужен. */
+  --mfs-bg-rgb: 13 10 27;
+  --mfs-fg-rgb: 244 239 230;
+  --mfs-accent-rgb: 255 122 94;
+  --mfs-gold-rgb: 255 214 130;
+  --mfs-white-rgb: 255 255 255;
+
+  --mfs-error-fg: #ffb0a0;
+  --mfs-error-border: rgb(255 139 115 / 0.4);
+  --mfs-error-bg: rgb(201 49 47 / 0.16);
+  --mfs-glow-press: 0 -6px 34px rgb(255 224 150 / 0.95), 0 -18px 66px rgb(232 132 60 / 0.6);
+
+  --mfs-line: rgba(244, 239, 230, 0.12);
+  --mfs-line-soft: rgba(244, 239, 230, 0.16);
+  --mfs-surface: rgba(255, 255, 255, 0.04);
+  --mfs-surface-strong: rgba(255, 255, 255, 0.075);
+
+  --mfs-clip-4: polygon(
+    4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px),
+    calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px
+  );
+  --mfs-clip-3: polygon(
+    3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px),
+    calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px), 0 3px
+  );
+
+  --mfs-bevel-4: inset 4px 4px 0 var(--mfs-red-light), inset -4px -4px 0 var(--mfs-red-dark);
+  --mfs-bevel-3: inset 3px 3px 0 var(--mfs-red-light), inset -3px -3px 0 var(--mfs-red-dark);
+  --mfs-bevel-muted: inset 3px 3px 0 var(--mfs-red-muted-light), inset -3px -3px 0 var(--mfs-red-muted-dark);
+
+  --mfs-glow-soft: 0 0 22px rgba(255, 196, 92, 0.55), 0 0 48px rgba(255, 180, 90, 0.3);
+  --mfs-glow-hot: 0 0 24px rgba(255, 214, 130, 0.9), 0 0 56px rgba(255, 180, 90, 0.6),
+    0 -14px 70px rgba(232, 132, 60, 0.45);
+
+  --mfs-veil-scene: linear-gradient(
+    180deg, rgba(13, 10, 27, 0.72) 0%, rgba(13, 10, 27, 0.25) 32%,
+    rgba(13, 10, 27, 0.55) 62%, rgba(13, 10, 27, 0.94) 100%
+  );
+  --mfs-veil-bike: linear-gradient(
+    180deg, rgba(13, 10, 27, 0.86) 0%, rgba(13, 10, 27, 0.35) 30%,
+    rgba(13, 10, 27, 0.72) 62%, rgba(13, 10, 27, 0.97) 100%
+  );
+  --mfs-veil-gear: linear-gradient(
+    180deg, rgba(13, 10, 27, 0.92) 0%, rgba(13, 10, 27, 0.35) 26%,
+    rgba(13, 10, 27, 0.78) 58%, rgba(13, 10, 27, 0.985) 100%
+  );
+
+  --mfs-ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --mfs-ease-back: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --mfs-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mfs-ease-slide: cubic-bezier(0.22, 0.68, 0.24, 1);
+
+  /* Слои внутри sticky-вьюпорта. Сцена получает базу плюс свой индекс,
+     поэтому между --z-scene и --z-content помещается до 17 сцен. */
+  --z-scene: 3;
+  --z-content: 20;
+  /* Слои документа. */
+  --z-gear: 45;
+  --z-footer: 46;
+  --z-header: 50;
+  --z-cta: 62;
+  --z-hud: 70;
+
+  --mfs-gutter: 22px;
+  --mfs-header-offset: 118px;
+}

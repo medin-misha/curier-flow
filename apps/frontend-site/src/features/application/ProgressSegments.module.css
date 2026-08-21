@@ -1,0 +1,31 @@
+.root {
+  display: flex;
+  gap: 6px;
+}
+
+.segment {
+  flex: 1;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  clip-path: var(--mfs-clip-3);
+  background: rgb(var(--mfs-white-rgb) / 0.05);
+  color: rgb(var(--mfs-fg-rgb) / 0.3);
+  transition: flex 0.4s var(--mfs-ease-out), background 0.3s ease, color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.segment[data-state='done'] {
+  background: rgb(var(--mfs-gold-rgb) / 0.18);
+  color: var(--mfs-gold);
+}
+
+.segment[data-state='current'] {
+  flex: 1.6;
+  background: var(--mfs-red);
+  color: var(--mfs-gold-soft);
+  box-shadow: var(--mfs-bevel-3);
+}
