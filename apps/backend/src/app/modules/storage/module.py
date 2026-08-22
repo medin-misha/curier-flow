@@ -9,7 +9,11 @@ from fastapi import FastAPI
 from app.kernel.registry import Module
 from app.modules.storage.handlers import router
 from app.modules.storage.services import FileStorage, StorageSettings, storage_settings
-from app.modules.storage.tasks import delete_marked_files, sweep_orphaned_uploads
+from app.modules.storage.tasks import (
+    cleanup_file_upload_staging,
+    delete_marked_files,
+    sweep_orphaned_uploads,
+)
 from app.platform.s3 import S3Settings, s3_settings, storage
 
 
@@ -50,6 +54,6 @@ storage_module: Final = Module(
     prefix="/files",
     settings=StorageSettings,
     models="app.modules.storage.models",
-    tasks=(sweep_orphaned_uploads, delete_marked_files),
+    tasks=(sweep_orphaned_uploads, delete_marked_files, cleanup_file_upload_staging),
     lifespan=storage_lifespan(storage_config=s3_settings, limits=storage_settings),
 )

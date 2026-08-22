@@ -4,6 +4,6 @@
 (`Module.models`), и таблицы обязаны попасть в метаданные от этого импорта.
 """
 
-from app.modules.storage.models.file import File, FileStatus
+from app.modules.storage.models.file import File, FileStatus, FileUploadStaging, StagingStatus
 
-__all__ = ["File", "FileStatus"]
+__all__ = ["File", "FileStatus", "FileUploadStaging", "StagingStatus"]

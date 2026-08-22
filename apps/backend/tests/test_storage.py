@@ -93,7 +93,18 @@ def guard_transactions(monkeypatch: pytest.MonkeyPatch) -> Iterator[TransactionW
         watch.sessions.append(session)
 
     event.listen(Session, "after_begin", track)
-    for name in ("head_object", "delete_object", "presigned_put", "presigned_get"):
+    for name in (
+        "head_object",
+        "delete_object",
+        "presigned_put",
+        "presigned_get",
+        "create_multipart_upload",
+        "upload_part",
+        "complete_multipart_upload",
+        "abort_multipart_upload",
+        "list_multipart_upload_ids",
+        "abort_multipart_uploads_for_key",
+    ):
         monkeypatch.setattr(ObjectStorage, name, guarded(getattr(ObjectStorage, name), name, watch))
     yield watch
     event.remove(Session, "after_begin", track)
@@ -423,9 +434,14 @@ async def test_a_confirm_that_lost_the_race_emits_no_second_event(
     original: Callable[..., Any] = ObjectStorage.head_object
     raced = False
 
-    async def confirm_meanwhile(self: ObjectStorage, key: str) -> Any:
+    async def confirm_meanwhile(
+        self: ObjectStorage,
+        key: str,
+        *,
+        bucket: str | None = None,
+    ) -> Any:
         nonlocal raced
-        info = await original(self, key)
+        info = await original(self, key, bucket=bucket)
         if not raced:
             raced = True
             await confirm_upload(
@@ -537,10 +553,15 @@ async def test_a_failing_object_delete_keeps_the_row_and_the_rest_of_the_batch(
 
     original: Callable[..., Any] = ObjectStorage.delete_object
 
-    async def flaky(self: ObjectStorage, key: str) -> None:
+    async def flaky(
+        self: ObjectStorage,
+        key: str,
+        *,
+        bucket: str | None = None,
+    ) -> None:
         if key == broken_key:
             raise ConnectionError("storage is unreachable")
-        await original(self, key)
+        await original(self, key, bucket=bucket)
 
     monkeypatch.setattr(ObjectStorage, "delete_object", flaky)
     purged = await delete_marked(session_factory=sessions, storage=files)
@@ -700,7 +721,11 @@ def test_periodic_tasks_are_declared_with_schedules() -> None:
         for task in storage_module.tasks
     }
 
-    assert set(schedules) == {"storage.sweep_orphaned_uploads", "storage.delete_marked_files"}
+    assert set(schedules) == {
+        "storage.sweep_orphaned_uploads",
+        "storage.delete_marked_files",
+        "storage.cleanup_file_upload_staging",
+    }
     assert all(declared for declared in schedules.values())
 
 

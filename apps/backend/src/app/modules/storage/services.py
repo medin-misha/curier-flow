@@ -19,12 +19,12 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Final
+from typing import Final
 from uuid import UUID
 
 import structlog
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import Field
+from pydantic_settings import SettingsConfigDict
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from uuid_utils.compat import uuid7
@@ -34,9 +34,20 @@ from app.kernel.db.crud import CRUD
 from app.kernel.errors import NotFound, ValidationFailed
 from app.kernel.events.bus import emit
 from app.kernel.pagination import Page, PageParams
-from app.modules.storage.events import FileConfirmed
 from app.modules.storage.models import File, FileStatus
 from app.modules.storage.schemas.requests import ConfirmRequest, UploadUrlRequest
+from app.platform.files import (
+    FileConfirmed,
+    FilePolicySettings,
+    StagingCleanupClaim,
+    claim_stale_staging,
+    create_file,
+    delete_claimed_staging,
+    mark_file_deleting,
+    mark_file_ready,
+    record_cleanup_error,
+)
+from app.platform.files.policy import FileUploadStagingSettings
 from app.platform.s3 import ObjectInfo, ObjectStorage
 
 #: Общий префикс ключей модуля. Отдельный каталог верхнего уровня: по нему
@@ -47,7 +58,7 @@ _KEY_PREFIX: Final = "uploads"
 _logger = structlog.get_logger("app.modules.storage")
 
 
-class StorageSettings(BaseSettings):
+class StorageSettings(FilePolicySettings):
     """Лимиты загрузки и расписание уборки."""
 
     model_config = SettingsConfigDict(
@@ -55,18 +66,6 @@ class StorageSettings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
-    )
-
-    #: Предел размера одного файла в байтах. Проверяется дважды: по заявке
-    #: клиента — до выдачи ссылки, по факту — при подтверждении.
-    max_file_size: int = Field(default=26_214_400, gt=0)
-
-    #: Разрешённые типы содержимого. Белый список, а не чёрный: перечислить
-    #: то, что сервису нужно, короче и безопаснее, чем угадывать все опасные
-    #: типы. `NoDecode` отключает разбор значения как JSON — в окружении тип
-    #: перечисляется через запятую, а не списком JSON.
-    allowed_content_types: Annotated[frozenset[str], NoDecode] = frozenset(
-        {"image/png", "image/jpeg", "image/webp", "application/pdf"}
     )
 
     #: Сколько секунд ждать загрузку, прежде чем считать `pending` брошенной.
@@ -84,18 +83,6 @@ class StorageSettings(BaseSettings):
     #: Сколько файлов задача обрабатывает за один проход. Ограничение по
     #: времени прохода: каждый файл — это отдельный запрос к хранилищу.
     batch_size: int = Field(default=100, ge=1)
-
-    @field_validator("allowed_content_types", mode="before")
-    @classmethod
-    def _split_types(cls, value: object) -> object:
-        """Разобрать список типов из переменной окружения.
-
-        Принимает строку `image/png, application/pdf` либо уже готовую
-        коллекцию, возвращает множество типов в нижнем регистре.
-        """
-        if isinstance(value, str):
-            return {item.strip().lower() for item in value.split(",") if item.strip()}
-        return value
 
 
 #: Единственный экземпляр настроек процесса.
@@ -154,19 +141,23 @@ async def create_upload(
     file_id = uuid7()
     key = _build_key(file_id)
     async with session_factory() as session, session.begin():
-        file = await CRUD.create(
-            File,
-            request,
+        file = await create_file(
             session,
-            id=file_id,
+            file_id=file_id,
             bucket=storage.objects.bucket,
             key=key,
+            original_name=request.original_name,
             content_type=content_type,
+            size=request.size,
             status=FileStatus.PENDING,
             owner_id=actor_id.get(),
         )
 
-    url = await storage.objects.presigned_put(key, content_type=content_type)
+    url = await storage.objects.presigned_put(
+        key,
+        bucket=file.bucket,
+        content_type=content_type,
+    )
     return UploadTicket(file=file, upload_url=url, expires_in=storage.objects.presign_ttl)
 
 
@@ -201,7 +192,7 @@ async def confirm_upload(
     if file.status is FileStatus.READY:
         return file
 
-    info = await storage.objects.head_object(file.key)
+    info = await storage.objects.head_object(file.key, bucket=file.bucket)
     if info is None:
         raise NotFound(
             "Uploaded object not found in the bucket",
@@ -211,13 +202,12 @@ async def confirm_upload(
     await _accept_or_discard(file, info, request.etag, storage=storage)
 
     async with session_factory() as session, session.begin():
-        row = await CRUD.get_or_404(File, file_id, session)
-        if row.status is FileStatus.READY:
-            return row
+        row, changed = await mark_file_ready(session, file_id, etag=info.etag)
+        if row is None:
+            raise NotFound("File not found", resource=File.__name__, pk=str(file_id))
         _ensure_present(row)
-        row.status = FileStatus.READY
-        row.etag = info.etag
-        emit(session, _confirmed(row))
+        if changed:
+            emit(session, _confirmed(row))
     return row
 
 
@@ -239,7 +229,11 @@ async def get_file(
 
     if file.status is not FileStatus.READY:
         return FileLink(file=file, download_url=None)
-    url = await storage.objects.presigned_get(file.key, download_name=file.original_name)
+    url = await storage.objects.presigned_get(
+        file.key,
+        bucket=file.bucket,
+        download_name=file.original_name,
+    )
     return FileLink(file=file, download_url=url)
 
 
@@ -281,10 +275,9 @@ async def mark_for_deletion(
     обращение к брокеру внутри транзакции. Клиенту файл при этом уже не виден.
     """
     async with session_factory() as session, session.begin():
-        file = await CRUD.get_or_404(File, file_id, session)
-        # Повторный вызов ничего не стоит: значение то же, и SQLAlchemy не
-        # отправит UPDATE, — поэтому отдельной проверки «уже помечен» нет.
-        file.status = FileStatus.DELETING
+        file = await mark_file_deleting(session, file_id)
+        if file is None:
+            raise NotFound("File not found", resource=File.__name__, pk=str(file_id))
 
 
 async def sweep_orphans(
@@ -319,6 +312,36 @@ async def delete_marked(
     """
     doomed = await _claim_deleting(session_factory, limit=storage.limits.batch_size)
     return await _purge(doomed, session_factory=session_factory, storage=storage)
+
+
+async def cleanup_staged_uploads(
+    *,
+    session_factory: async_sessionmaker[AsyncSession],
+    objects: ObjectStorage,
+    settings: FileUploadStagingSettings,
+) -> int:
+    """Claim и компенсировать stale staging без транзакции во время S3 I/O."""
+    now = datetime.now(tz=UTC)
+    async with session_factory() as session, session.begin():
+        claims = await claim_stale_staging(
+            session,
+            stale_before=now - timedelta(seconds=settings.ttl),
+            now=now,
+            lease=timedelta(seconds=settings.claim_ttl),
+            limit=settings.batch_size,
+        )
+
+    cleaned = 0
+    for claim in claims:
+        reason = await _cleanup_staging_object(claim, objects=objects)
+        if reason is not None:
+            async with session_factory() as session, session.begin():
+                await record_cleanup_error(session, claim, reason_code=reason)
+            continue
+        async with session_factory() as session, session.begin():
+            if await delete_claimed_staging(session, claim):
+                cleaned += 1
+    return cleaned
 
 
 def _build_key(file_id: UUID) -> str:
@@ -397,7 +420,7 @@ async def _accept_or_discard(
     if reason is None:
         return
 
-    await storage.objects.delete_object(file.key)
+    await storage.objects.delete_object(file.key, bucket=file.bucket)
     _logger.warning(
         "storage.upload_rejected",
         file_id=str(file.id),
@@ -452,7 +475,7 @@ async def _claim_orphans(
     cutoff: datetime,
     *,
     limit: int,
-) -> Sequence[tuple[UUID, str]]:
+) -> Sequence[tuple[UUID, str, str]]:
     """Пометить брошенные загрузки к удалению и вернуть их ключи.
 
     Принимает фабрику сессий, отсечку по времени и размер пачки, возвращает
@@ -478,18 +501,18 @@ async def _claim_orphans(
         update(File)
         .where(File.id.in_(doomed))
         .values(status=FileStatus.DELETING)
-        .returning(File.id, File.key)
+        .returning(File.id, File.bucket, File.key)
         .execution_options(synchronize_session=False)
     )
     async with session_factory() as session, session.begin():
-        return [(row.id, row.key) for row in (await session.execute(statement)).all()]
+        return [(row.id, row.bucket, row.key) for row in (await session.execute(statement)).all()]
 
 
 async def _claim_deleting(
     session_factory: async_sessionmaker[AsyncSession],
     *,
     limit: int,
-) -> Sequence[tuple[UUID, str]]:
+) -> Sequence[tuple[UUID, str, str]]:
     """Забрать пачку помеченных к удалению файлов.
 
     Принимает фабрику сессий и размер пачки, возвращает пары «идентификатор,
@@ -500,18 +523,18 @@ async def _claim_deleting(
     и удаление объекта, и удаление строки идемпотентны.
     """
     statement = (
-        select(File.id, File.key)
+        select(File.id, File.bucket, File.key)
         .where(File.status == FileStatus.DELETING)
         .order_by(File.created_at)
         .limit(limit)
         .with_for_update(skip_locked=True)
     )
     async with session_factory() as session, session.begin():
-        return [(row.id, row.key) for row in (await session.execute(statement)).all()]
+        return [(row.id, row.bucket, row.key) for row in (await session.execute(statement)).all()]
 
 
 async def _purge(
-    doomed: Sequence[tuple[UUID, str]],
+    doomed: Sequence[tuple[UUID, str, str]],
     *,
     session_factory: async_sessionmaker[AsyncSession],
     storage: FileStorage,
@@ -530,9 +553,9 @@ async def _purge(
     """
     purged = 0
     started = time.perf_counter()
-    for file_id, key in doomed:
+    for file_id, bucket, key in doomed:
         try:
-            await storage.objects.delete_object(key)
+            await storage.objects.delete_object(key, bucket=bucket)
         except Exception as error:
             # Способов отказать у сети столько же, сколько библиотек внизу, и
             # свести их к «этот файл убрать не удалось» больше негде.
@@ -560,3 +583,26 @@ async def _forget(file_id: UUID, session_factory: async_sessionmaker[AsyncSessio
     """Удалить строку файла, объект которого уже удалён."""
     async with session_factory() as session, session.begin():
         await session.execute(delete(File).where(File.id == file_id))
+
+
+async def _cleanup_staging_object(
+    claim: StagingCleanupClaim,
+    *,
+    objects: ObjectStorage,
+) -> str | None:
+    """Abort multipart и удалить объект; вернуть только безопасный reason code."""
+    try:
+        if claim.multipart_upload_id is not None:
+            await objects.abort_multipart_upload(
+                claim.key,
+                claim.multipart_upload_id,
+                bucket=claim.bucket,
+            )
+        await objects.abort_multipart_uploads_for_key(claim.key, bucket=claim.bucket)
+    except Exception:
+        return "multipart_abort_failed"
+    try:
+        await objects.delete_object(claim.key, bucket=claim.bucket)
+    except Exception:
+        return "object_delete_failed"
+    return None

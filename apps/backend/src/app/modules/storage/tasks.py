@@ -17,10 +17,12 @@ from datetime import timedelta
 from app.kernel.db import session as db_session
 from app.modules.storage.services import (
     FileStorage,
+    cleanup_staged_uploads,
     delete_marked,
     storage_settings,
     sweep_orphans,
 )
+from app.platform.files import staging_settings
 from app.platform.s3 import s3_settings, storage
 from app.platform.taskiq import schedule
 
@@ -46,4 +48,15 @@ async def delete_marked_files() -> int:
         return await delete_marked(
             session_factory=db_session.session_factory,
             storage=FileStorage(objects=objects, limits=storage_settings),
+        )
+
+
+@schedule(cron=staging_settings.cleanup_cron)
+async def cleanup_file_upload_staging() -> int:
+    """Компенсировать stale aggregate uploads по durable staging rows."""
+    async with storage(s3_settings) as objects:
+        return await cleanup_staged_uploads(
+            session_factory=db_session.session_factory,
+            objects=objects,
+            settings=staging_settings,
         )

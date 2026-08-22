@@ -1,9 +1,8 @@
-"""Объектное хранилище: клиент S3 и операции над объектами.
+"""Объектное хранилище: клиент S3 и bucket-aware операции над объектами.
 
-Файлы через backend не проходят. Клиент льёт и качает их напрямую по
-подписанной ссылке, а сервис только выдаёт ссылку и проверяет результат: иначе
-загрузка гигабайта занимает воркер uvicorn на всё время передачи и упирается в
-таймауты обратного прокси.
+Обычный `/files` flow передаёт содержимое напрямую по подписанной ссылке.
+Framework-neutral multipart primitives ниже нужны только документированным
+aggregate routes: бизнес-оркестрации и FastAPI-зависимостей здесь нет.
 
 Подпись считается локально, без единого обращения к хранилищу: `presigned_put`
 и `presigned_get` — это HMAC над строкой запроса, и botocore умеет собрать его
@@ -16,7 +15,7 @@
 пользуется.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -38,6 +37,7 @@ if TYPE_CHECKING:
 #: тела, поэтому botocore не может достать код ошибки из XML и подставляет
 #: "404"; GET и совместимые хранилища присылают именованные коды.
 _NOT_FOUND_CODES: Final = frozenset({"404", "NoSuchKey", "NotFound"})
+_NO_SUCH_UPLOAD_CODES: Final = frozenset({"404", "NoSuchUpload", "NotFound"})
 
 
 class S3Settings(BaseSettings):
@@ -99,6 +99,14 @@ class ObjectEntry:
     size: int
     etag: str
     last_modified: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class CompletedPart:
+    """ETag и номер завершённой части multipart upload."""
+
+    part_number: int
+    etag: str
 
 
 @asynccontextmanager
@@ -167,11 +175,10 @@ def _client(
 
 @dataclass(frozen=True, slots=True)
 class ObjectStorage:
-    """Операции над объектами одного бакета.
+    """S3 primitives с configured default и явным bucket override.
 
-    Клиент, бакет и время жизни ссылок связаны и передаются вместе: иначе имя
-    бакета пришлось бы протаскивать в каждый вызов, а забытый аргумент
-    отправил бы объект не туда.
+    Общий файловый lifecycle всегда передаёт сохранённый bucket явно. Default
+    остаётся только для health-check и новых объектов до сохранения metadata.
     """
 
     #: Клиент запросов: по нему идут HEAD, DELETE и всё остальное.
@@ -189,6 +196,7 @@ class ObjectStorage:
         self,
         key: str,
         *,
+        bucket: str | None = None,
         content_type: str | None = None,
         expires_in: int | None = None,
     ) -> str:
@@ -202,7 +210,7 @@ class ObjectStorage:
         не дать загрузить исполняемый файл под видом картинки — проверять тип
         после загрузки поздно, объект уже лежит.
         """
-        params: dict[str, str] = {"Bucket": self.bucket, "Key": key}
+        params: dict[str, str] = {"Bucket": self._bucket(bucket), "Key": key}
         if content_type is not None:
             params["ContentType"] = content_type
         return await self.signer.generate_presigned_url(
@@ -215,6 +223,7 @@ class ObjectStorage:
         self,
         key: str,
         *,
+        bucket: str | None = None,
         expires_in: int | None = None,
         download_name: str | None = None,
     ) -> str:
@@ -227,7 +236,7 @@ class ObjectStorage:
         ключ объекта обычно машинный (uuid), а пользователь должен получить
         файл с осмысленным именем.
         """
-        params: dict[str, str] = {"Bucket": self.bucket, "Key": key}
+        params: dict[str, str] = {"Bucket": self._bucket(bucket), "Key": key}
         if download_name is not None:
             params["ResponseContentDisposition"] = f'attachment; filename="{download_name}"'
         return await self.signer.generate_presigned_url(
@@ -236,7 +245,7 @@ class ObjectStorage:
             ExpiresIn=expires_in if expires_in is not None else self.presign_ttl,
         )
 
-    async def head_object(self, key: str) -> ObjectInfo | None:
+    async def head_object(self, key: str, *, bucket: str | None = None) -> ObjectInfo | None:
         """Метаданные объекта или `None`, если его нет.
 
         Принимает ключ, возвращает размер, тип, ETag и время изменения.
@@ -250,7 +259,7 @@ class ObjectStorage:
         объекта — ошибка бизнеса» принимает модуль: он и поднимет `NotFound`.
         """
         try:
-            response = await self.client.head_object(Bucket=self.bucket, Key=key)
+            response = await self.client.head_object(Bucket=self._bucket(bucket), Key=key)
         except ClientError as error:
             if _is_not_found(error):
                 return None
@@ -262,16 +271,22 @@ class ObjectStorage:
             last_modified=response["LastModified"],
         )
 
-    async def delete_object(self, key: str) -> None:
+    async def delete_object(self, key: str, *, bucket: str | None = None) -> None:
         """Удалить объект.
 
         Принимает ключ, ничего не возвращает. Удаление несуществующего объекта
         не ошибка — так устроен сам протокол S3, и повторная уборка одного и
         того же ключа проходит молча.
         """
-        await self.client.delete_object(Bucket=self.bucket, Key=key)
+        await self.client.delete_object(Bucket=self._bucket(bucket), Key=key)
 
-    async def list_prefix(self, prefix: str, *, limit: int = 1000) -> list[ObjectEntry]:
+    async def list_prefix(
+        self,
+        prefix: str,
+        *,
+        bucket: str | None = None,
+        limit: int = 1000,
+    ) -> list[ObjectEntry]:
         """Первые объекты с заданным префиксом.
 
         Принимает префикс и предел числа записей, возвращает список строк
@@ -283,7 +298,7 @@ class ObjectStorage:
         появится вместе с таким сценарием.
         """
         response = await self.client.list_objects_v2(
-            Bucket=self.bucket,
+            Bucket=self._bucket(bucket),
             Prefix=prefix,
             MaxKeys=limit,
         )
@@ -296,6 +311,107 @@ class ObjectStorage:
             )
             for item in response.get("Contents", [])
         ]
+
+    async def create_multipart_upload(
+        self,
+        key: str,
+        *,
+        bucket: str,
+        content_type: str,
+    ) -> str:
+        """Создать multipart upload в явном bucket и вернуть upload id."""
+        response = await self.client.create_multipart_upload(
+            Bucket=bucket,
+            Key=key,
+            ContentType=content_type,
+        )
+        return str(response["UploadId"])
+
+    async def upload_part(
+        self,
+        key: str,
+        upload_id: str,
+        part_number: int,
+        body: bytes,
+        *,
+        bucket: str,
+    ) -> str:
+        """Загрузить одну multipart part в явный bucket и вернуть ETag."""
+        response = await self.client.upload_part(
+            Bucket=bucket,
+            Key=key,
+            UploadId=upload_id,
+            PartNumber=part_number,
+            Body=body,
+        )
+        return str(response["ETag"]).strip('"')
+
+    async def complete_multipart_upload(
+        self,
+        key: str,
+        upload_id: str,
+        parts: Sequence[CompletedPart],
+        *,
+        bucket: str,
+    ) -> str:
+        """Завершить multipart upload с частями в порядке PartNumber."""
+        ordered = sorted(parts, key=lambda part: part.part_number)
+        response = await self.client.complete_multipart_upload(
+            Bucket=bucket,
+            Key=key,
+            UploadId=upload_id,
+            MultipartUpload={
+                "Parts": [{"ETag": part.etag, "PartNumber": part.part_number} for part in ordered]
+            },
+        )
+        return str(response["ETag"]).strip('"')
+
+    async def abort_multipart_upload(
+        self,
+        key: str,
+        upload_id: str,
+        *,
+        bucket: str,
+    ) -> None:
+        """Idempotently abort конкретного multipart upload."""
+        try:
+            await self.client.abort_multipart_upload(
+                Bucket=bucket,
+                Key=key,
+                UploadId=upload_id,
+            )
+        except ClientError as error:
+            if error.response["Error"].get("Code") in _NO_SUCH_UPLOAD_CODES:
+                return
+            raise
+
+    async def list_multipart_upload_ids(self, key: str, *, bucket: str) -> list[str]:
+        """Найти незавершённые uploads только для точных bucket и key."""
+        response = await self.client.list_multipart_uploads(Bucket=bucket, Prefix=key)
+        upload_ids: list[str] = []
+        while True:
+            upload_ids.extend(
+                str(upload["UploadId"])
+                for upload in response.get("Uploads", [])
+                if upload.get("Key") == key
+            )
+            if not response.get("IsTruncated"):
+                return upload_ids
+            response = await self.client.list_multipart_uploads(
+                Bucket=bucket,
+                Prefix=key,
+                KeyMarker=str(response["NextKeyMarker"]),
+                UploadIdMarker=str(response["NextUploadIdMarker"]),
+            )
+
+    async def abort_multipart_uploads_for_key(self, key: str, *, bucket: str) -> None:
+        """Abort все uploads точного key для crash-gap до записи upload id."""
+        for upload_id in await self.list_multipart_upload_ids(key, bucket=bucket):
+            await self.abort_multipart_upload(key, upload_id, bucket=bucket)
+
+    def _bucket(self, bucket: str | None) -> str:
+        """Вернуть явный bucket либо configured default для legacy primitives."""
+        return bucket if bucket is not None else self.bucket
 
 
 def _is_not_found(error: ClientError) -> bool:

@@ -90,7 +90,7 @@ from app.kernel.db.base import Base
 from app.kernel.events.models import OutboxMessage, ProcessedMessage
 from app.kernel.idempotency import IdempotencyKey
 from app.kernel.security.tokens import jwt_settings
-from app.modules.storage.models import File
+from app.modules.storage.models import File, FileUploadStaging
 from app.platform.rabbitmq import connection
 from tests.models import Blob, Widget
 
@@ -116,7 +116,15 @@ TEST_ONLY_TABLES: Final[tuple[Table, ...]] = (
 #: не начнёт молча зависеть от чужих таблиц, если метаданные пополнятся.
 #: Таблицы ядра тоже здесь: outbox копится от теста к тесту, и «ровно одна
 #: строка после коммита» без очистки проверить невозможно.
-TEST_MODELS = (Widget, Blob, File, OutboxMessage, ProcessedMessage, IdempotencyKey)
+TEST_MODELS = (
+    Widget,
+    Blob,
+    FileUploadStaging,
+    File,
+    OutboxMessage,
+    ProcessedMessage,
+    IdempotencyKey,
+)
 
 
 @pytest.fixture(autouse=True)
