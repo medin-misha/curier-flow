@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 from fastapi import FastAPI
 
+from app.api.authentication import install_authentication
 from app.api.errors import install_error_handlers
 from app.api.idempotency import install_idempotency
 from app.api.middleware import RequestContextMiddleware
@@ -42,6 +43,7 @@ def create_app(modules: Sequence[Module] = MODULES) -> FastAPI:
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
     app.include_router(build_router(modules))
+    install_authentication(app)
     # После include_router: он пересоздаёт маршруты по их публичным атрибутам,
     # и правка, сделанная раньше, до приложения бы не доехала.
     install_idempotency(app)

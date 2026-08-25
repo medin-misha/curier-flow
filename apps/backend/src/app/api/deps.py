@@ -23,7 +23,7 @@ from app.kernel.context import actor_id
 from app.kernel.db.session import get_ro_session, get_uow
 from app.kernel.errors import Unauthorized
 from app.kernel.pagination import PageParams
-from app.kernel.security.tokens import TokenType, decode_token, jwt_settings
+from app.kernel.security.tokens import TokenClaims, TokenType, decode_token, jwt_settings
 
 #: Пишущая транзакция на запрос: коммит при штатном выходе, откат при ошибке.
 #: Хендлер `commit()` не вызывает — иначе одна операция распадается на
@@ -49,11 +49,11 @@ RoSession = Annotated[AsyncSession, Depends(get_ro_session)]
 PageQuery = Annotated[PageParams, Depends()]
 
 
-def actor_from_headers(headers: Headers) -> UUID | None:
-    """Достать действующее лицо из заголовка `Authorization`.
+def claims_from_headers(headers: Headers) -> TokenClaims | None:
+    """Достать и проверить access JWT из заголовка `Authorization`.
 
-    Принимает заголовки запроса, возвращает идентификатор пользователя или
-    `None`, если заголовка нет. Кидает `Unauthorized`, если заголовок есть, но
+    Принимает заголовки запроса, возвращает разобранные claims или `None`, если
+    заголовка нет. Кидает `Unauthorized`, если заголовок есть, но
     негоден: не та схема, испорченная подпись, истёкший срок, refresh вместо
     access.
 
@@ -75,7 +75,21 @@ def actor_from_headers(headers: Headers) -> UUID | None:
     if scheme.lower() != "bearer" or not token:
         raise Unauthorized("Authorization header must use the Bearer scheme", reason="bad-scheme")
 
-    return decode_token(token, expected=TokenType.ACCESS, settings=jwt_settings).subject
+    return decode_token(token, expected=TokenType.ACCESS, settings=jwt_settings)
+
+
+def actor_from_headers(headers: Headers) -> UUID | None:
+    """Достать идентификатор действующего лица из access JWT.
+
+    Принимает заголовки запроса, возвращает `sub` токена или `None`, если
+    заголовка нет. Кидает `Unauthorized` на негодный заголовок или токен.
+
+    Отдельная функция сохранена для idempotency-обвязки: ей нужен только actor
+    для отпечатка запроса, тогда как точечная аутентификация дополнительно
+    проверяет прикладные claims.
+    """
+    claims = claims_from_headers(headers)
+    return None if claims is None else claims.subject
 
 
 async def get_actor(request: Request) -> UUID | None:

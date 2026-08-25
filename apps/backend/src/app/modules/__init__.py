@@ -10,8 +10,14 @@
 from typing import Final
 
 from app.kernel.registry import Module
+from app.modules.admin.module import admin_module
 from app.modules.courier_module.module import courier_module
 from app.modules.health.module import health_module
 from app.modules.storage.module import storage_module
 
-MODULES: Final[tuple[Module, ...]] = (health_module, storage_module, courier_module)
+MODULES: Final[tuple[Module, ...]] = (
+    health_module,
+    storage_module,
+    courier_module,
+    admin_module,
+)

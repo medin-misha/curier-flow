@@ -66,6 +66,7 @@ Backend skills находятся в `.agents/skills/` и доступны пр�
 
 | Skill | Когда |
 | --- | --- |
+| `admin-auth` | Admin/JWT, login/refresh/logout, bootstrap и точечная защита ручек |
 | `new-module` | новый бизнес-модуль целиком |
 | `background-effect` | событие, уведомление, задача, расписание, чужая очередь |
 | `db-migration` | изменение схемы существующего модуля |
