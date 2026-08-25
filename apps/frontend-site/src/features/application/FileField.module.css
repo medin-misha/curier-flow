@@ -1,0 +1,60 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 74px;
+  padding: 14px;
+  border: 1px dashed rgb(var(--mfs-fg-rgb) / 0.24);
+  background: rgb(var(--mfs-white-rgb) / 0.03);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.root:hover {
+  border-color: var(--mfs-accent);
+  background: rgb(var(--mfs-accent-rgb) / 0.07);
+}
+
+.badge {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-pixel), monospace;
+  font-size: 13px;
+  clip-path: var(--mfs-clip-3);
+  background: rgb(var(--mfs-white-rgb) / 0.05);
+  color: rgb(var(--mfs-fg-rgb) / 0.35);
+}
+
+.badge[data-filled='true'] {
+  background: rgb(var(--mfs-gold-rgb) / 0.2);
+  color: var(--mfs-gold);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: rgb(var(--mfs-fg-rgb) / 0.5);
+}
+
+.input {
+  display: none;
+}

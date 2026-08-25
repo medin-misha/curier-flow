@@ -1,0 +1,110 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-scene) + var(--scene-index));
+  overflow: hidden;
+  transform: translateY(101%);
+  transition: transform 0.75s var(--mfs-ease-slide);
+}
+
+.layer[data-revealed='true'] {
+  transform: translateY(0);
+}
+
+.media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--focus) center;
+}
+
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--mfs-veil-bike);
+}
+
+.spec {
+  position: absolute;
+  top: 128px;
+  z-index: calc(var(--z-content) + var(--scene-index));
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.spec[data-side='left'] {
+  left: var(--mfs-gutter);
+  transition-delay: 0.1s;
+}
+
+.spec[data-side='right'] {
+  right: var(--mfs-gutter);
+  transition-delay: 0.25s;
+}
+
+.spec[data-active='true'] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.content {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-content) + var(--scene-index));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 20px;
+  padding: var(--mfs-header-offset) var(--mfs-gutter) 96px;
+  opacity: 0;
+  filter: blur(14px);
+  pointer-events: none;
+  transition: opacity 0.55s ease, filter 0.55s ease;
+}
+
+.content[data-active='true'] {
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+}
+
+.eyebrow {
+  margin-bottom: 16px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--mfs-accent);
+}
+
+.description {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: rgb(var(--mfs-fg-rgb) / 0.78);
+}
+
+.description + .description {
+  margin-top: 14px;
+}
+
+.price {
+  margin: 14px 0 0;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: rgb(var(--mfs-fg-rgb) / 0.78);
+}
+
+.priceValue {
+  color: var(--mfs-accent);
+  font-weight: 700;
+}
+
+@media (min-width: 768px) {
+  .content {
+    padding: 0 var(--mfs-gutter) 96px;
+    gap: 16px;
+  }
+}

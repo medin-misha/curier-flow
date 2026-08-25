@@ -1,0 +1,161 @@
+.layer {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-scene) + var(--scene-index));
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 0.8s ease, transform 1.1s ease;
+}
+
+.layer[data-active='true'] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--focus-mobile) center;
+}
+
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--mfs-veil-scene);
+}
+
+.content {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-content) + var(--scene-index));
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: var(--mfs-header-offset) var(--mfs-gutter) 96px;
+  opacity: 0;
+  filter: blur(14px);
+  pointer-events: none;
+  transition: opacity 0.55s ease, filter 0.55s ease;
+}
+
+.content[data-active='true'] {
+  opacity: 1;
+  filter: blur(0);
+  pointer-events: auto;
+}
+
+.content[data-align='top'] {
+  justify-content: flex-start;
+  gap: 18px;
+}
+
+.content[data-align='spread'] {
+  justify-content: space-between;
+}
+
+.eyebrow {
+  margin-bottom: 16px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--mfs-accent);
+}
+
+.title {
+  margin: 0;
+  font-size: 38px;
+  line-height: 1.06;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.bullets {
+  display: grid;
+  gap: 7px;
+  max-width: 32ch;
+}
+
+.bullet {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+}
+
+.marker {
+  color: var(--mfs-accent);
+}
+
+.marker[data-kind='pixel'] {
+  font-family: var(--font-pixel), monospace;
+  font-size: 8px;
+}
+
+.bulletText {
+  font-size: 15px;
+  line-height: 1.45;
+  color: rgb(var(--mfs-fg-rgb) / 0.78);
+}
+
+.paragraphs {
+  display: grid;
+  gap: 12px;
+}
+
+.paragraph {
+  margin: 0;
+  max-width: 30ch;
+  font-size: 16px;
+  line-height: 1.5;
+  color: rgb(var(--mfs-fg-rgb) / 0.78);
+}
+
+.ctaRow {
+  margin-top: auto;
+}
+
+/* Появление первой сцены при загрузке страницы. */
+.content[data-first='true'] .eyebrow {
+  opacity: 0;
+  animation: mfsRise 0.8s var(--mfs-ease-out) 0.15s both;
+}
+
+.content[data-first='true'] .title {
+  opacity: 0;
+  animation: mfsRise 0.9s var(--mfs-ease-out) 0.35s both;
+}
+
+.content[data-first='true'] .bullets,
+.content[data-first='true'] .paragraphs {
+  opacity: 0;
+  animation: mfsRise 0.9s var(--mfs-ease-out) 0.6s both;
+}
+
+.content[data-first='true'] .ctaRow {
+  opacity: 0;
+  animation: mfsRise 0.9s var(--mfs-ease-out) 0.85s both;
+}
+
+@media (min-width: 768px) {
+  .image {
+    object-position: var(--focus-desktop) center;
+  }
+
+  .content,
+  .content[data-align='top'],
+  .content[data-align='spread'] {
+    justify-content: flex-end;
+    gap: 16px;
+    padding: 0 var(--mfs-gutter) 96px;
+  }
+
+  .ctaRow {
+    margin-top: 26px;
+  }
+}
+
+@keyframes mfsRise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}

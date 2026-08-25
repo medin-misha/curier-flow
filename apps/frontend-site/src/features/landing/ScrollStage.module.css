@@ -1,0 +1,11 @@
+.track {
+  position: relative;
+}
+
+.viewport {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--mfs-bg);
+}

@@ -1,0 +1,106 @@
+.wrap {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-gear);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wrap[data-revealed='true'] {
+  pointer-events: auto;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--mfs-bg);
+  opacity: 0;
+  transform: translateY(101%);
+  transition: transform 0.75s var(--mfs-ease-slide), opacity 0.5s ease;
+}
+
+.wrap[data-revealed='true'] .panel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.image {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -10%;
+  width: 100%;
+  height: 110%;
+  object-fit: cover;
+  object-position: var(--focus) center;
+  image-rendering: pixelated;
+}
+
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--mfs-veil-gear);
+}
+
+.content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--mfs-header-offset) var(--mfs-gutter) 76px;
+}
+
+.eyebrow {
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  line-height: 1.6;
+  letter-spacing: 1px;
+  color: var(--mfs-accent);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.06;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.priceRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.price {
+  font-family: var(--font-pixel), monospace;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--mfs-gold);
+}
+
+.back {
+  width: fit-content;
+  padding: 6px;
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: rgb(var(--mfs-fg-rgb) / 0.5);
+  transition: color 0.2s ease;
+}
+
+.back:hover {
+  color: var(--mfs-fg);
+}

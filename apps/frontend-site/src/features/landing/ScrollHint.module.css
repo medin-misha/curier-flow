@@ -1,0 +1,22 @@
+.root {
+  position: fixed;
+  right: var(--mfs-gutter);
+  bottom: 46px;
+  z-index: var(--z-hud);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgb(var(--mfs-fg-rgb) / 0.5);
+  opacity: 1;
+  animation: mfsPulse 2.4s ease-in-out infinite;
+  transition: opacity 0.4s ease;
+}
+
+.root[data-hidden='true'] {
+  opacity: 0;
+}
+
+@keyframes mfsPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}

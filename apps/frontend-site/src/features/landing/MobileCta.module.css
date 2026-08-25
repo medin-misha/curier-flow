@@ -1,0 +1,22 @@
+.root {
+  position: fixed;
+  left: 50%;
+  bottom: 34px;
+  z-index: var(--z-cta);
+  opacity: 0;
+  transform: translateX(-50%) translateY(14px);
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s var(--mfs-ease-back);
+}
+
+.root[data-visible='true'] {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+@media (min-width: 768px) {
+  .root {
+    display: none;
+  }
+}
