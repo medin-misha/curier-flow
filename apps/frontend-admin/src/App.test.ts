@@ -107,6 +107,12 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
   }
   if (url.pathname === '/admin/admins/me') return jsonResponse(admin)
 
+  if (url.pathname === '/files/file-1' && method === 'GET') {
+    return jsonResponse({
+      download_url: 'https://storage.test/passport_scan.pdf?signature=test',
+    })
+  }
+
   if (url.pathname.startsWith('/courier') && failNextCourierRequest) {
     failNextCourierRequest = false
     return problem(401, 'Access token expired')
@@ -188,6 +194,7 @@ afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
   document.body.innerHTML = ''
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -269,6 +276,21 @@ describe('Courier CRUD', () => {
     expect(page.get('[data-od-id="courier-detail-dialog"]').text()).toContain(
       'passport_scan.pdf',
     )
+
+    let downloadedHref = ''
+    let downloadedName = ''
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      downloadedHref = this.href
+      downloadedName = this.download
+    })
+    await buttonWithText(page, 'Скачать').trigger('click')
+    await flushPromises()
+
+    expect(requests.some((request) => request.url === '/files/file-1')).toBe(true)
+    expect(downloadedHref).toBe('https://storage.test/passport_scan.pdf?signature=test')
+    expect(downloadedName).toBe('passport_scan.pdf')
 
     await buttonWithText(page, 'Редактировать').trigger('click')
     await page.get('#edit-fullName').setValue('Курьер Обновлён')

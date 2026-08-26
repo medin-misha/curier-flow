@@ -1180,12 +1180,29 @@ h3 {
   font-weight: 600;
 }
 
-.document-file-id {
+.document-actions {
   margin-top: auto;
   padding-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.document-file-id {
+  min-width: 0;
   color: var(--muted);
   font-family: var(--font-mono);
   font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.document-download {
+  min-height: 34px;
+  margin-left: auto;
+  padding: 6px 10px;
+  font-size: 11px;
 }
 
 .document-empty {

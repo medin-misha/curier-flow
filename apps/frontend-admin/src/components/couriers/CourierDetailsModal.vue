@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import type { Courier, CourierDocument, PlatformStatus } from '../../types/courier'
+import type {
+  Courier,
+  CourierDocument,
+  CourierFile,
+  PlatformStatus,
+} from '../../types/courier'
 import AppModal from '../ui/AppModal.vue'
 
 defineProps<{
   courier: Courier
+  downloadingFileIds: string[]
 }>()
 
 defineEmits<{
   close: []
   edit: []
   delete: []
+  download: [file: CourierFile]
 }>()
 
 const statusLabels: Record<PlatformStatus, string> = {
@@ -225,7 +232,40 @@ function fileFormat(document: CourierDocument) {
                   </strong>
                 </div>
               </div>
-              <span class="document-file-id">FILE {{ document.file.id }}</span>
+              <div class="document-actions">
+                <span class="document-file-id">FILE {{ document.file.id }}</span>
+                <button
+                  class="btn btn-secondary document-download"
+                  type="button"
+                  :data-od-id="`download-file-${document.file.id}`"
+                  :aria-label="`Скачать файл ${document.file.originalName}`"
+                  :title="
+                    document.file.status === 'ready'
+                      ? `Скачать ${document.file.originalName}`
+                      : 'Файл ещё обрабатывается'
+                  "
+                  :disabled="
+                    document.file.status !== 'ready' ||
+                    downloadingFileIds.includes(document.file.id)
+                  "
+                  @click="$emit('download', document.file)"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 20h14" />
+                  </svg>
+                  {{
+                    downloadingFileIds.includes(document.file.id)
+                      ? 'Скачивание…'
+                      : 'Скачать'
+                  }}
+                </button>
+              </div>
             </div>
           </article>
         </div>

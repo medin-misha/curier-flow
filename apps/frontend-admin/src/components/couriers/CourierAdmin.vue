@@ -8,7 +8,13 @@ import {
   updateCourier,
 } from '../../api/couriers'
 import { apiErrorMessage } from '../../api/client'
-import type { Courier, CourierCreateInput, CourierUpdateInput } from '../../types/courier'
+import { getFileDownloadUrl } from '../../api/files'
+import type {
+  Courier,
+  CourierCreateInput,
+  CourierFile,
+  CourierUpdateInput,
+} from '../../types/courier'
 import AppToast from '../ui/AppToast.vue'
 import CourierCreateModal from './CourierCreateModal.vue'
 import CourierDeleteModal from './CourierDeleteModal.vue'
@@ -36,6 +42,7 @@ const deleting = ref(false)
 const createError = ref('')
 const editError = ref('')
 const deleteError = ref('')
+const downloadingFileIds = ref<string[]>([])
 const toastVisible = ref(false)
 const toastTitle = ref('')
 const toastMessage = ref('')
@@ -177,6 +184,35 @@ function closeDetails() {
   restoreFocus()
 }
 
+async function downloadFile(file: CourierFile) {
+  if (file.status !== 'ready' || downloadingFileIds.value.includes(file.id)) return
+
+  downloadingFileIds.value.push(file.id)
+  try {
+    const downloadUrl = await getFileDownloadUrl(file.id)
+    if (!downloadUrl) {
+      showToast('Файл недоступен', `${file.originalName} ещё не готов к скачиванию.`)
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = file.originalName
+    link.rel = 'noopener'
+    link.hidden = true
+    document.body.append(link)
+    link.click()
+    link.remove()
+  } catch (error) {
+    showToast(
+      'Не удалось скачать файл',
+      apiErrorMessage(error, `Повторите скачивание файла ${file.originalName}.`),
+    )
+  } finally {
+    downloadingFileIds.value = downloadingFileIds.value.filter((id) => id !== file.id)
+  }
+}
+
 function openEdit() {
   editError.value = ''
   editOpen.value = true
@@ -275,7 +311,9 @@ onBeforeUnmount(() => {
   <CourierDetailsModal
     v-if="selectedCourier && !editOpen && !deleteOpen"
     :courier="selectedCourier"
+    :downloading-file-ids="downloadingFileIds"
     @close="closeDetails"
+    @download="downloadFile"
     @edit="openEdit"
     @delete="openDelete"
   />
