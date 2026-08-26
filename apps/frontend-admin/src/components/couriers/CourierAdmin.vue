@@ -6,6 +6,7 @@ import {
   getCourier,
   listCouriers,
   updateCourier,
+  updateCourierPlatformStatus,
 } from '../../api/couriers'
 import { apiErrorMessage } from '../../api/client'
 import { getFileDownloadUrl } from '../../api/files'
@@ -13,7 +14,9 @@ import type {
   Courier,
   CourierCreateInput,
   CourierFile,
+  CourierPlatform,
   CourierUpdateInput,
+  PlatformStatus,
 } from '../../types/courier'
 import AppToast from '../ui/AppToast.vue'
 import CourierCreateModal from './CourierCreateModal.vue'
@@ -43,12 +46,19 @@ const createError = ref('')
 const editError = ref('')
 const deleteError = ref('')
 const downloadingFileIds = ref<string[]>([])
+const updatingPlatformIds = ref<string[]>([])
 const toastVisible = ref(false)
 const toastTitle = ref('')
 const toastMessage = ref('')
 const lastFocused = ref<HTMLElement | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 let loadSequence = 0
+
+const platformStatusLabels: Record<PlatformStatus, string> = {
+  active: 'Активен',
+  pending: 'Ожидает',
+  inactive: 'Неактивен',
+}
 
 const filterSummary = computed(() =>
   appliedQuery.value
@@ -213,6 +223,51 @@ async function downloadFile(file: CourierFile) {
   }
 }
 
+function withUpdatedPlatform(courier: Courier, platform: CourierPlatform): Courier {
+  return {
+    ...courier,
+    platforms: courier.platforms.map((item) =>
+      item.id === platform.id ? platform : item,
+    ),
+  }
+}
+
+async function updatePlatformStatus(platform: CourierPlatform, status: PlatformStatus) {
+  const courierId = selectedCourier.value?.id
+  if (
+    !courierId ||
+    platform.status === status ||
+    updatingPlatformIds.value.includes(platform.id)
+  ) {
+    return
+  }
+
+  updatingPlatformIds.value.push(platform.id)
+  try {
+    const updated = await updateCourierPlatformStatus(courierId, platform.id, status)
+    if (selectedCourier.value?.id === courierId) {
+      selectedCourier.value = withUpdatedPlatform(selectedCourier.value, updated)
+    }
+
+    const index = couriers.value.findIndex((courier) => courier.id === courierId)
+    if (index >= 0) couriers.value[index] = withUpdatedPlatform(couriers.value[index], updated)
+
+    showToast(
+      'Статус платформы изменён',
+      `${updated.name}: ${platformStatusLabels[updated.status]}.`,
+    )
+  } catch (error) {
+    showToast(
+      'Не удалось изменить статус',
+      apiErrorMessage(error, `Повторите изменение статуса ${platform.name}.`),
+    )
+  } finally {
+    updatingPlatformIds.value = updatingPlatformIds.value.filter(
+      (id) => id !== platform.id,
+    )
+  }
+}
+
 function openEdit() {
   editError.value = ''
   editOpen.value = true
@@ -312,10 +367,12 @@ onBeforeUnmount(() => {
     v-if="selectedCourier && !editOpen && !deleteOpen"
     :courier="selectedCourier"
     :downloading-file-ids="downloadingFileIds"
+    :updating-platform-ids="updatingPlatformIds"
     @close="closeDetails"
     @download="downloadFile"
     @edit="openEdit"
     @delete="openDelete"
+    @update-platform="updatePlatformStatus"
   />
   <CourierEditModal
     v-if="selectedCourier && editOpen"

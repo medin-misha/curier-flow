@@ -999,6 +999,33 @@ h3 {
   font-size: 11px;
 }
 
+.platform-status-panel {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.platform-status-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-status-select {
+  width: 142px;
+  min-height: 36px;
+  padding-block: 6px;
+  font-size: 12px;
+}
+
+.platform-status-button {
+  min-height: 36px;
+  padding: 7px 11px;
+  font-size: 12px;
+}
+
 .document-list {
   display: flex;
   flex-direction: column;
@@ -1525,6 +1552,25 @@ h3 {
   .file-control {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .platform-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .platform-status-panel {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .platform-status-editor {
+    width: 100%;
+  }
+
+  .platform-status-select {
+    width: auto;
+    flex: 1;
   }
 
   .document-card {

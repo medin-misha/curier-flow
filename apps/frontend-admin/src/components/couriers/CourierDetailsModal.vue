@@ -1,22 +1,26 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type {
   Courier,
   CourierDocument,
   CourierFile,
+  CourierPlatform,
   PlatformStatus,
 } from '../../types/courier'
 import AppModal from '../ui/AppModal.vue'
 
-defineProps<{
+const props = defineProps<{
   courier: Courier
   downloadingFileIds: string[]
+  updatingPlatformIds: string[]
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
   edit: []
   delete: []
   download: [file: CourierFile]
+  updatePlatform: [platform: CourierPlatform, status: PlatformStatus]
 }>()
 
 const statusLabels: Record<PlatformStatus, string> = {
@@ -30,6 +34,34 @@ const documentStatusLabels = {
   processing: 'На проверке',
   rejected: 'Нужна замена',
 } as const
+
+const platformStatusDrafts = ref<Record<string, PlatformStatus>>({})
+
+watch(
+  () => props.courier.platforms,
+  (platforms) => {
+    platformStatusDrafts.value = Object.fromEntries(
+      platforms.map((platform) => [
+        platform.id,
+        platformStatusDrafts.value[platform.id] ?? platform.status,
+      ]),
+    )
+  },
+  { immediate: true },
+)
+
+function isUpdatingPlatform(platformId: string) {
+  return props.updatingPlatformIds.includes(platformId)
+}
+
+function hasPlatformStatusChange(platform: CourierPlatform) {
+  return platformStatusDrafts.value[platform.id] !== platform.status
+}
+
+function submitPlatformStatus(platform: CourierPlatform) {
+  const status = platformStatusDrafts.value[platform.id]
+  if (status) emit('updatePlatform', platform, status)
+}
 
 function formatBirthDate(value: string) {
   if (!value) return 'Не указана'
@@ -132,17 +164,52 @@ function fileFormat(document: CourierDocument) {
           <span class="meta">{{ courier.platforms.length }}</span>
         </div>
         <div class="detail-list">
-          <div v-for="platform in courier.platforms" :key="platform.name" class="detail-row">
+          <div
+            v-for="platform in courier.platforms"
+            :key="platform.id"
+            class="detail-row platform-row"
+          >
             <div>
               <strong>{{ platform.name }}</strong>
               <span>Аккаунт платформы доставки</span>
             </div>
-            <span
-              class="status"
-              :class="platform.status === 'active' ? 'status-ok' : 'status-warn'"
-            >
-              {{ statusLabels[platform.status] }}
-            </span>
+            <div class="platform-status-panel">
+              <span
+                class="status"
+                :class="platform.status === 'active' ? 'status-ok' : 'status-warn'"
+              >
+                {{ statusLabels[platform.status] }}
+              </span>
+              <div class="platform-status-editor">
+                <label
+                  class="visually-hidden"
+                  :for="`platform-status-${platform.id}`"
+                >
+                  Новый статус {{ platform.name }}
+                </label>
+                <select
+                  :id="`platform-status-${platform.id}`"
+                  v-model="platformStatusDrafts[platform.id]"
+                  class="select platform-status-select"
+                  :data-od-id="`platform-status-${platform.id}`"
+                  :disabled="isUpdatingPlatform(platform.id)"
+                >
+                  <option value="pending">Ожидает</option>
+                  <option value="active">Активен</option>
+                  <option value="inactive">Неактивен</option>
+                </select>
+                <button
+                  class="btn btn-secondary platform-status-button"
+                  type="button"
+                  :disabled="
+                    !hasPlatformStatusChange(platform) || isUpdatingPlatform(platform.id)
+                  "
+                  @click="submitPlatformStatus(platform)"
+                >
+                  {{ isUpdatingPlatform(platform.id) ? 'Сохранение…' : 'Изменить' }}
+                </button>
+              </div>
+            </div>
           </div>
           <div v-if="!courier.platforms.length" class="detail-row">
             <div>

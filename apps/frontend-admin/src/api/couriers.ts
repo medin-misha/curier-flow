@@ -1,6 +1,7 @@
 import type {
   Courier,
   CourierCreateInput,
+  CourierPlatform,
   CourierUpdateInput,
   DeliveryPlatform,
   DocumentPurpose,
@@ -90,6 +91,15 @@ const documentPurposeLabels: Record<DocumentPurpose, string> = {
   other: 'Другая цель',
 }
 
+function mapPlatformAccount(account: PlatformAccountResponse): CourierPlatform {
+  return {
+    id: account.id,
+    platform: account.platform,
+    name: platformLabels[account.platform],
+    status: account.status,
+  }
+}
+
 function documentReviewStatus(status: FileStatus): DocumentReviewStatus {
   if (status === 'ready') return 'ready'
   if (status === 'pending') return 'processing'
@@ -119,12 +129,7 @@ export function mapCourier(response: CourierResponse): Courier {
     source: response.source,
     consent: response.consent_to_processing,
     consentAt: response.consent_at,
-    platforms: response.platform_accounts.map((account) => ({
-      id: account.id,
-      platform: account.platform,
-      name: platformLabels[account.platform],
-      status: account.status,
-    })),
+    platforms: response.platform_accounts.map(mapPlatformAccount),
     documents: response.documents.length,
     documentFiles: response.documents.map((document) => ({
       id: document.id,
@@ -228,6 +233,21 @@ export async function updateCourier(courierId: string, input: CourierUpdateInput
       ...jsonBody(scalarPayload(input)),
     }),
   )
+}
+
+export async function updateCourierPlatformStatus(
+  courierId: string,
+  accountId: string,
+  status: PlatformStatus,
+) {
+  const account = await apiRequest<PlatformAccountResponse>(
+    `/courier/${courierId}/platform-accounts/${accountId}`,
+    {
+      method: 'PATCH',
+      ...jsonBody({ status }),
+    },
+  )
+  return mapPlatformAccount(account)
 }
 
 export function deleteCourier(courierId: string) {

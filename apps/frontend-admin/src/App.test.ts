@@ -1,6 +1,7 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CourierResponse } from './api/couriers'
+import type { PlatformStatus } from './types/courier'
 import App from './App.vue'
 
 let wrapper: VueWrapper | undefined
@@ -139,9 +140,19 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
     return jsonResponse(created, 201)
   }
 
-  const courierId = url.pathname.split('/')[2]
+  const pathParts = url.pathname.split('/')
+  const courierId = pathParts[2]
   const existing = serverCouriers.find((item) => item.id === courierId)
   if (!existing) return problem(404, 'Courier not found')
+  if (pathParts[3] === 'platform-accounts' && method === 'PATCH') {
+    const account = existing.platform_accounts.find((item) => item.id === pathParts[4])
+    if (!account) return problem(404, 'CourierPlatformAccount not found')
+
+    const body = JSON.parse(String(init.body)) as { status: PlatformStatus }
+    account.status = body.status
+    account.updated_at = '2026-08-27T09:00:00Z'
+    return jsonResponse(account)
+  }
   if (method === 'GET') return jsonResponse(existing)
   if (method === 'PATCH') {
     const body = JSON.parse(String(init.body)) as Record<string, unknown>
@@ -276,6 +287,18 @@ describe('Courier CRUD', () => {
     expect(page.get('[data-od-id="courier-detail-dialog"]').text()).toContain(
       'passport_scan.pdf',
     )
+
+    await page.get('[data-od-id="platform-status-platform-1"]').setValue('inactive')
+    await buttonWithText(page, 'Изменить').trigger('click')
+    await flushPromises()
+
+    const platformRequest = requests.find((request) =>
+      request.url.endsWith('/platform-accounts/platform-1'),
+    )
+    expect(platformRequest?.init.method).toBe('PATCH')
+    expect(JSON.parse(String(platformRequest?.init.body))).toEqual({ status: 'inactive' })
+    expect(page.get('.platform-row .status').text()).toBe('Неактивен')
+    expect(page.get('[role="status"]').text()).toContain('Статус платформы изменён')
 
     let downloadedHref = ''
     let downloadedName = ''
