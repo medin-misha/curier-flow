@@ -1,4 +1,4 @@
-# Процессы приложений проекта: api и worker бекенда из apps/backend.
+# Процессы приложений проекта: backend, публичный сайт и админ-панель.
 #
 # Отдельный compose-проект: приложения перекатываются, не трогая данные в
 # volume'ах инфраструктуры. Инфраструктура должна быть поднята заранее — она
@@ -16,11 +16,10 @@
 # через env_file. Пути ниже относительны этого файла, то есть каталога infra.
 name: curier-flow-apps
 
-# Общая часть процессов бекенда. В infra/.env адреса записаны так, как их
-# видно с хоста (localhost) — этим же файлом пользуется запуск `make run` из
-# apps/backend. Внутри compose те же сервисы зовутся по именам, поэтому блок
-# environment перекрывает env_file и подставляет DSN'ы с именами сервисов.
-# Сам .env необязателен — без него работают дефолты.
+# Общая часть процессов бекенда. В infra/.env адреса записаны так, как их видно
+# с хоста (localhost). Внутри compose сервисы зовутся по именам, поэтому блок
+# environment перекрывает env_file и подставляет внутренние DSN. Сам .env
+# необязателен — без него работают дефолты.
 x-backend: &backend
   restart: unless-stopped
   env_file:
@@ -81,6 +80,57 @@ services:
     # секунд (по умолчанию 30). Дефолтные 10 секунд docker добили бы его
     # SIGKILL посреди обработки сообщения, поэтому запас задан явно.
     stop_grace_period: 40s
+
+  frontend-site:
+    restart: unless-stopped
+    build:
+      context: ../apps/frontend-site
+      args:
+        # Next.js сохраняет rewrite в routes-manifest во время сборки.
+        BACKEND_API_URL: http://api:8000
+    environment:
+      # То же значение остаётся в рантайме для единого контракта конфигурации.
+      BACKEND_API_URL: http://api:8000
+    ports:
+      - "${FRONTEND_SITE_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  frontend-admin:
+    restart: unless-stopped
+    build:
+      context: ../apps/frontend-admin
+    ports:
+      - "${FRONTEND_ADMIN_PORT:-5173}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--output-document=/dev/null",
+          "http://127.0.0.1:8080/",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
 
 # Сеть создаёт docker-compose.infra.yml; здесь она внешняя. Если её нет,
 # compose падает с внятной ошибкой — это лучше молчаливого старта приложения

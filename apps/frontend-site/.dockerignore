@@ -1,0 +1,12 @@
+*
+!package.json
+!package-lock.json
+!next.config.ts
+!tsconfig.json
+!src/
+!public/
+
+node_modules/
+.next/
+coverage/
+*.tsbuildinfo
