@@ -8,12 +8,14 @@ defineProps<{
 
 defineEmits<{
   close: []
+  edit: []
+  delete: []
 }>()
 
 const statusLabels: Record<PlatformStatus, string> = {
   active: 'Активен',
-  review: 'На проверке',
-  blocked: 'Заблокирован',
+  pending: 'Ожидает',
+  inactive: 'Неактивен',
 }
 
 const documentStatusLabels = {
@@ -157,22 +159,7 @@ function fileFormat(document: CourierDocument) {
             :data-od-id="`document-card-${document.id}`"
           >
             <div class="document-thumb">
-              <img
-                v-if="document.file.previewUrl && document.file.contentType.startsWith('image/')"
-                :src="document.file.previewUrl"
-                :alt="`Миниатюра файла ${document.file.originalName}`"
-              />
-              <embed
-                v-else-if="
-                  document.file.previewUrl &&
-                  document.file.contentType === 'application/pdf'
-                "
-                :src="`${document.file.previewUrl}#toolbar=0&navpanes=0&scrollbar=0`"
-                type="application/pdf"
-                :aria-label="`Миниатюра файла ${document.file.originalName}`"
-              />
               <div
-                v-else
                 class="document-preview-page"
                 role="img"
                 :aria-label="`Миниатюра файла ${document.file.originalName}`"
@@ -234,7 +221,7 @@ function fileFormat(document: CourierDocument) {
                 <div>
                   <span>Файл</span>
                   <strong>
-                    {{ document.file.status === 'AVAILABLE' ? 'Доступен' : 'Обрабатывается' }}
+                    {{ document.file.status === 'ready' ? 'Доступен' : 'Обрабатывается' }}
                   </strong>
                 </div>
               </div>
@@ -249,8 +236,15 @@ function fileFormat(document: CourierDocument) {
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-danger btn-danger-ghost" type="button" @click="$emit('delete')">
+        Удалить
+      </button>
+      <span class="modal-footer-spacer"></span>
       <button class="btn btn-secondary" type="button" @click="$emit('close')">
         Закрыть
+      </button>
+      <button class="btn btn-primary" type="button" @click="$emit('edit')">
+        Редактировать
       </button>
     </div>
   </AppModal>

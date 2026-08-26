@@ -1,3 +1,15 @@
+<script setup lang="ts">
+withDefaults(
+  defineProps<{
+    title: string
+    message?: string
+  }>(),
+  {
+    message: '',
+  },
+)
+</script>
+
 <template>
   <Teleport to="body">
     <div class="toast" role="status" aria-live="polite">
@@ -11,8 +23,8 @@
         <path d="m5 12 4 4L19 6" />
       </svg>
       <div>
-        <strong>Курьер создан</strong>
-        <span>Новая запись добавлена в начало реестра.</span>
+        <strong>{{ title }}</strong>
+        <span v-if="message">{{ message }}</span>
       </div>
     </div>
   </Teleport>

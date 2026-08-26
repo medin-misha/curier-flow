@@ -1,3 +1,19 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { Admin } from '../../types/auth'
+
+const props = defineProps<{
+  admin: Admin
+  loggingOut: boolean
+}>()
+
+defineEmits<{
+  logout: []
+}>()
+
+const initials = computed(() => props.admin.username.slice(0, 2).toLocaleUpperCase('ru'))
+</script>
+
 <template>
   <header class="topnav" data-od-id="topnav">
     <div class="container topnav-inner">
@@ -12,13 +28,20 @@
           Couriers
         </button>
       </nav>
-      <div class="account" data-od-id="account-menu">
+      <button
+        class="account account-button"
+        type="button"
+        data-od-id="account-menu"
+        :disabled="loggingOut"
+        aria-label="Выйти из панели"
+        @click="$emit('logout')"
+      >
         <div class="account-copy">
-          <strong>Администратор</strong>
-          <span>Вена, Австрия</span>
+          <strong>{{ admin.username }}</strong>
+          <span>{{ loggingOut ? 'Выходим…' : 'Выйти' }}</span>
         </div>
-        <span class="avatar" aria-hidden="true">АМ</span>
-      </div>
+        <span class="avatar" aria-hidden="true">{{ initials }}</span>
+      </button>
     </div>
   </header>
 </template>

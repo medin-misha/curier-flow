@@ -1,57 +1,47 @@
 <script setup lang="ts">
-import type { PlatformStatus } from '../../types/courier'
-
 defineProps<{
   summary: string
+  loading: boolean
+}>()
+
+const emit = defineEmits<{
+  search: []
 }>()
 
 const searchQuery = defineModel<string>('searchQuery', { required: true })
-const cityFilter = defineModel<string>('cityFilter', { required: true })
-const statusFilter = defineModel<'all' | PlatformStatus>('statusFilter', { required: true })
+
+function clear() {
+  searchQuery.value = ''
+  emit('search')
+}
 </script>
 
 <template>
-  <div class="toolbar" data-od-id="couriers-filters">
+  <form class="toolbar toolbar-api" data-od-id="couriers-filters" @submit.prevent="$emit('search')">
     <label class="control-wrap">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.7"
-        aria-hidden="true"
-      >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
         <circle cx="11" cy="11" r="6.5" />
         <path d="m16 16 4 4" />
       </svg>
-      <span class="visually-hidden">Поиск курьеров</span>
+      <span class="visually-hidden">Точный поиск курьеров</span>
       <input
         v-model="searchQuery"
         class="input"
         type="search"
-        placeholder="Имя, email или телефон"
+        placeholder="Точное имя, email или телефон"
         autocomplete="off"
         data-od-id="courier-search"
       />
     </label>
-    <label>
-      <span class="visually-hidden">Город</span>
-      <select v-model="cityFilter" class="select" data-od-id="city-filter">
-        <option value="all">Все города</option>
-        <option value="Вена">Вена</option>
-        <option value="Грац">Грац</option>
-        <option value="Линц">Линц</option>
-        <option value="Зальцбург">Зальцбург</option>
-      </select>
-    </label>
-    <label>
-      <span class="visually-hidden">Статус платформы</span>
-      <select v-model="statusFilter" class="select" data-od-id="status-filter">
-        <option value="all">Любой статус</option>
-        <option value="active">Активен</option>
-        <option value="review">На проверке</option>
-        <option value="blocked">Заблокирован</option>
-      </select>
-    </label>
+    <button class="btn btn-secondary" type="submit" :disabled="loading">Найти</button>
+    <button
+      class="btn btn-ghost"
+      type="button"
+      :disabled="loading || !searchQuery"
+      @click="clear"
+    >
+      Сбросить
+    </button>
     <div class="toolbar-note" aria-live="polite">{{ summary }}</div>
-  </div>
+  </form>
 </template>

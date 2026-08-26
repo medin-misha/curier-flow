@@ -1,78 +1,63 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { createDemoCouriers } from '../../data/couriers'
-import type { Courier, PlatformStatus } from '../../types/courier'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  createCourier,
+  deleteCourier,
+  getCourier,
+  listCouriers,
+  updateCourier,
+} from '../../api/couriers'
+import { apiErrorMessage } from '../../api/client'
+import type { Courier, CourierCreateInput, CourierUpdateInput } from '../../types/courier'
 import AppToast from '../ui/AppToast.vue'
 import CourierCreateModal from './CourierCreateModal.vue'
+import CourierDeleteModal from './CourierDeleteModal.vue'
 import CourierDetailsModal from './CourierDetailsModal.vue'
+import CourierEditModal from './CourierEditModal.vue'
 import CourierRegistry from './CourierRegistry.vue'
 
 const PAGE_SIZE = 5
 
-const couriers = ref(createDemoCouriers())
+const couriers = ref<Courier[]>([])
 const searchQuery = ref('')
-const cityFilter = ref('all')
-const statusFilter = ref<'all' | PlatformStatus>('all')
+const appliedQuery = ref('')
 const currentPage = ref(1)
+const cursors = ref<Array<string | null>>([null])
+const nextCursor = ref<string | null>(null)
+const loading = ref(false)
+const loadError = ref('')
 const createOpen = ref(false)
+const editOpen = ref(false)
+const deleteOpen = ref(false)
 const selectedCourier = ref<Courier | null>(null)
+const creating = ref(false)
+const saving = ref(false)
+const deleting = ref(false)
+const createError = ref('')
+const editError = ref('')
+const deleteError = ref('')
 const toastVisible = ref(false)
+const toastTitle = ref('')
+const toastMessage = ref('')
 const lastFocused = ref<HTMLElement | null>(null)
-const ownedPreviewUrls = new Set<string>()
 let toastTimer: ReturnType<typeof setTimeout> | undefined
+let loadSequence = 0
 
-const filteredCouriers = computed(() => {
-  const query = searchQuery.value.trim().toLocaleLowerCase('ru')
-
-  return couriers.value.filter((courier) => {
-    const matchesQuery =
-      !query ||
-      [courier.fullName, courier.email, courier.phone].some((value) =>
-        value.toLocaleLowerCase('ru').includes(query),
-      )
-    const matchesCity = cityFilter.value === 'all' || courier.city === cityFilter.value
-    const matchesStatus =
-      statusFilter.value === 'all' ||
-      courier.platforms.some((platform) => platform.status === statusFilter.value)
-
-    return matchesQuery && matchesCity && matchesStatus
-  })
-})
-
-const pageCount = computed(() =>
-  Math.max(1, Math.ceil(filteredCouriers.value.length / PAGE_SIZE)),
-)
-const pageStart = computed(() => (currentPage.value - 1) * PAGE_SIZE)
-const visibleCouriers = computed(() =>
-  filteredCouriers.value.slice(pageStart.value, pageStart.value + PAGE_SIZE),
-)
-const paginationSummary = computed(() => {
-  const total = filteredCouriers.value.length
-  const from = total ? pageStart.value + 1 : 0
-  const to = Math.min(pageStart.value + PAGE_SIZE, total)
-  return `${from}–${to} из ${total}`
-})
 const filterSummary = computed(() =>
-  filteredCouriers.value.length === couriers.value.length
-    ? 'Показаны все записи'
-    : `Найдено: ${filteredCouriers.value.length}`,
+  appliedQuery.value
+    ? `Точное совпадение: ${appliedQuery.value}`
+    : 'Данные из Courier API',
+)
+const paginationSummary = computed(
+  () => `Страница ${currentPage.value} · записей ${couriers.value.length}`,
 )
 
-watch([searchQuery, cityFilter, statusFilter], () => {
-  currentPage.value = 1
+watch([createOpen, editOpen, deleteOpen, selectedCourier], () => {
+  document.body.classList.toggle(
+    'modal-open',
+    createOpen.value || editOpen.value || deleteOpen.value || Boolean(selectedCourier.value),
+  )
 })
-
-watch(pageCount, (count) => {
-  currentPage.value = Math.min(currentPage.value, count)
-})
-
-watch([createOpen, selectedCourier], ([isCreateOpen, courier]) => {
-  document.body.classList.toggle('modal-open', isCreateOpen || Boolean(courier))
-})
-
-function pageTo(page: number) {
-  currentPage.value = Math.min(Math.max(page, 1), pageCount.value)
-}
 
 function rememberFocus(trigger?: EventTarget | null) {
   lastFocused.value =
@@ -85,29 +70,9 @@ function restoreFocus() {
   void nextTick(() => lastFocused.value?.focus())
 }
 
-function openCreate(event: MouseEvent) {
-  rememberFocus(event.currentTarget)
-  selectedCourier.value = null
-  createOpen.value = true
-}
-
-function closeCreate() {
-  createOpen.value = false
-  restoreFocus()
-}
-
-function openDetails(courier: Courier, event: MouseEvent) {
-  rememberFocus(event.currentTarget)
-  createOpen.value = false
-  selectedCourier.value = courier
-}
-
-function closeDetails() {
-  selectedCourier.value = null
-  restoreFocus()
-}
-
-function showToast() {
+function showToast(title: string, message: string) {
+  toastTitle.value = title
+  toastMessage.value = message
   toastVisible.value = true
   if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
@@ -115,24 +80,169 @@ function showToast() {
   }, 4_200)
 }
 
-function addCourier(courier: Courier) {
-  for (const document of courier.documentFiles) {
-    if (document.file.previewUrl) ownedPreviewUrls.add(document.file.previewUrl)
-  }
+async function loadPage(page: number) {
+  const cursor = cursors.value[page - 1]
+  if (cursor === undefined) return
 
-  couriers.value.unshift(courier)
-  searchQuery.value = ''
-  cityFilter.value = 'all'
-  statusFilter.value = 'all'
-  currentPage.value = 1
-  closeCreate()
-  showToast()
+  const sequence = ++loadSequence
+  currentPage.value = page
+  loading.value = true
+  loadError.value = ''
+  try {
+    const result = await listCouriers({
+      cursor,
+      limit: PAGE_SIZE,
+      query: appliedQuery.value,
+    })
+    if (sequence !== loadSequence) return
+    couriers.value = result.items
+    nextCursor.value = result.nextCursor
+  } catch (error) {
+    if (sequence !== loadSequence) return
+    loadError.value = apiErrorMessage(error, 'Не удалось получить список курьеров.')
+  } finally {
+    if (sequence === loadSequence) loading.value = false
+  }
 }
+
+async function search() {
+  appliedQuery.value = searchQuery.value.trim()
+  cursors.value = [null]
+  nextCursor.value = null
+  currentPage.value = 1
+  await loadPage(1)
+}
+
+async function pageTo(page: number) {
+  if (page < 1) return
+  if (page === currentPage.value + 1) {
+    if (!nextCursor.value) return
+    cursors.value[page - 1] = nextCursor.value
+  }
+  await loadPage(page)
+}
+
+function openCreate(event: MouseEvent) {
+  rememberFocus(event.currentTarget)
+  selectedCourier.value = null
+  createError.value = ''
+  createOpen.value = true
+}
+
+function closeCreate() {
+  if (creating.value) return
+  createOpen.value = false
+  restoreFocus()
+}
+
+async function submitCreate(input: CourierCreateInput) {
+  creating.value = true
+  createError.value = ''
+  try {
+    const created = await createCourier(input)
+    createOpen.value = false
+    searchQuery.value = ''
+    appliedQuery.value = ''
+    cursors.value = [null]
+    await loadPage(1)
+    showToast('Курьер сохранён', `${created.fullName} добавлен в реестр.`)
+    restoreFocus()
+  } catch (error) {
+    createError.value = apiErrorMessage(error, 'Не удалось создать курьера.')
+  } finally {
+    creating.value = false
+  }
+}
+
+async function openDetails(courier: Courier, event: MouseEvent) {
+  rememberFocus(event.currentTarget)
+  selectedCourier.value = courier
+  try {
+    const fresh = await getCourier(courier.id)
+    if (selectedCourier.value?.id === fresh.id) {
+      selectedCourier.value = fresh
+      const index = couriers.value.findIndex((item) => item.id === fresh.id)
+      if (index >= 0) couriers.value[index] = fresh
+    }
+  } catch (error) {
+    showToast(
+      'Карточка открыта из списка',
+      apiErrorMessage(error, 'Не удалось обновить данные профиля.'),
+    )
+  }
+}
+
+function closeDetails() {
+  selectedCourier.value = null
+  restoreFocus()
+}
+
+function openEdit() {
+  editError.value = ''
+  editOpen.value = true
+}
+
+function closeEdit() {
+  if (saving.value) return
+  editOpen.value = false
+}
+
+async function submitEdit(input: CourierUpdateInput) {
+  if (!selectedCourier.value) return
+  saving.value = true
+  editError.value = ''
+  try {
+    const updated = await updateCourier(selectedCourier.value.id, input)
+    selectedCourier.value = updated
+    const index = couriers.value.findIndex((courier) => courier.id === updated.id)
+    if (index >= 0) couriers.value[index] = updated
+    editOpen.value = false
+    showToast('Изменения сохранены', `Профиль ${updated.fullName} обновлён.`)
+  } catch (error) {
+    editError.value = apiErrorMessage(error, 'Не удалось сохранить изменения.')
+  } finally {
+    saving.value = false
+  }
+}
+
+function openDelete() {
+  deleteError.value = ''
+  deleteOpen.value = true
+}
+
+function closeDelete() {
+  if (deleting.value) return
+  deleteOpen.value = false
+}
+
+async function confirmDelete() {
+  if (!selectedCourier.value) return
+  deleting.value = true
+  deleteError.value = ''
+  const deletedName = selectedCourier.value.fullName
+  try {
+    await deleteCourier(selectedCourier.value.id)
+    deleteOpen.value = false
+    selectedCourier.value = null
+    cursors.value = [null]
+    currentPage.value = 1
+    await loadPage(1)
+    showToast('Курьер удалён', `Профиль ${deletedName} удалён из реестра.`)
+    restoreFocus()
+  } catch (error) {
+    deleteError.value = apiErrorMessage(error, 'Не удалось удалить курьера.')
+  } finally {
+    deleting.value = false
+  }
+}
+
+onMounted(() => {
+  void loadPage(1)
+})
 
 onBeforeUnmount(() => {
   document.body.classList.remove('modal-open')
   if (toastTimer) clearTimeout(toastTimer)
-  ownedPreviewUrls.forEach((url) => URL.revokeObjectURL(url))
 })
 </script>
 
@@ -140,25 +250,54 @@ onBeforeUnmount(() => {
   <main id="content">
     <CourierRegistry
       v-model:search-query="searchQuery"
-      v-model:city-filter="cityFilter"
-      v-model:status-filter="statusFilter"
-      :couriers="visibleCouriers"
-      :filtered-count="filteredCouriers.length"
+      :couriers="couriers"
       :filter-summary="filterSummary"
       :current-page="currentPage"
-      :page-count="pageCount"
       :pagination-summary="paginationSummary"
+      :has-next="Boolean(nextCursor)"
+      :loading="loading"
+      :error="loadError"
       @create="openCreate"
       @select="openDetails"
       @page="pageTo"
+      @retry="loadPage(currentPage)"
+      @search="search"
     />
   </main>
 
-  <CourierCreateModal v-if="createOpen" @close="closeCreate" @created="addCourier" />
+  <CourierCreateModal
+    v-if="createOpen"
+    :saving="creating"
+    :error="createError"
+    @close="closeCreate"
+    @submit="submitCreate"
+  />
   <CourierDetailsModal
-    v-if="selectedCourier"
+    v-if="selectedCourier && !editOpen && !deleteOpen"
     :courier="selectedCourier"
     @close="closeDetails"
+    @edit="openEdit"
+    @delete="openDelete"
   />
-  <AppToast v-if="toastVisible" />
+  <CourierEditModal
+    v-if="selectedCourier && editOpen"
+    :courier="selectedCourier"
+    :saving="saving"
+    :error="editError"
+    @close="closeEdit"
+    @save="submitEdit"
+  />
+  <CourierDeleteModal
+    v-if="selectedCourier && deleteOpen"
+    :courier="selectedCourier"
+    :deleting="deleting"
+    :error="deleteError"
+    @close="closeDelete"
+    @confirm="confirmDelete"
+  />
+  <AppToast
+    v-if="toastVisible"
+    :title="toastTitle"
+    :message="toastMessage"
+  />
 </template>

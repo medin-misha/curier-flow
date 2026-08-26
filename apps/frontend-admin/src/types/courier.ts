@@ -1,25 +1,38 @@
-export type PlatformStatus = 'active' | 'review' | 'blocked'
+export type DeliveryPlatform = 'bolt_food' | 'foodora' | 'wolt'
+export type PlatformStatus = 'pending' | 'active' | 'inactive'
 export type DocumentReviewStatus = 'ready' | 'processing' | 'rejected'
-export type FileStatus = 'AVAILABLE' | 'PROCESSING'
+export type DocumentType =
+  | 'passport'
+  | 'identity_card'
+  | 'residence_permit'
+  | 'work_permit'
+  | 'driving_license'
+  | 'other'
+export type DocumentPurpose = 'platform_onboarding' | 'employment_compliance' | 'other'
+export type FileStatus = 'pending' | 'ready' | 'deleting'
 
 export interface CourierPlatform {
+  id: string
+  platform: DeliveryPlatform
   name: string
   status: PlatformStatus
 }
+
 export interface CourierFile {
   id: string
   originalName: string
   contentType: string
   size: number
   status: FileStatus
-  ownerId: string
+  ownerId: string | null
   createdAt: string
-  previewUrl?: string
 }
 
 export interface CourierDocument {
   id: string
+  type: DocumentType
   typeLabel: string
+  purpose: DocumentPurpose
   purposeLabel: string
   reviewStatus: DocumentReviewStatus
   file: CourierFile
@@ -41,9 +54,46 @@ export interface Courier {
   contact: string | null
   source: string | null
   consent: boolean
+  consentAt: string | null
   platforms: CourierPlatform[]
   documents: number
   documentFiles: CourierDocument[]
   documentStatus: string
+  createdAt: string
+  updatedAt: string
   updated: string
 }
+
+export interface CourierFormValues {
+  fullName: string
+  birthDate: string
+  email: string
+  phone: string
+  city: string
+  citizenship: string
+  address: string
+  bankAccount: string
+  source: string
+  contactPlatform: string
+  contact: string
+  consent: boolean
+}
+
+export interface CourierFormErrors {
+  fullName: boolean
+  birthDate: boolean
+  email: boolean
+  phone: boolean
+}
+
+export interface CourierCreateInput {
+  courier: CourierFormValues
+  platform: DeliveryPlatform
+  document?: {
+    file: File
+    type: DocumentType
+    purpose: DocumentPurpose
+  }
+}
+
+export type CourierUpdateInput = CourierFormValues
