@@ -301,24 +301,69 @@ async def create_order(request: OrderCreate, *, session: AsyncSession) -> Order:
 ### 2. Подписчик реагирует
 
 ```python
+# src/app/modules/notifications/events.py
+# Это локальная проекция чужого топика, а не импорт из orders.
+class OrderCreated(DomainEvent):
+    topic: ClassVar[str] = "order.created"
+
+    order_id: UUID
+    total: Decimal
+    owner_id: UUID
+
+
+class OrderTelegramNotificationCreated(DomainEvent):
+    topic: ClassVar[str] = "order.telegram_notification.created"
+
+    chat_id: int
+    order_id: UUID
+    total: Decimal
+```
+
+```python
 # src/app/modules/notifications/subscribers.py
 @subscribe(OrderCreated)
-async def notify_telegram(event: OrderCreated, _session: AsyncSession) -> None:
-    """Сообщить о новом заказе в Telegram."""
-    await telegram.send_message(
-        chat_id=notifications_settings.chat_id,
-        text=f"Новый заказ {event.order_id} на {event.total} ₽",
+async def prepare_telegram_notification(
+    event: OrderCreated,
+    session: AsyncSession,
+) -> None:
+    """Зафиксировать непотеряемое уведомление без внешнего I/O."""
+    emit(
+        session,
+        OrderTelegramNotificationCreated(
+            chat_id=notifications_settings.chat_id,
+            order_id=event.order_id,
+            total=event.total,
+        ),
     )
 ```
 
 ```python
 # src/app/modules/notifications/module.py
-notifications_module = Module(name="notifications", subscribers=(notify_telegram,))
+telegram_topology = TopologyDecl(
+    exchange="domain.events",
+    queue="telegram.notifications",
+    routing_key=OrderTelegramNotificationCreated.topic,
+    retry_ttl_ms=30_000,
+)
+
+notifications_module = Module(
+    name="notifications",
+    subscribers=(prepare_telegram_notification,),
+    topology=(telegram_topology,),
+)
 ```
 
-Всё. Модуль `orders` не импортирует `notifications`, а `notifications` не
-импортирует `orders` — только класс события. Убрать уведомления из сервиса
-означает убрать одну строку из `MODULES`.
+Модуль `orders` не импортирует `notifications`, а `notifications` не импортирует
+даже класс события `orders`: межмодульный контракт — стабильный topic и
+локальная Pydantic-схема. Подписчик не вызывает Telegram в открытой
+транзакции, а атомарно с `processed_messages` создаёт второй outbox-факт.
+Durable очередь объявляется backend worker до запуска релея, а отдельный
+Telegram service потребляет её без `ConsumerDecl` в backend.
+
+Для личной доставки Admin должен заранее открыть бота и нажать `/start`:
+одного корректного `telegram_id` недостаточно, чтобы бот начал диалог.
+Notification payload и DLQ содержат PII, поэтому production-доступ к RabbitMQ
+management и права bot-пользователя должны быть минимальными.
 
 ### 3. Что происходит между ними
 
@@ -338,8 +383,11 @@ POST /orders
 
    консьюмер: получил сообщение
               INSERT processed_messages (message_id)   ← в транзакции
-              notify_telegram(event, session)          ← в той же транзакции
+              INSERT outbox (topic='order.telegram_notification.created', …)
               COMMIT → ack
+
+   релей: publish order.telegram_notification.created → telegram.notifications
+   внешний Telegram service: sendMessage → ACK
 ```
 
 ### Почему HTTP-статус в этой цепочке не участвует
@@ -369,12 +417,12 @@ POST /orders
 подписчик обязан быть идемпотентным, а отметка `processed_messages` стоит в той
 же транзакции, что и его работа.
 
-Про подписчика с внешним вызовом (как Telegram выше) честно: транзакция вокруг
-него держит только строку отметки, бизнес-данные не блокируются, но
-транзакционности у HTTP-запроса в Telegram нет. Если сообщение ушло, а коммит
-отметки упал — уведомление придёт второй раз. Это и есть at-least-once, и
-именно поэтому в такой подписчик кладут либо идемпотентный вызов, либо
-собственный ключ дедупликации.
+Внешний HTTP-вызов из subscriber transaction запрещён: его нельзя атомарно
+связать с `processed_messages`, а блокировка базы будет ждать чужую сеть.
+Непотеряемая интеграция создаёт второй outbox-факт, как в примере выше;
+отдельный consumer вызывает Telegram и подтверждает AMQP-сообщение только
+после ответа API. Окно «Telegram принял запрос, consumer умер до ACK» всё равно
+оставляет допустимый для at-least-once доставки дубль.
 
 ### Если потерять не жалко
 

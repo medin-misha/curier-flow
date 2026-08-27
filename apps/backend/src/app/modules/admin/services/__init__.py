@@ -18,6 +18,7 @@ from app.modules.admin.services.authentication import (
     refresh_admin_tokens,
 )
 from app.modules.admin.services.bootstrap import bootstrap_first_admin
+from app.modules.admin.services.notifications import fan_out_courier_registration_notifications
 from app.modules.admin.services.settings import AdminSettings, admin_settings
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "bootstrap_first_admin",
     "create_admin",
     "deactivate_admin",
+    "fan_out_courier_registration_notifications",
     "get_admin",
     "list_admins",
     "login_admin",
