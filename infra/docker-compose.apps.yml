@@ -1,4 +1,5 @@
-# Процессы приложений проекта: backend, публичный сайт и админ-панель.
+# Процессы приложений проекта: backend, Telegram-уведомления, публичный сайт и
+# админ-панель.
 #
 # Отдельный compose-проект: приложения перекатываются, не трогая данные в
 # volume'ах инфраструктуры. Инфраструктура должна быть поднята заранее — она
@@ -79,6 +80,25 @@ services:
     # После SIGTERM воркер дожидается начатой работы WORKER_SHUTDOWN_TIMEOUT
     # секунд (по умолчанию 30). Дефолтные 10 секунд docker добили бы его
     # SIGKILL посреди обработки сообщения, поэтому запас задан явно.
+    stop_grace_period: 40s
+
+  telegram-bot:
+    restart: unless-stopped
+    build:
+      context: ../apps/telegram-bot
+    # Намеренно без общего env_file: sending-only процессу не нужны JWT,
+    # PostgreSQL, Redis, MinIO и другие секреты backend. Передаём только его
+    # RabbitMQ, logging и Telegram-контракт.
+    environment:
+      RABBITMQ_DSN: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_MAX_RETRIES: ${TELEGRAM_MAX_RETRIES:-5}
+      TELEGRAM_API_TIMEOUT: ${TELEGRAM_API_TIMEOUT:-10}
+      TELEGRAM_SHUTDOWN_TIMEOUT: ${TELEGRAM_SHUTDOWN_TIMEOUT:-30}
+    # Healthcheck не задан: сервис не слушает порт, а проверка наличия процесса
+    # дублировала бы контроль Docker и создавала ложную гарантию готовности.
     stop_grace_period: 40s
 
   frontend-site:
