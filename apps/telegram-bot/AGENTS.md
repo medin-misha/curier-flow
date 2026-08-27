@@ -25,6 +25,33 @@
   правила skill `telegram-notification`.
 - Token, `telegram_id`, имя, контакт и полный payload запрещено писать в логи.
 
-## Проверка текущего bootstrap
+## Runtime и команды
 
-Из корня репозитория выполни `scripts/check-agent-context.sh`.
+Service использует Python 3.12 и `uv`; реальные команды определены в
+`pyproject.toml` и `Makefile`:
+
+```bash
+make install
+make check
+make test
+make run
+```
+
+`make check` сам запускает `../../scripts/check-agent-context.sh`. Container
+image собирается и проверяется только из `infra/`.
+
+## Queue contract
+
+- queue: `telegram.notifications`;
+- routing key: `courier.registration.telegram_notification.created`;
+- payload содержит ровно `telegram_id`, `full_name`, nullable
+  `contact_platform`, nullable `contact`, `platform`;
+- prefetch равен `1`, `message_id` — обязательный UUID backend outbox;
+- topology создаёт backend, bot проверяет её только пассивно;
+- ACK разрешён после успешного Telegram side effect либо после publisher
+  confirm retry copy; invalid/permanent delivery отклоняется в DLQ;
+- 401 оставляет delivery unacked и останавливает процесс;
+- SIGTERM сначала отменяет consume, затем ограниченно ждёт in-flight.
+
+Тесты используют локальный stub Bot API. Настоящий token и внешняя сеть в
+тестах запрещены.
