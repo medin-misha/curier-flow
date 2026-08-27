@@ -5,6 +5,7 @@ import dataclasses
 import io
 import json
 from collections.abc import AsyncIterator, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
@@ -209,11 +210,49 @@ async def stored_file(file_id: UUID) -> File:
     return file
 
 
+async def registration_payloads() -> list[dict[str, Any]]:
+    """Вернуть payload всех courier.registered в порядке outbox."""
+    async with session_module.session_factory() as session:
+        return list(
+            (
+                await session.scalars(
+                    select(OutboxMessage.payload)
+                    .where(OutboxMessage.topic == "courier.registered")
+                    .order_by(OutboxMessage.occurred_at, OutboxMessage.id)
+                )
+            ).all()
+        )
+
+
+@contextmanager
+def failing_final_transaction() -> Iterator[None]:
+    """Ронять final transaction после отправки ORM INSERT в PostgreSQL."""
+
+    def boom(_session: Session, _flush_context: Any) -> None:
+        raise RuntimeError("final transaction refused")
+
+    event.listen(Session, "after_flush", boom)
+    try:
+        yield
+    finally:
+        event.remove(Session, "after_flush", boom)
+
+
 async def test_aggregate_post_uploads_and_commits_all_rows(
     client: AsyncClient,
     bucket: S3Settings,
 ) -> None:
-    response = await post_courier(client)
+    payload = {
+        **BASE_COURIER,
+        "contact_platform": "telegram",
+        "contact": "@eva",
+        "platform_accounts": [
+            {"platform": "wolt"},
+            {"platform": "foodora"},
+            {"platform": "bolt_food"},
+        ],
+    }
+    response = await post_courier(client, payload)
 
     assert response.status_code == HTTPStatus.CREATED, response.text
     body = response.json()
@@ -224,7 +263,7 @@ async def test_aggregate_post_uploads_and_commits_all_rows(
     nested = body["documents"][0]["file"]
     assert nested["status"] == "ready"
     assert "bucket" not in nested and "key" not in nested
-    assert await counts() == (1, 1, 1, 1, 0)
+    assert await counts() == (1, 3, 1, 1, 0)
 
     file = await stored_file(UUID(nested["id"]))
     assert (file.bucket, file.etag, file.size) == (bucket.bucket, nested["etag"], 8)
@@ -233,7 +272,44 @@ async def test_aggregate_post_uploads_and_commits_all_rows(
 
     async with session_module.session_factory() as session:
         topics = list((await session.scalars(select(OutboxMessage.topic))).all())
-    assert topics == ["file.confirmed"]
+    assert sorted(topics) == ["courier.registered", "file.confirmed"]
+    assert await registration_payloads() == [
+        {
+            "courier_id": body["id"],
+            "full_name": "Eva Novak",
+            "contact_platform": "telegram",
+            "contact": "@eva",
+            "platforms": ["wolt", "foodora", "bolt_food"],
+        }
+    ]
+
+
+async def test_courier_and_registration_event_share_final_transaction(
+    bucket: S3Settings,
+    sessions: async_sessionmaker[AsyncSession],
+) -> None:
+    """Ошибка после INSERT Courier откатывает Courier, account и outbox."""
+    payload = {**BASE_COURIER, "documents": []}
+    request = CourierAggregateCreate.model_validate(payload)
+
+    async with storage(bucket) as objects:
+        with (
+            failing_final_transaction(),
+            pytest.raises(
+                RuntimeError,
+                match="final transaction refused",
+            ),
+        ):
+            await create_courier_aggregate(
+                request,
+                [],
+                session_factory=sessions,
+                uploader=MultipartUploader(objects=objects, policy=POLICY),
+                settings=TEST_SETTINGS,
+            )
+
+    assert await counts() == (0, 0, 0, 0, 0)
+    assert await registration_payloads() == []
 
 
 async def test_natural_key_retry_returns_saved_aggregate_without_s3(
@@ -259,6 +335,7 @@ async def test_natural_key_retry_returns_saved_aggregate_without_s3(
     assert response.status_code == HTTPStatus.OK, response.text
     assert response.json() == original
     assert await counts() == (1, 1, 1, 1, 0)
+    assert len(await registration_payloads()) == 1
 
 
 async def test_identity_split_is_conflict(client: AsyncClient) -> None:
@@ -294,6 +371,7 @@ async def test_concurrent_same_post_creates_one_aggregate_and_cleanup_staging(
     async with session_module.session_factory() as session:
         status = await session.scalar(select(FileUploadStaging.status))
     assert status is StagingStatus.DELETING
+    assert len(await registration_payloads()) == 1
 
 
 async def test_s3_failure_leaves_only_durable_staging(
@@ -472,6 +550,7 @@ async def test_platform_account_nested_writes_and_parent_scope(client: AsyncClie
         "phone": "+420700000002",
     }
     second = (await post_courier(client, second_payload)).json()
+    registrations_before = await registration_payloads()
 
     added = await client.post(
         f"/courier/{first['id']}/platform-accounts",
@@ -494,6 +573,7 @@ async def test_platform_account_nested_writes_and_parent_scope(client: AsyncClie
         json={"status": "inactive"},
     )
     assert wrong_parent.status_code == HTTPStatus.NOT_FOUND
+    assert await registration_payloads() == registrations_before
 
 
 async def test_document_upload_patch_and_delete(client: AsyncClient) -> None:

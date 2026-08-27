@@ -14,10 +14,16 @@ HTTP-префиксом `/courier`. ORM `File`, S3 primitives и физичес�
   S3/File cleanup выполняет универсальная storage-задача;
 - natural keys POST — нормализованные email/phone. Повтор возвращает
   сохранённый aggregate и не дополняет его входным payload.
+- только winner-ветка финальной транзакции aggregate POST записывает
+  `CourierRegistered` (`courier.registered`) в outbox после фактического
+  INSERT Courier; natural-key repeat, concurrent loser и nested account POST
+  событие не создают.
 
-Карта: `handlers.py` разбирает HTTP/multipart, `services.py` содержит aggregate
-и retention orchestration, `models/`/`schemas/` задают контракт, `tasks.py`
-подключает retention, `module.py` — единственная регистрация/lifespan.
+Карта: `handlers.py` разбирает HTTP/multipart, пакет `services/` содержит
+разделённые по ответственности aggregate, upload и retention-сервисы, а его
+`__init__.py` задаёт публичный фасад. `models/`/`schemas/` задают контракт,
+`tasks.py` подключает retention, `module.py` — единственная
+регистрация/lifespan.
 
 Перед изменением используй локальный skill
 `.agents/skills/courier-module/SKILL.md`. Проверка из `apps/backend`:
