@@ -18,6 +18,7 @@ codex --cd .                                             # весь репози
 codex --cd apps/backend                                  # backend
 codex --cd apps/backend/src/app/modules/storage          # storage
 codex --cd apps/backend/src/app/modules/health           # health
+codex --cd apps/telegram-bot                             # Telegram bot worker
 codex --cd infra                                         # compose и стек
 ```
 

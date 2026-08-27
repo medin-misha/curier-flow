@@ -14,6 +14,7 @@ Codex строит цепочку `AGENTS.md` и список project skills п�
 | архитектура всего репозитория, аудит, координация сервисов | `codex --cd .` |
 | backend целиком или создание нового модуля | `codex --cd apps/backend` |
 | существующий backend-модуль | `codex --cd apps/backend/src/app/modules/<name>` |
+| Telegram bot worker | `codex --cd apps/telegram-bot` |
 | Docker Compose и окружение стека | `codex --cd infra` |
 
 Переход `cd` внутри уже начатой сессии не заменяет исходный контекст. Если
@@ -26,6 +27,8 @@ Codex строит цепочку `AGENTS.md` и список project skills п�
 ## Карта репозитория
 
 - `apps/backend/` — FastAPI backend; его правила в `apps/backend/AGENTS.md`;
+- `apps/telegram-bot/` — worker Telegram-уведомлений; его правила в
+  `apps/telegram-bot/AGENTS.md`;
 - `infra/` — запуск и управление контейнерами; правила в `infra/AGENTS.md`;
 - `docs/codex-context.md` — человеческое описание контекстной архитектуры.
 
