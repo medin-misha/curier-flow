@@ -1,5 +1,8 @@
 # Courier module
 
+Перед работой прочитай корневой `AGENTS.md` и `apps/backend/AGENTS.md`:
+локальный файл дополняет их, но не рассчитывай на автоматическое объединение.
+
 Модуль владеет aggregate `Courier -> platform_accounts/documents -> File` и
 HTTP-префиксом `/courier`. ORM `File`, S3 primitives и физическая очистка
 остаются в `app.platform.files`/storage; импортировать `app.modules.storage`
@@ -7,6 +10,8 @@ HTTP-префиксом `/courier`. ORM `File`, S3 primitives и физичес�
 
 Критичные инварианты:
 
+- только `POST /courier` публичен; все остальные endpoints этого router
+  точечно защищены `@authenticated` и требуют Admin access JWT;
 - aggregate upload всегда идёт как `staging commit -> S3 без DB-транзакции ->
   короткая final transaction`; успешная final transaction одновременно
   создаёт ready File, Document и `FileConfirmed` outbox;

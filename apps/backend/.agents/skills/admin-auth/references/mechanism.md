@@ -139,7 +139,20 @@ Reset password увеличивает `auth_version` и отзывает все 
 
 - `POST /admin/auth/login`;
 - `POST /admin/auth/refresh`;
-- `POST /admin/auth/logout`.
+- `POST /admin/auth/logout`;
+- `POST /courier`.
+
+Courier endpoints с `@authenticated`:
+
+- `GET /courier`;
+- `GET /courier/{courier_id}`;
+- `PATCH /courier/{courier_id}`;
+- `DELETE /courier/{courier_id}`;
+- `POST /courier/{courier_id}/platform-accounts`;
+- `PATCH /courier/{courier_id}/platform-accounts/{account_id}`;
+- `POST /courier/{courier_id}/documents`;
+- `PATCH /courier/{courier_id}/documents/{document_id}`;
+- `DELETE /courier/{courier_id}/documents/{document_id}`.
 
 Endpoints с `CurrentAdmin`:
 

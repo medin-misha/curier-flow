@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.kernel.db import session as db_session
 from app.kernel.db.session import get_ro_session, get_uow
 from app.kernel.pagination import Page, PageParams
+from app.kernel.security.authentication import authenticated
 from app.modules.courier_module.schemas.requests import (
     CourierAggregateCreate,
     CourierDocumentCreate,
@@ -102,6 +103,7 @@ async def create(
 
 
 @router.get("", summary="List courier aggregates")
+@authenticated
 async def list_page(
     page: PageQuery,
     session: RoSession,
@@ -124,12 +126,14 @@ async def list_page(
 
 
 @router.get("/{courier_id}", summary="Courier aggregate by id")
+@authenticated
 async def retrieve(courier_id: UUID, session: RoSession) -> CourierAggregateResponse:
     """Отдать Courier с accounts и Documents/File."""
     return CourierAggregateResponse.model_validate(await get_courier(courier_id, session=session))
 
 
 @router.patch("/{courier_id}", summary="Update courier fields")
+@authenticated
 async def update_courier(
     courier_id: UUID,
     body: CourierPatch,
@@ -146,6 +150,7 @@ async def update_courier(
     status_code=HTTPStatus.NO_CONTENT,
     summary="Delete a courier aggregate",
 )
+@authenticated
 async def remove_courier(courier_id: UUID, uow: Uow) -> None:
     """Удалить aggregate и поставить все связанные Files на cleanup."""
     await delete_courier(courier_id, session=uow)
@@ -156,6 +161,7 @@ async def remove_courier(courier_id: UUID, uow: Uow) -> None:
     status_code=HTTPStatus.CREATED,
     summary="Add a courier platform",
 )
+@authenticated
 async def add_platform(
     courier_id: UUID,
     body: PlatformAccountCreate,
@@ -171,6 +177,7 @@ async def add_platform(
     "/{courier_id}/platform-accounts/{account_id}",
     summary="Update a courier platform account",
 )
+@authenticated
 async def update_platform(
     courier_id: UUID,
     account_id: UUID,
@@ -188,6 +195,7 @@ async def update_platform(
     status_code=HTTPStatus.CREATED,
     summary="Upload a courier document",
 )
+@authenticated
 async def add_document(
     courier_id: UUID,
     payload: Annotated[str, Form()],
@@ -216,6 +224,7 @@ async def add_document(
     "/{courier_id}/documents/{document_id}",
     summary="Update courier document metadata",
 )
+@authenticated
 async def update_document(
     courier_id: UUID,
     document_id: UUID,
@@ -233,6 +242,7 @@ async def update_document(
     status_code=HTTPStatus.NO_CONTENT,
     summary="Delete a courier document",
 )
+@authenticated
 async def remove_document(courier_id: UUID, document_id: UUID, uow: Uow) -> None:
     """Удалить Document и пометить его File к фоновой очистке."""
     await delete_courier_document(courier_id, document_id, session=uow)

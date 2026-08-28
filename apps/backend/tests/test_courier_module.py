@@ -14,14 +14,18 @@ from uuid import UUID, uuid4
 
 import pytest
 from fastapi import UploadFile
+from fastapi.routing import APIRoute
 from httpx import AsyncClient
 from sqlalchemy import delete, event, func, select, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
+from app.kernel.config import settings
 from app.kernel.db import session as session_module
 from app.kernel.events.models import OutboxMessage
+from app.kernel.security.authentication import is_authenticated
+from app.kernel.security.tokens import issue_tokens, jwt_settings
 from app.modules.courier_module import handlers as courier_handlers
 from app.modules.courier_module.models import (
     Courier,
@@ -51,6 +55,8 @@ from app.platform.taskiq import SCHEDULE_ATTR, task_name
 from tests.asgi import app_client, build_app
 
 PNG: Final = "image/png"
+PROBLEM_JSON: Final = "application/problem+json"
+ADMIN_ID: Final = UUID(int=103)
 POLICY: Final = FilePolicy(
     max_file_size=1024,
     allowed_content_types=frozenset({PNG, "application/pdf"}),
@@ -161,6 +167,12 @@ async def client(
         lifespan=True,
         raise_app_exceptions=False,
     ) as http:
+        access = issue_tokens(
+            ADMIN_ID,
+            settings=jwt_settings,
+            claims={"kind": "admin"},
+        ).access_token
+        http.headers["authorization"] = f"Bearer {access}"
         yield http
 
 
@@ -185,6 +197,79 @@ async def post_courier(
 ) -> Any:
     """Создать Courier aggregate и вернуть HTTP response."""
     return await client.post("/courier", **multipart(payload or BASE_COURIER, contents))
+
+
+async def test_create_is_public_and_every_other_route_requires_bearer(
+    client: AsyncClient,
+) -> None:
+    authorization = client.headers.pop("authorization")
+    try:
+        payload = {**BASE_COURIER, "documents": []}
+        created = await post_courier(client, payload, ())
+
+        assert created.status_code == HTTPStatus.CREATED, created.text
+        courier = created.json()
+        account_id = courier["platform_accounts"][0]["id"]
+        document_id = uuid4()
+        protected_requests: tuple[tuple[str, str, dict[str, Any]], ...] = (
+            ("GET", "/courier", {}),
+            ("GET", f"/courier/{courier['id']}", {}),
+            ("PATCH", f"/courier/{courier['id']}", {"json": {}}),
+            ("DELETE", f"/courier/{courier['id']}", {}),
+            (
+                "POST",
+                f"/courier/{courier['id']}/platform-accounts",
+                {"json": {"platform": "foodora"}},
+            ),
+            (
+                "PATCH",
+                f"/courier/{courier['id']}/platform-accounts/{account_id}",
+                {"json": {"status": "active"}},
+            ),
+            (
+                "POST",
+                f"/courier/{courier['id']}/documents",
+                {
+                    "data": {
+                        "payload": json.dumps(
+                            {"type": "identity_card", "purpose": "platform_onboarding"}
+                        )
+                    },
+                    "files": {"file": ("identity.png", b"identity", PNG)},
+                },
+            ),
+            (
+                "PATCH",
+                f"/courier/{courier['id']}/documents/{document_id}",
+                {"json": {"purpose": "other"}},
+            ),
+            (
+                "DELETE",
+                f"/courier/{courier['id']}/documents/{document_id}",
+                {},
+            ),
+        )
+
+        for method, path, kwargs in protected_requests:
+            response = await client.request(method, path, **kwargs)
+
+            assert response.status_code == HTTPStatus.UNAUTHORIZED, (
+                method,
+                path,
+                response.text,
+            )
+            assert response.headers["content-type"] == PROBLEM_JSON
+            assert response.json() == {
+                "type": f"{settings.errors_base_url}/unauthorized",
+                "title": "Unauthorized",
+                "status": HTTPStatus.UNAUTHORIZED,
+                "detail": "Authentication is required for this operation",
+                "instance": path,
+                "request_id": response.headers["x-request-id"],
+                "reason": "missing-token",
+            }
+    finally:
+        client.headers["authorization"] = authorization
 
 
 async def counts() -> tuple[int, int, int, int, int]:
@@ -793,12 +878,31 @@ async def test_upload_file_is_closed_on_natural_key_hit(
 def test_manifest_openapi_and_task_contract() -> None:
     app = build_app([courier_module])
     paths = app.openapi()["paths"]
+    assert courier_module.router is not None
+    route_auth = {
+        (method, f"{courier_module.url_prefix}{route.path}"): is_authenticated(route.endpoint)
+        for route in courier_module.router.routes
+        if isinstance(route, APIRoute)
+        for method in route.methods or ()
+    }
 
     assert courier_module.url_prefix == "/courier"
     assert courier_module.models == "app.modules.courier_module.models"
     assert courier_module.tasks == (retention_task,)
     assert getattr(retention_task, SCHEDULE_ATTR) == [{"cron": "29 2 * * *"}]
     assert task_name(courier_module, retention_task) == "courier_module.purge_expired_documents"
+    assert route_auth == {
+        ("POST", "/courier"): False,
+        ("GET", "/courier"): True,
+        ("GET", "/courier/{courier_id}"): True,
+        ("PATCH", "/courier/{courier_id}"): True,
+        ("DELETE", "/courier/{courier_id}"): True,
+        ("POST", "/courier/{courier_id}/platform-accounts"): True,
+        ("PATCH", "/courier/{courier_id}/platform-accounts/{account_id}"): True,
+        ("POST", "/courier/{courier_id}/documents"): True,
+        ("PATCH", "/courier/{courier_id}/documents/{document_id}"): True,
+        ("DELETE", "/courier/{courier_id}/documents/{document_id}"): True,
+    }
     assert "200" in paths["/courier"]["post"]["responses"]
     assert "/courier/{courier_id}/documents" not in {
         path for path, methods in paths.items() if "get" in methods
