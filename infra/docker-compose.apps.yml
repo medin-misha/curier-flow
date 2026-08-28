@@ -30,6 +30,9 @@ x-backend: &backend
     DATABASE_DSN: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
     RABBITMQ_DSN: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
     REDIS_DSN: redis://redis:6379/0
+    # Секрет Telegram нужен только опциональному worker и не должен попадать в
+    # окружение API/backend worker через общий env_file.
+    TELEGRAM_BOT_TOKEN: ""
     # Внутренний адрес хранилища: по нему в MinIO ходит само приложение.
     S3_ENDPOINT_URL: http://minio:9000
     # Ключи приложения — это корневые ключи MinIO, взятые из тех же переменных,
@@ -83,6 +86,9 @@ services:
     stop_grace_period: 40s
 
   telegram-bot:
+    # Makefile включает профиль только при непустом TELEGRAM_BOT_TOKEN. Пустой
+    # token поэтому не создаёт контейнер и не запускает worker даже кратковременно.
+    profiles: ["telegram"]
     restart: unless-stopped
     build:
       context: ../apps/telegram-bot

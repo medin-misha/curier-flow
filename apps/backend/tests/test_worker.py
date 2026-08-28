@@ -140,7 +140,7 @@ def test_system_module_joins_the_registry_last() -> None:
 
 
 def test_worker_is_runnable_as_a_module() -> None:
-    """`python -m app.worker` — точка входа образа и цели `make worker`."""
+    """Стадия worker запускает модуль через его стандартный guard."""
     tree = ast.parse(WORKER_SOURCE.read_text(encoding="utf-8"), filename=str(WORKER_SOURCE))
     guards = [
         node

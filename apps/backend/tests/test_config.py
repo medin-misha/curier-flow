@@ -56,5 +56,5 @@ def test_module_singleton_is_ready_to_use() -> None:
 
 
 def test_unknown_env_vars_are_ignored() -> None:
-    """В .env лежат и переменные docker compose; падать на них нельзя."""
+    """В .env лежат настройки других подсистем; падать на них нельзя."""
     assert Settings.model_config["extra"] == "ignore"

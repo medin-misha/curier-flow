@@ -23,7 +23,8 @@ TaskIQ и консьюмеры RabbitMQ (доменных событий и вн
 
 ## Решение
 
-Один процесс `python -m app.worker`. В нём:
+Один процесс `app.worker` в стадии worker Dockerfile, запускаемой через
+`infra/`. В нём:
 
 - релей outbox — как периодическая задача TaskIQ;
 - шедулер TaskIQ (`LabelScheduleSource`: расписание читается из меток задач);

@@ -27,8 +27,8 @@
 | Релей не теряет и не дублирует события | `tests/test_outbox.py` |
 | Повторная доставка безвредна | `tests/test_idempotency.py`, `tests/test_domain_events.py` |
 | `Idempotency-Key` защищает запись | `tests/test_http_idempotency.py` |
-| Модели совпадают с миграциями | `uv run alembic check` (CI job `migrations`) |
-| Каждая миграция откатывается | `uv run alembic downgrade base` (CI job `migrations`) |
+| Модели совпадают с миграциями | `uv run alembic check` |
+| Изменённая миграция откатывается | `uv run alembic downgrade -1 && uv run alembic upgrade head` на отдельной локальной базе |
 | Покрытие `app.kernel` не ниже 85% | `make test` |
 | Типы, формат, докстринги ядра | `make check` |
 | Внешний I/O вне транзакции (новый модуль) | ревью + сторож в тестах модуля |
@@ -44,7 +44,7 @@ uv run pytest tests/test_http_idempotency.py -v      # ключи HTTP (нуже
 uv run pytest tests/test_commit_before_response.py -v # коммит раньше ответа (docker)
 uv run pytest tests/test_idempotency.py -v           # отметки сообщений
 uv run pytest tests/test_security.py -v              # пароли и JWT
-uv run alembic upgrade head && uv run alembic check
+make -C ../../infra migrate && uv run alembic check
 ```
 
 | Утверждение | Тест |

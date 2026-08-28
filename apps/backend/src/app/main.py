@@ -1,4 +1,4 @@
-"""Точка входа HTTP-приложения: `uvicorn app.main:app`.
+"""Точка входа HTTP-контейнера, которым управляет infra Compose.
 
 Процесс uvicorn обслуживает только HTTP. Консьюмеры RabbitMQ, задачи TaskIQ и
 релей outbox живут в `worker.py`: фоновая работа в веб-процессе умирает вместе
@@ -52,6 +52,5 @@ def create_app(modules: Sequence[Module] = MODULES) -> FastAPI:
 
 configure_logging()
 
-#: Приложение для uvicorn. Собирается на импорте модуля, поэтому в командной
-#: строке достаточно указать `app.main:app`.
+#: ASGI-приложение для стадии api в Dockerfile. Собирается на импорте модуля.
 app = create_app()

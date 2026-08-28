@@ -11,7 +11,7 @@
 - [Что уже готово из коробки](#что-уже-готово-из-коробки)
 - [Архитектура](#архитектура)
 - [Как добавить модуль](#как-добавить-модуль)
-- [Outbox на примере: заказ → уведомление в Telegram](#outbox-на-примере-заказ--уведомление-в-telegram)
+- [Outbox на примере: Courier → уведомление в Telegram](#outbox-на-примере-courier--уведомление-в-telegram)
 - [Воркер: что в нём живёт и почему не в uvicorn](#воркер-что-в-нём-живёт-и-почему-не-в-uvicorn)
 - [Команды](#команды)
 - [Документация](#документация)
@@ -20,7 +20,7 @@
 
 | Что | Зачем |
 | --- | --- |
-| **Docker** и **docker compose** | PostgreSQL, RabbitMQ, Redis, MinIO; тесты поднимают свои контейнеры через testcontainers |
+| **Docker** с Compose plugin | PostgreSQL, RabbitMQ, Redis, MinIO; тесты поднимают свои контейнеры через testcontainers |
 | **[uv](https://docs.astral.sh/uv/)** | зависимости и запуск: `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | **make** | команды разработки backend и управление стеком через `infra/` |
 
@@ -36,9 +36,22 @@ Python ставить отдельно не нужно: версию из `.pyth
 cp infra/.env.example infra/.env
 make -C apps/backend install
 make -C infra up
-docker compose -f infra/docker-compose.apps.yml exec api alembic upgrade head
 curl -s localhost:8000/health/ready
 ```
+
+Перед первым `make -C infra up` замените пример
+`ADMIN_BOOTSTRAP_PASSWORD=change-me-before-first-start` в `infra/.env` на свой
+секрет длиной 12–128 символов. `ADMIN_BOOTSTRAP_USERNAME` задаёт логин первого
+администратора, а необязательный положительный `ADMIN_BOOTSTRAP_TELEGRAM_ID` —
+его Telegram user ID. Bootstrap выполняется только при пустой таблице `admins`;
+после создания администратора bootstrap credentials можно удалить из
+`infra/.env`.
+
+Telegram worker для запуска остального стека необязателен. Если
+`TELEGRAM_BOT_TOKEN` пуст, `make -C infra up` выводит предупреждение, не создаёт
+его контейнер и продолжает запуск. Чтобы включить worker, задайте token в
+игнорируемом `infra/.env` или в shell-окружении; значение из shell имеет
+стандартный приоритет Compose над файлом.
 
 В ответ приходит
 
@@ -55,11 +68,14 @@ curl -s localhost:8000/health/ready
 
 1. `infra/.env` — единое окружение всего docker-стека;
 2. `make -C apps/backend install` — зависимости всех групп и git-хуки;
-3. `make -C infra up` — поднимает PostgreSQL, RabbitMQ, Redis, MinIO, затем
-   процессы `api` (порт 8000) и `worker`. Первый запуск собирает образы, это
-   несколько минут; дальше — секунды;
-4. Alembic внутри контейнера `api` накатывает схему базы в том же окружении;
-5. проверка готовности.
+3. `make -C infra up` последовательно поднимает PostgreSQL, RabbitMQ, Redis и
+   MinIO до healthy, собирает образ API и запускает одноразовый контейнер с
+   `alembic upgrade head`, а затем собирает и поднимает приложения. Команда
+   Alembic переопределяет command сервиса `api`, поэтому uvicorn и lifespan на
+   этапе миграции не стартуют. Когда API запускается, таблица `admins` уже
+   существует и lifespan может создать первого администратора. Telegram worker
+   запускается только при непустом `TELEGRAM_BOT_TOKEN`;
+4. проверка готовности.
 
 Дальше можно потрогать шаблон руками:
 
@@ -139,15 +155,16 @@ make -C infra delete       # остановить и удалить данные
 
 - `ruff` (формат + ~25 групп правил, включая запрет `HTTPException`, наивного
   UTC и `os.environ`), `mypy` (строгий, особенно строгий к ядру),
-  `import-linter` (правила слоёв), `pre-commit`, GitHub Actions;
+  `import-linter` (правила слоёв), `pre-commit`, локальные `make check` и
+  `make test`;
 - 400+ тестов на настоящих Postgres, RabbitMQ, Redis и MinIO через
   testcontainers, включая архитектурные проверки: «хендлер не ходит в базу»,
   «сервис не знает про HTTP», «модуль не коммитит», «каждый модуль в реестре».
 
 **AI-native**
 
-- запускайте backend-задачи через `codex --cd apps/backend`, а существующий
-  модуль — через `codex --cd apps/backend/src/app/modules/<name>`;
+- выбирайте минимальный рабочий каталог OpenCode: `apps/backend/` для общей
+  задачи, `apps/backend/src/app/modules/<name>/` для существующего модуля;
 - `AGENTS.md` содержит только обязательные инварианты и маршрутизацию;
 - `.agents/rules/` хранит подробные backend-правила по типам изменений;
 - `.agents/skills/` хранит backend-процессы: `new-module`,
@@ -155,8 +172,8 @@ make -C infra delete       # остановить и удалить данные
 - у сложного модуля есть короткий `AGENTS.md` и локальный skill с
   тематическими `references/`.
 
-Полная схема областей запуска и контекстные бюджеты описаны в
-[`../../docs/codex-context.md`](../../docs/codex-context.md).
+Схема рабочих областей и контекстные бюджеты описаны в
+[корневом `AGENTS.md`](../../AGENTS.md).
 
 ## Архитектура
 
@@ -256,8 +273,8 @@ MODULES: Final[tuple[Module, ...]] = (health_module, storage_module, orders_modu
 
 ## Как добавить модуль
 
-Не пишите каркас руками — запустите `codex --cd apps/backend` и используйте
-skill **`.agents/skills/new-module/SKILL.md`**.
+Не пишите каркас руками — начните OpenCode-сессию с рабочим каталогом
+`apps/backend/` и используйте skill **`.agents/skills/new-module/SKILL.md`**.
 Скажите агенту «создай модуль orders с ресурсом заказов и событием о создании»,
 и он пройдёт весь путь: файлы, манифест, строка в `MODULES`, миграция,
 `AGENTS.md` модуля, тесты.
@@ -277,171 +294,258 @@ skill **`.agents/skills/new-module/SKILL.md`**.
 `make test` без правок, а `git status` показывает изменения **только** внутри
 каталога модуля плюс одну строку в `MODULES` (плюс миграция и тесты).
 
-## Outbox на примере: заказ → уведомление в Telegram
+## Outbox на примере: Courier → уведомление в Telegram
 
-Задача: при создании заказа отправить сообщение в Telegram. Модуль `orders`
-ничего не знает про Telegram, модуль `notifications` ничего не знает про
-заказы.
+Задача: после фактического создания Courier отправить каждому активному Admin
+с заданным `telegram_id` по одному сообщению на каждую платформу Courier.
+`courier_module` ничего не знает про Admin и Telegram; Admin строит локальную
+проекцию события и fan-out, а Telegram отправляет отдельный внешний worker.
 
-### 1. Сервис заказа сообщает о факте
+### 1. Courier сообщает о факте
+
+Владелец события объявляет полный межмодульный факт:
 
 ```python
-# src/app/modules/orders/services.py
-async def create_order(request: OrderCreate, *, session: AsyncSession) -> Order:
-    """Создать заказ и сообщить об этом остальному приложению."""
-    order = await CRUD.create(Order, request, session, owner_id=actor_id.get())
-    emit(session, OrderCreated(order_id=order.id, total=order.total, owner_id=order.owner_id))
-    return order
+# src/app/modules/courier_module/events.py
+class CourierRegistered(DomainEvent):
+    topic: ClassVar[str] = "courier.registered"
+
+    courier_id: UUID
+    full_name: str = Field(min_length=1, max_length=255)
+    contact_platform: str | None = Field(default=None, max_length=32)
+    contact: str | None = Field(default=None, max_length=255)
+    platforms: list[DeliveryPlatform] = Field(min_length=1, max_length=3)
 ```
 
-`emit()` не отправляет ничего. Он делает один `session.add()` — кладёт строку в
-таблицу `outbox` **в ту же транзакцию**, в которой создаётся заказ. Ни сети, ни
-`await`, ни брокера.
-
-### 2. Подписчик реагирует
+Только winner-ветка `_finalize_new_aggregate()` после успешного `INSERT Courier`
+создаёт событие:
 
 ```python
-# src/app/modules/notifications/events.py
-# Это локальная проекция чужого топика, а не импорт из orders.
-class OrderCreated(DomainEvent):
-    topic: ClassVar[str] = "order.created"
-
-    order_id: UUID
-    total: Decimal
-    owner_id: UUID
-
-
-class OrderTelegramNotificationCreated(DomainEvent):
-    topic: ClassVar[str] = "order.telegram_notification.created"
-
-    chat_id: int
-    order_id: UUID
-    total: Decimal
+# src/app/modules/courier_module/services/couriers.py
+emit(
+    session,
+    CourierRegistered(
+        courier_id=inserted_id,
+        full_name=request.full_name,
+        contact_platform=request.contact_platform,
+        contact=request.contact,
+        platforms=[account.platform for account in request.platform_accounts],
+    ),
+)
 ```
 
+`emit()` ничего не отправляет в сеть. Он делает `session.add()` строки `outbox`
+в той же финальной транзакции, что создаёт Courier aggregate. Natural-key
+repeat и проигравшая конкурентная вставка не создают `CourierRegistered`.
+
+### 2. Admin строит локальную проекцию и второй outbox-факт
+
+Admin не импортирует класс из `courier_module`: тот же topic описан локальной
+Pydantic-схемой. Здесь же объявлен точный пяти-полевый контракт внешнего
+Telegram worker:
+
 ```python
-# src/app/modules/notifications/subscribers.py
-@subscribe(OrderCreated)
-async def prepare_telegram_notification(
-    event: OrderCreated,
+# src/app/modules/admin/events.py
+class DeliveryPlatform(StrEnum):
+    BOLT_FOOD = "bolt_food"
+    FOODORA = "foodora"
+    WOLT = "wolt"
+
+
+class CourierRegistered(DomainEvent):
+    topic: ClassVar[str] = "courier.registered"
+
+    courier_id: UUID
+    full_name: str = Field(min_length=1, max_length=255)
+    contact_platform: str | None = Field(default=None, max_length=32)
+    contact: str | None = Field(default=None, max_length=255)
+    platforms: list[DeliveryPlatform] = Field(min_length=1, max_length=3)
+
+
+class CourierRegistrationTelegramNotificationCreated(DomainEvent):
+    topic: ClassVar[str] = "courier.registration.telegram_notification.created"
+
+    telegram_id: int = Field(gt=0, le=2**63 - 1)
+    full_name: str = Field(min_length=1, max_length=255)
+    contact_platform: str | None = Field(default=None, max_length=32)
+    contact: str | None = Field(default=None, max_length=255)
+    platform: DeliveryPlatform
+```
+
+Зарегистрированный subscriber передаёт факт транзакционному fan-out сервису:
+
+```python
+# src/app/modules/admin/subscribers.py
+@subscribe(CourierRegistered)
+async def handle_courier_registered(
+    event: CourierRegistered,
     session: AsyncSession,
 ) -> None:
-    """Зафиксировать непотеряемое уведомление без внешнего I/O."""
-    emit(
-        session,
-        OrderTelegramNotificationCreated(
-            chat_id=notifications_settings.chat_id,
-            order_id=event.order_id,
-            total=event.total,
-        ),
-    )
+    await fan_out_courier_registration_notifications(event, session=session)
 ```
 
+Сервис снимает snapshot только активных Admin с non-null `telegram_id` и
+создаёт отдельное событие для каждой пары Admin/platform:
+
 ```python
-# src/app/modules/notifications/module.py
-telegram_topology = TopologyDecl(
-    exchange="domain.events",
+# src/app/modules/admin/services/notifications.py
+telegram_ids = (
+    await session.scalars(
+        select(Admin.telegram_id).where(
+            Admin.is_active.is_(True),
+            Admin.telegram_id.is_not(None),
+        )
+    )
+).all()
+
+for telegram_id in telegram_ids:
+    if telegram_id is None:
+        continue
+    for platform in event.platforms:
+        emit(
+            session,
+            CourierRegistrationTelegramNotificationCreated(
+                telegram_id=telegram_id,
+                full_name=event.full_name,
+                contact_platform=event.contact_platform,
+                contact=event.contact,
+                platform=platform,
+            ),
+        )
+```
+
+Эти события попадают во второй набор строк `outbox` атомарно с отметкой
+`processed_messages` входного `courier.registered`.
+
+### 3. Backend объявляет topology, внешний worker потребляет очередь
+
+Admin-манифест привязывает точный routing key к durable очереди с retry/DLQ:
+
+```python
+# src/app/modules/admin/module.py
+TELEGRAM_NOTIFICATIONS_TOPOLOGY: Final = TopologyDecl(
+    exchange=DOMAIN_EVENTS_EXCHANGE,
     queue="telegram.notifications",
-    routing_key=OrderTelegramNotificationCreated.topic,
+    routing_key=CourierRegistrationTelegramNotificationCreated.topic,
+    exchange_type="topic",
+    durable=True,
+    dead_letter=True,
     retry_ttl_ms=30_000,
 )
 
-notifications_module = Module(
-    name="notifications",
-    subscribers=(prepare_telegram_notification,),
-    topology=(telegram_topology,),
+admin_module: Final = Module(
+    name="admin",
+    router=router,
+    settings=AdminSettings,
+    models="app.modules.admin.models",
+    subscribers=(handle_courier_registered,),
+    tasks=(purge_expired_refresh_tokens,),
+    topology=(TELEGRAM_NOTIFICATIONS_TOPOLOGY,),
+    lifespan=admin_lifespan(settings=admin_settings),
 )
 ```
 
-Модуль `orders` не импортирует `notifications`, а `notifications` не импортирует
-даже класс события `orders`: межмодульный контракт — стабильный topic и
-локальная Pydantic-схема. Подписчик не вызывает Telegram в открытой
-транзакции, а атомарно с `processed_messages` создаёт второй outbox-факт.
-Durable очередь объявляется backend worker до запуска релея, а отдельный
-Telegram service потребляет её без `ConsumerDecl` в backend.
+`DOMAIN_EVENTS_EXCHANGE` — это `domain.events`. В Admin нет `ConsumerDecl` и у
+`admin_module` нет `consumers=`: для этой очереди backend worker только создаёт
+topology до запуска релея. Самостоятельный `apps/telegram-bot` пассивно
+проверяет очередь `telegram.notifications` и принимает только routing key
+`courier.registration.telegram_notification.created`. Его независимая строгая
+модель содержит те же пять полей:
+
+```python
+# ../telegram-bot/src/telegram_bot/contracts.py
+class CourierRegistrationNotification(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    telegram_id: StrictInt = Field(gt=0, le=SIGNED_INT64_MAX)
+    full_name: FullName
+    contact_platform: ContactPlatform | None
+    contact: Contact | None
+    platform: Platform
+```
+
+`Platform` допускает только `bolt_food`, `foodora` и `wolt`; оба nullable-поля
+обязаны присутствовать в payload со значением строки или `null`.
 
 Для личной доставки Admin должен заранее открыть бота и нажать `/start`:
 одного корректного `telegram_id` недостаточно, чтобы бот начал диалог.
-Notification payload и DLQ содержат PII, поэтому production-доступ к RabbitMQ
+Пяти-полевый payload и DLQ содержат PII, поэтому production-доступ к RabbitMQ
 management и права bot-пользователя должны быть минимальными.
 
-### 3. Что происходит между ними
+### 4. Что происходит между ними
 
 ```
-POST /orders
+POST /courier
    │
-   ├─ транзакция запроса:  INSERT orders …
-   │                       INSERT outbox (topic='order.created', payload={…})
-   ├─ COMMIT ─────────────── либо есть и заказ, и событие, либо нет ни того, ни другого
-   └─ 201 Created клиенту
+   ├─ финальная транзакция:  INSERT Courier aggregate …
+   │                         INSERT outbox (
+   │                           topic='courier.registered',
+   │                           payload={courier_id, full_name,
+   │                                    contact_platform, contact, platforms})
+   ├─ COMMIT ──────────────── либо есть и aggregate, и событие, либо нет обоих
+   └─ 201 Created клиенту; natural-key repeat возвращает 200 без события
 
-   … в это время в процессе worker, раз в OUTBOX_RELAY_INTERVAL секунд …
+   … в это время в процессе backend worker …
 
    релей: SELECT … WHERE published_at IS NULL FOR UPDATE SKIP LOCKED
-          publish → RabbitMQ (exchange domain.events, routing_key order.created)
+          publish → RabbitMQ (
+            exchange='domain.events', routing_key='courier.registered')
           UPDATE outbox SET published_at = now()
 
-   консьюмер: получил сообщение
-              INSERT processed_messages (message_id)   ← в транзакции
-              INSERT outbox (topic='order.telegram_notification.created', …)
-              COMMIT → ack
+   backend domain-event consumer:
+          INSERT processed_messages (message_id)
+          INSERT outbox × (active Admin с telegram_id × platform) (
+            topic='courier.registration.telegram_notification.created',
+            payload={telegram_id, full_name, contact_platform, contact, platform})
+          COMMIT → ACK
 
-   релей: publish order.telegram_notification.created → telegram.notifications
-   внешний Telegram service: sendMessage → ACK
+   релей: publish courier.registration.telegram_notification.created
+          → domain.events → telegram.notifications
+   внешний apps/telegram-bot: validate → sendMessage → ACK / retry / DLQ
 ```
 
 ### Почему HTTP-статус в этой цепочке не участвует
 
-Соблазнительный вариант — «ручка вернула 201, значит публикуем» — ломается на
-каждом шаге:
+Для нового Courier handler возвращает `201`, для natural-key repeat — `200`.
+Это описание результата для HTTP-клиента, а не триггер публикации:
 
-- **Ответ не равен коммиту.** Между `return` из ручки и коммитом транзакции
-  ещё может упасть отложенное ограничение или случиться дедлок. Публикация «по
-  2xx» отправила бы уведомление о заказе, которого нет в базе.
-- **Публикация не равна успеху.** Если RabbitMQ лежит, `publish` внутри
-  запроса либо повесит клиента на таймауте, либо потеряет событие. Заказ при
-  этом создан — и уведомление не уедет уже никогда.
-- **Ручка — не единственный вход.** Тот же `create_order` вызывается из задачи,
-  из консьюмера и из скрипта миграции данных. У них никакого HTTP-статуса нет,
-  а событие обязано уехать так же.
-- **Откат обязан уносить и событие.** Если транзакция откатилась, строка outbox
-  исчезает вместе с заказом. Публиковать нечего — и это не требует ни одной
-  строки кода.
+- `_finalize_new_aggregate()` вызывает `emit()` только после успешной вставки
+  нового Courier; финальный `session.begin()` коммитит aggregate и outbox
+  вместе;
+- при откате исчезают и бизнес-данные, и строка outbox, поэтому уведомлять не о
+  чем;
+- при недоступном RabbitMQ Courier уже может быть сохранён, но релей повторит
+  публикацию оставшейся строки outbox после восстановления брокера;
+- natural-key repeat возвращает `200` без события потому, что нового факта и
+  вызова `emit()` не было, а не из-за проверки HTTP-статуса.
 
-Поэтому триггер — **успешный коммит**, а не ответ. Событие и данные становятся
-видимыми одним `COMMIT`, а доставка — забота релея, который переживёт и падение
-брокера, и перезапуск процесса.
+Триггер доставки — **успешный коммит**, а не ответ. Событие и данные становятся
+видимыми одним `COMMIT`, а релей переживает падение брокера и перезапуск
+процесса.
 
 Цена: доставка **at-least-once**. Релей может опубликовать сообщение и упасть
-до того, как отметит строку; брокер может доставить его дважды. Поэтому
-подписчик обязан быть идемпотентным, а отметка `processed_messages` стоит в той
-же транзакции, что и его работа.
+до отметки строки; брокер может доставить его дважды. Поэтому backend subscriber
+защищён `processed_messages`, записанным в той же транзакции, что и второй
+outbox-факт.
 
 Внешний HTTP-вызов из subscriber transaction запрещён: его нельзя атомарно
 связать с `processed_messages`, а блокировка базы будет ждать чужую сеть.
-Непотеряемая интеграция создаёт второй outbox-факт, как в примере выше;
-отдельный consumer вызывает Telegram и подтверждает AMQP-сообщение только
-после ответа API. Окно «Telegram принял запрос, consumer умер до ACK» всё равно
-оставляет допустимый для at-least-once доставки дубль.
+Внешний Telegram worker подтверждает AMQP-сообщение только после успешного
+`sendMessage` либо подтверждённой retry copy. Окно «Telegram принял запрос,
+worker завершился до ACK» всё равно оставляет допустимый дубль.
 
 ### Если потерять не жалко
 
 Для эффектов, потеря которых бизнесу безразлична — прогрев кеша, метрика,
-необязательный пинг, — есть `after_commit`:
-
-```python
-after_commit(session, lambda: cache.warm(order.id))
-```
-
-Хук выполняется после успешного коммита и **никаких гарантий не даёт**: процесс,
-упавший между коммитом и хуком, потеряет его молча. Правило выбора одно: если
-на вопрос «а если этот эффект не случится?» ответ длиннее одного слова — нужен
-`emit()`.
+необязательный пинг, — есть `after_commit`. Хук выполняется после успешного
+коммита и **никаких гарантий не даёт**: процесс, упавший между коммитом и хуком,
+потеряет его молча. Правило выбора одно: если на вопрос «а если этот эффект не
+случится?» ответ длиннее одного слова — нужен `emit()`.
 
 ## Воркер: что в нём живёт и почему не в uvicorn
 
-Контейнер `worker` из `infra/docker-compose.apps.yml` запускает
-`python -m app.worker` — один процесс, в котором крутится вся фоновая работа:
+Контейнер `worker` из `infra/docker-compose.apps.yml` запускает один процесс
+`app.worker`, в котором крутится вся фоновая работа:
 
 | Что | Зачем |
 | --- | --- |
@@ -486,24 +590,26 @@ after_commit(session, lambda: cache.warm(order.id))
 | `make install` | зависимости всех групп и git-хуки |
 | `make check` | `ruff format --check`, `ruff check`, `mypy`, `lint-imports` |
 | `make test` | pytest с покрытием; отдельный порог 85% на `app.kernel` |
-| `make migrate` | `alembic upgrade head` |
 | `make revision m="add orders"` | сгенерировать миграцию по моделям |
 
-Команды выше выполняются из `apps/backend/`. Контейнеры запускаются только из
-корня репозитория через `infra/`:
+Команды выше выполняются из `apps/backend/` и не запускают процессы backend.
+Контейнеры и применение миграций управляются только из корня репозитория через
+`infra/`:
 
 | Команда | Что делает |
 | --- | --- |
 | `make -C infra help` | показать команды управления стеком |
-| `make -C infra up` | поднять весь стек |
+| `make -C infra up` | последовательно поднять инфраструктуру, применить миграции и запустить приложения; Telegram worker — только с token |
 | `make -C infra up-infra` | поднять только инфраструктуру |
-| `make -C infra reboot-apps` | пересобрать и пересоздать `api` и `worker` |
+| `make -C infra migrate` | собрать образ API и выполнить `alembic upgrade head` без uvicorn/lifespan |
+| `make -C infra reboot-apps` | пересобрать и пересоздать приложения; Telegram worker — только с token |
 | `make -C infra down` | остановить весь стек с сохранением данных |
 
 `make check` и `make test` обязаны быть зелёными перед каждым коммитом. Тестам
 нужен Docker: они поднимают настоящие Postgres, RabbitMQ, Redis и MinIO —
 шаблон опирается на `JSONB`, `SKIP LOCKED`, `ON CONFLICT` и подпись SigV4, и
-зелёный прогон на SQLite не значил бы ничего.
+зелёный прогон на SQLite не значил бы ничего. При изменении схемы дополнительно
+выполняется локальный Alembic-цикл из `.agents/skills/pre-commit/SKILL.md`.
 
 ## Документация
 
@@ -517,7 +623,7 @@ after_commit(session, lambda: cache.warm(order.id))
 | `.agents/skills/pre-commit/SKILL.md` | что проверить перед коммитом, включая правила без автоматики |
 | `src/app/modules/health/AGENTS.md` + локальный skill | liveness, readiness и dependency probes |
 | `src/app/modules/storage/AGENTS.md` + локальный skill | двухфазная загрузка и S3 вне транзакции |
-| `../../docs/codex-context.md` | как выбирать `codex --cd` и как устроен progressive disclosure |
+| [`../../AGENTS.md`](../../AGENTS.md) | рабочие области, context discovery и бюджеты |
 | `docs/adr/` | почему приняты спорные решения |
 | `.env.example` | каждая переменная с объяснением, зачем она и чем грозит |
 

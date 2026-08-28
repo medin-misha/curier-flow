@@ -2,7 +2,7 @@
 
 ```bash
 uv run pytest tests/test_storage.py -v      # тесты модуля (нужен docker)
-uv run alembic upgrade head                 # таблица files
+make -C ../../infra migrate                 # таблица files в окружении стека
 uv run alembic check                        # схема совпадает с моделями
 
 # Полный цикл руками (стек поднят из корня через `make -C infra up`):

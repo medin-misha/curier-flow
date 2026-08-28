@@ -32,9 +32,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        # Одного .env хватает и приложению, и docker compose, поэтому в нём есть
-        # переменные, которых нет в этой модели (POSTGRES_*, MINIO_*). Запрет
-        # лишних полей ронял бы старт на ровном месте.
+        # Один .env документирует настройки всех подсистем, поэтому в нём есть
+        # переменные других Settings-классов. Запрет лишних полей ронял бы
+        # старт на ровном месте.
         extra="ignore",
     )
 

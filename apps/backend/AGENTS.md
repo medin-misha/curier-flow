@@ -1,11 +1,14 @@
 # Backend
 
-FastAPI + SQLAlchemy 2.0 async + PostgreSQL. Рабочий каталог команд и skills —
-`apps/backend/`. Контейнеры запускаются только через `../../infra/`.
+FastAPI + SQLAlchemy 2.0 async + PostgreSQL. Рабочий каталог локальных команд
+разработки и skills — `apps/backend/`. API, worker, контейнеры и применение
+миграций запускаются только через `../../infra/`.
 
-Для общей backend-задачи запускай `codex --cd apps/backend`. Для изменения
-существующего модуля запускай Codex из `src/app/modules/<name>`: тогда к этой
-инструкции добавятся `AGENTS.md` и skills конкретного модуля.
+Перед работой прочитай корневой `../../AGENTS.md`: OpenCode выбирает этот файл
+как ближайший, но не объединяет его с родительским. Для общей backend-задачи
+используй `apps/backend/` как рабочий каталог, для существующего модуля —
+`apps/backend/src/app/modules/<name>/`; во втором случае прочитай также
+локальный `AGENTS.md`. Skills от модуля до корня обнаруживаются автоматически.
 
 ## Команды
 
@@ -14,8 +17,8 @@ FastAPI + SQLAlchemy 2.0 async + PostgreSQL. Рабочий каталог ко�
 | `make install` | зависимости и git-хуки |
 | `make check` | формат, ruff, mypy, import-linter |
 | `make test` | pytest с testcontainers и покрытием kernel ≥ 85% |
-| `make migrate` | `alembic upgrade head` |
 | `make revision m="..."` | autogenerate миграции |
+| `make -C ../../infra migrate` | применить миграции в окружении стека |
 | `make -C ../../infra help` | команды управления стеком |
 
 Перед backend-коммитом обязателен skill `pre-commit`; тестам нужен Docker.
@@ -73,5 +76,5 @@ Backend skills находятся в `.agents/skills/` и доступны пр�
 | `pre-commit` | проверка перед backend-коммитом |
 
 У существующего модуля обязательно есть собственный `AGENTS.md`. Не используй
-`new-module` для его изменения: запусти Codex из каталога модуля и используй
-его локальный skill.
+`new-module` для его изменения: выбери каталог модуля рабочим и следуй его
+`AGENTS.md` и указанным там skills.

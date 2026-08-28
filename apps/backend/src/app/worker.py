@@ -1,4 +1,4 @@
-"""Точка входа фонового процесса: `python -m app.worker`.
+"""Точка входа фонового контейнера, которым управляет infra Compose.
 
 Один процесс на всю фоновую работу: воркер TaskIQ, его шедулер, консьюмеры
 RabbitMQ и релей outbox. Разносить их по отдельным контейнерам имеет смысл
@@ -266,7 +266,7 @@ async def run_worker(modules: Sequence[Module] = MODULES) -> None:
 
 
 def main() -> None:
-    """Запустить воркер: цель `make worker` и CMD образа."""
+    """Запустить стадию worker из Dockerfile."""
     configure_logging()
     asyncio.run(run_worker())
 
