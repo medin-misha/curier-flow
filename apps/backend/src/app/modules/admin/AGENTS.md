@@ -1,5 +1,8 @@
 # Admin module
 
+Перед работой прочитай корневой `AGENTS.md` и `apps/backend/AGENTS.md`:
+локальный файл дополняет их, но не рассчитывай на автоматическое объединение.
+
 Модуль владеет администраторами, refresh-токенами и HTTP-префиксом `/admin`.
 Криптографические примитивы остаются в `app.kernel.security`; наружу никогда
 не выходят `hashed_password`, plaintext refresh-токен или bootstrap password.
@@ -26,8 +29,7 @@ notification fan-out, `events.py`/`subscribers.py` — локальные соб
 `tasks.py` — retention, `module.py` — регистрация, topology и startup
 bootstrap. Перед изменением используй
 backend skill `admin-auth`; living contract механизма находится в его
-`references/mechanism.md`. `docs/admin_auth_plan.md` хранит план и журнал
-исходной реализации, а не актуальные инструкции по развитию.
+`references/mechanism.md`.
 
 Проверка из `apps/backend`:
 

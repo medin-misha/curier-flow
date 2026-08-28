@@ -7,6 +7,9 @@ Next.js 15 frontend for May Fleet Solutions. The application has two routes:
 
 The interface and user-facing validation messages are in Russian.
 
+Перед работой прочитай [общие правила](../../AGENTS.md): OpenCode применяет
+этот ближайший файл без автоматического объединения с root.
+
 ## Stack And Commands
 
 - Next.js App Router, React 19, TypeScript in strict mode.
@@ -44,7 +47,10 @@ Keep route files thin. Business rules and derived values belong in pure function
 
 - Keep validation and display hints consistent, especially age limits, phone normalization, and file requirements.
 - Keep validation logic in pure functions and preserve the injectable clock used by age tests.
-- `submitApplication.ts` is currently a typed fake transport. Do not describe it as production-ready or treat client-side file checks as a security boundary.
+- `submitApplication.ts` остаётся нестабильной transport boundary в разработке.
+  Не считай текущую реализацию production-ready или стабильным shipped-
+  контрактом и не рассматривай клиентские проверки файлов как границу
+  безопасности.
 - Changes involving passport or visa uploads require an explicit server-side validation, storage, retention, and privacy design.
 
 ## Styling

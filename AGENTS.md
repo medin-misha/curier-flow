@@ -1,40 +1,71 @@
 # О проекте
 
-CRM для чешских курьерских флотилий — посредников между курьерами и Bolt,
-Foodora, Wolt и похожими сервисами. Система собирает лиды, генерирует договоры,
-ведёт автопарк и расходы.
+CRM для чешских курьерских флотилий-посредников: лиды, договоры, автопарк и
+расходы для Bolt, Foodora и Wolt. Включает публичный лендинг с мастером заявки,
+UI управления Admin/Courier и Telegram-уведомления.
 
 ## Выбор области работы
 
-Codex строит цепочку `AGENTS.md` и список project skills по каталогу, из
-которого запущена сессия. Одна сессия должна иметь одну основную область:
+OpenCode применяет ближайший `AGENTS.md`; родительские файлы не объединяются,
+поэтому вложенный файл явно ссылается на root. Project skills из
+`.agents/skills/` ищутся по пути до корня worktree.
 
-| Задача | Запуск |
+Выбери рабочий каталог по области задачи:
+
+| Задача | Рабочий каталог |
 | --- | --- |
-| архитектура всего репозитория, аудит, координация сервисов | `codex --cd .` |
-| backend целиком или создание нового модуля | `codex --cd apps/backend` |
-| существующий backend-модуль | `codex --cd apps/backend/src/app/modules/<name>` |
-| Telegram bot worker | `codex --cd apps/telegram-bot` |
-| Docker Compose и окружение стека | `codex --cd infra` |
+| архитектура, аудит, координация сервисов | корень репозитория |
+| backend или новый backend-модуль | `apps/backend/` |
+| существующий backend-модуль | `apps/backend/src/app/modules/<name>/` |
+| public landing/application wizard | `apps/frontend-site/` |
+| Admin/Courier management UI | `apps/frontend-admin/` |
+| Telegram bot worker | `apps/telegram-bot/` |
+| Docker Compose и окружение | `infra/` |
 
-Переход `cd` внутри уже начатой сессии не заменяет исходный контекст. Если
-основная область задачи изменилась, начни новую сессию с правильным `--cd`.
-
-Межсервисную задачу сначала разложи из корня на контракты и изменения каждого
-сервиса, затем реализуй части в отдельных service-scoped сессиях. Финальную
-интеграционную проверку выполняй из корня или `infra/`.
+Межсервисную задачу разложи из root, части реализуй в service-scoped сессиях,
+а интеграцию проверь из root или `infra/`.
 
 ## Карта репозитория
 
-- `apps/backend/` — FastAPI backend; его правила в `apps/backend/AGENTS.md`;
-- `apps/telegram-bot/` — worker Telegram-уведомлений; его правила в
-  `apps/telegram-bot/AGENTS.md`;
-- `infra/` — запуск и управление контейнерами; правила в `infra/AGENTS.md`;
-- `docs/codex-context.md` — человеческое описание контекстной архитектуры.
+- `apps/backend/` — FastAPI backend ([правила](apps/backend/AGENTS.md));
+- `apps/frontend-site/` — public landing/application wizard
+  ([правила](apps/frontend-site/AGENTS.md));
+- `apps/frontend-admin/` — Admin/Courier management UI
+  ([правила](apps/frontend-admin/AGENTS.md));
+- `apps/telegram-bot/` — worker Telegram-уведомлений
+  ([правила](apps/telegram-bot/AGENTS.md));
+- `infra/` — контейнеры и окружение ([правила](infra/AGENTS.md)).
 
-Перед изменением вложенной области прочитай ближайший `AGENTS.md`, если
-текущая сессия не загрузила его автоматически. Более близкая инструкция имеет
-приоритет в своей области.
+## Что где хранится
+
+| Что | Где |
+| --- | --- |
+| router и критические инварианты области | ближайший `AGENTS.md` |
+| повторяемый workflow | `.agents/skills/<name>/SKILL.md` |
+| progressive disclosure режима | `references/*.md` внутри skill |
+| детерминированная операция | `scripts/` внутри skill |
+| общая backend policy | `apps/backend/.agents/rules/` |
+
+`SKILL.md` задаёт общий порядок и выбирает references, не дублируя их.
+
+## Бюджеты
+
+- root `AGENTS.md` — до 4 KiB;
+- root + service — до 12 KiB;
+- root + service + module — до 20 KiB;
+- `SKILL.md` — до 12 KiB.
+
+`scripts/check-agent-context.sh` проверяет бюджеты, цепочки и Markdown-ссылки
+на `references/*.md` из skills.
+
+## Новый сервис
+
+1. Создай `apps/<service>/AGENTS.md` со ссылкой на root, командами и
+   инвариантами сервиса.
+2. Service skills добавляй только для повторяемого workflow; общие оставляй в
+   корневом `.agents/skills/`.
+3. Зарегистрируй рабочую область и сервис в корневой карте.
+4. Добавь service chain в `scripts/check-agent-context.sh`.
 
 ## Общие правила
 
@@ -43,5 +74,4 @@ Codex строит цепочку `AGENTS.md` и список project skills п�
 - Контейнерами управляй только через `infra/`; актуальные команды показывает
   `make -C infra help`.
 - Не смешивай изменения разных сервисов в один коммит без общей причины.
-- Любое добавление функциональности заверши проверками своей области и
-  conventional commit через skill `git-commit`.
+- Для коммитов используй скилл `git-commit`.
