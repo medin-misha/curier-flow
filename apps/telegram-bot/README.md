@@ -1,9 +1,9 @@
 # Telegram notification worker
 
-Самостоятельный Python 3.12 service, который читает регистрации Courier из
-RabbitMQ и отправляет plain-text уведомления через Telegram Bot API. Service
-только отправляет сообщения: polling, webhook, команды `/start`, БД и импорты
-из `apps/backend` отсутствуют.
+Готовый самостоятельный sending-only service на Python 3.12, который читает
+регистрации Courier из RabbitMQ и отправляет plain-text уведомления через
+Telegram Bot API. Polling, webhook, обработка команд `/start`, БД и импорты из
+`apps/backend` отсутствуют.
 
 ## Контракт
 
@@ -17,6 +17,11 @@ RabbitMQ и отправляет plain-text уведомления через Te
 Topology создаёт backend. Worker только пассивно проверяет main queue, retry и
 DLQ вместе с их durable/TTL/DLX параметрами. Несовпадение — ошибка
 конфигурации, а отсутствие topology ожидается до запуска backend worker.
+
+При старте worker сначала проверяет token вызовом `getMe`, затем открывает
+robust RabbitMQ connection, ждёт topology и начинает consume с `prefetch=1`.
+Каждый payload строго валидируется, форматируется без Markdown/HTML и
+отправляется через `sendMessage` с отключённым preview ссылок.
 
 ## Локальный запуск
 
@@ -33,6 +38,8 @@ make install
 make run
 ```
 
+Прямой `make run` всегда требует непустой `TELEGRAM_BOT_TOKEN`.
+
 Bot API не может первым начать личный диалог: каждый Admin должен заранее
 открыть бота и нажать `/start`. Если чат не существует или бот заблокирован,
 Telegram 400/403 диагностируется как permanent failure и сообщение уходит в
@@ -46,7 +53,29 @@ make test
 ```
 
 Тесты используют локальный stub Telegram API и не требуют настоящего token или
-внешней сети. Container image собирается и проверяется только через `infra/`.
+внешней сети. `make check` проверяет agent context, lockfile, формат, lint и
+типы; `make test` запускает unit- и stub-integration тесты с покрытием.
+
+## Контейнерный запуск
+
+Контейнерами управляет только каталог `infra/`. Из корня репозитория доступны:
+
+```bash
+make -C infra help
+make -C infra up
+make -C infra reboot-apps
+```
+
+`up` поднимает инфраструктуру до healthy, применяет миграции и затем запускает
+приложения. При пустом `TELEGRAM_BOT_TOKEN` Makefile выводит предупреждение и
+пропускает Telegram Compose profile; при непустом token профиль включается и
+worker собирается и запускается. После изменения кода или окружения
+`reboot-apps` пересобирает и пересоздаёт приложения. `make -C infra check`
+валидирует Compose-конфигурацию и agent context, но не собирает image.
+
+Dockerfile устанавливает только зафиксированные runtime-зависимости, запускает
+Python 3.12 process от непривилегированного пользователя `app` и не встраивает
+token в image.
 
 ## Delivery semantics
 
