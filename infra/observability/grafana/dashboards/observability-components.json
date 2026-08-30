@@ -1,0 +1,138 @@
+{
+  "annotations": {"list": []},
+  "description": "Детальная проверка каждого контейнера compose-проекта curier-flow-logging. Компонент выбирается из полного контрактного списка.",
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "cAdvisor видел выбранный контейнер в последние 90 секунд.",
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Нет свежих метрик"}, "1": {"color": "green", "index": 1, "text": "Работает"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "$service", "range": false, "refId": "A"}],
+      "title": "Состояние контейнера",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "dateTimeFromNow"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"}) * 1000", "instant": true, "legendFormat": "Последняя метрика", "range": false, "refId": "A"}],
+      "title": "Последняя метрика",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"decimals": 0}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "changes(max(container_start_time_seconds{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"})[$__range:1m])", "instant": true, "legendFormat": "Изменения запуска", "range": false, "refId": "A"}],
+      "title": "Перезапуски / новые запуски",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Prometheus scrape status для job, содержащего имя компонента; применимо не ко всем контейнерам.",
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Ошибка"}, "1": {"color": "green", "index": 1, "text": "OK"}}, "type": "value"}]}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "max(up{job=~\".*$service.*\"})", "instant": true, "legendFormat": "Scrape target", "range": false, "refId": "A"}],
+      "title": "Prometheus target",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 5,
+      "targets": [{"editorMode": "code", "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"}[5m])) * 100", "legendFormat": "$service", "range": true, "refId": "A"}],
+      "title": "CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 6,
+      "targets": [{"editorMode": "code", "expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"})", "legendFormat": "$service", "range": true, "refId": "A"}],
+      "title": "Рабочая память",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "id": 7,
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"}[5m]))", "legendFormat": "Получено", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"}[5m]))", "legendFormat": "Отправлено", "range": true, "refId": "B"}
+      ],
+      "title": "Сеть",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "id": 9,
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(container_fs_reads_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"}[5m]))", "legendFormat": "Чтение", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(container_fs_writes_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"$service\"}[5m]))", "legendFormat": "Запись", "range": true, "refId": "B"}
+      ],
+      "title": "Дисковый I/O",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Активные алерты Prometheus доступны независимо от выбранного компонента.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 7, "w": 24, "x": 0, "y": 28},
+      "id": 8,
+      "options": {"cellHeight": "sm", "showHeader": true},
+      "targets": [{"editorMode": "code", "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true, "legendFormat": "{{alertname}}", "range": false, "refId": "A"}],
+      "title": "Активные алерты",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["curier-flow", "observability"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": true, "text": "grafana", "value": "grafana"},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Компонент",
+        "multi": false,
+        "name": "service",
+        "options": [
+          {"selected": true, "text": "grafana", "value": "grafana"},
+          {"selected": false, "text": "loki", "value": "loki"},
+          {"selected": false, "text": "alloy", "value": "alloy"},
+          {"selected": false, "text": "prometheus", "value": "prometheus"},
+          {"selected": false, "text": "cadvisor", "value": "cadvisor"},
+          {"selected": false, "text": "node-exporter", "value": "node-exporter"},
+          {"selected": false, "text": "blackbox-exporter", "value": "blackbox-exporter"},
+          {"selected": false, "text": "postgres-exporter", "value": "postgres-exporter"},
+          {"selected": false, "text": "redis-exporter", "value": "redis-exporter"},
+          {"selected": false, "text": "docker-socket-proxy", "value": "docker-socket-proxy"}
+        ],
+        "query": "grafana,loki,alloy,prometheus,cadvisor,node-exporter,blackbox-exporter,postgres-exporter,redis-exporter,docker-socket-proxy",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Компоненты наблюдаемости",
+  "uid": "cf-observability-components",
+  "version": 1
+}

@@ -1,0 +1,84 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: application-logs
+    folder: Curier Flow Alerts
+    interval: 1m
+    rules:
+      - uid: cf_app_error_logs
+        title: Ошибки приложений в Loki
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: 'sum by (compose_service) (count_over_time({compose_project="curier-flow-apps"} | json | __error__="" | level=~"error|critical|fatal" [5m]) or count_over_time({compose_project="curier-flow-apps",compose_service=~"frontend-site|frontend-admin"} |~ "(?i)\\b(error|critical|fatal|exception|panic)\\b" [5m]))'
+              intervalMs: 1000
+              maxDataPoints: 43200
+              queryType: range
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [B]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [0]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [C]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: 'Сервис {{ $labels.compose_service }} пишет error-level логи'
+          description: 'За последние 5 минут в Loki появилась как минимум одна запись уровня error, critical или fatal.'
+        labels:
+          severity: critical
+          source: loki
+        isPaused: false

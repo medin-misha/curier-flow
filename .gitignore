@@ -51,6 +51,8 @@ pnpm-debug.log*
 docker-compose.override.yml
 # Данные сервисов, если volume смонтирован каталогом, а не именованным томом.
 infra/data/
+# Локальные Docker secrets; примеры хранятся вне этого каталога.
+infra/secrets/
 # Состояние terraform, если инфраструктура дорастёт до него: содержит секреты
 # в открытом виде.
 *.tfstate

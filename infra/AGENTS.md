@@ -10,14 +10,16 @@
 - `docker-compose.infra.yml` — PostgreSQL, RabbitMQ, Redis и MinIO;
 - `docker-compose.apps.yml` — процессы приложений; Telegram worker вынесен в
   опциональный Compose profile;
+- `docker-compose.logging.yml` — Grafana, Loki, Alloy, Prometheus и exporters;
+- `observability/` — provisioned dashboards, правила и конфигурации сборщиков;
 - `.env.example` — единый документированный контракт окружения стека;
 - `Makefile` — публичный интерфейс операций.
 
 ## Правила
 
 - Перед командой прочитай актуальные цели через `make help`.
-- `up` поднимает инфраструктуру до healthy, одноразовым контейнером API
-  применяет Alembic-миграции и только затем запускает приложения.
+- `up` поднимает инфраструктуру и logging до healthy, затем одноразовым
+  контейнером API применяет Alembic-миграции и запускает приложения.
 - `migrate` собирает образ API и переопределяет его command на
   `alembic upgrade head`; uvicorn и API lifespan при этом не запускаются.
 - `up` и `up-apps` включают Telegram profile только при непустом
@@ -25,8 +27,9 @@
   пустое значение даёт предупреждение и не создаёт контейнер.
 - Для применения кода приложения используй `make reboot-apps`, а не
   `docker compose restart`: нужен новый образ и окружение.
-- При остановке приложения идут раньше инфраструктуры; lifecycle-команды всегда
-  охватывают Telegram profile, даже если token после запуска удалён.
+- При остановке приложения идут раньше logging, а logging раньше
+  инфраструктуры; lifecycle-команды всегда охватывают Telegram profile, даже
+  если token после запуска удалён.
 - `delete*` удаляет данные или образы и требует явного подтверждения; не
   подменяй его неинтерактивной командой.
 - Новая переменная одновременно появляется в `.env.example`, compose и

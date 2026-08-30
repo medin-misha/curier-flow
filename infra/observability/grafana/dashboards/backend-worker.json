@@ -1,0 +1,125 @@
+{
+  "annotations": {"list": []},
+  "description": "Контейнер backend worker и структурные retry/dead-letter/error события.",
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "cAdvisor видел backend worker в последние 90 секунд.",
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Нет свежих метрик"}, "1": {"color": "green", "index": 1, "text": "Работает"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Backend worker", "range": false, "refId": "A"}],
+      "title": "Состояние контейнера",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "dateTimeFromNow"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"}) * 1000", "instant": true, "legendFormat": "Последняя метрика", "range": false, "refId": "A"}],
+      "title": "Последняя метрика",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Число изменений timestamp запуска контейнера за выбранный период.",
+      "fieldConfig": {"defaults": {"decimals": 0}, "overrides": []},
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "changes(max(container_start_time_seconds{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"})[$__range:1m])", "instant": true, "legendFormat": "Изменения запуска", "range": false, "refId": "A"}],
+      "title": "Перезапуски / новые запуски",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 4,
+      "targets": [{"editorMode": "code", "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"}[5m])) * 100", "legendFormat": "Backend worker", "range": true, "refId": "A"}],
+      "title": "CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 5,
+      "targets": [{"editorMode": "code", "expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"})", "legendFormat": "Backend worker", "range": true, "refId": "A"}],
+      "title": "Рабочая память",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 6,
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"}[5m]))", "legendFormat": "Получено", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"}[5m]))", "legendFormat": "Отправлено", "range": true, "refId": "B"}
+      ],
+      "title": "Сеть",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "description": "События outbox и worker с retry, failed или dead_letter в поле event.",
+      "fieldConfig": {"defaults": {"decimals": 0}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 7,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [
+        {"editorMode": "code", "expr": "sum(count_over_time({compose_project=\"curier-flow-apps\",compose_service=\"worker\"} | json | __error__=\"\" | event=~\".*(retry|failed|dead_letter).*\" [$__range]))", "legendFormat": "Retry / failed / DLQ", "queryType": "instant", "refId": "A"},
+        {"editorMode": "code", "expr": "sum(count_over_time({compose_project=\"curier-flow-apps\",compose_service=\"worker\"} | json | __error__=\"\" | level=~\"error|critical|fatal\" [$__range]))", "legendFormat": "Error-level", "queryType": "instant", "refId": "B"}
+      ],
+      "title": "Сбои обработки за период",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "id": 10,
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(container_fs_reads_bytes_total{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"}[5m]))", "legendFormat": "Чтение", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(container_fs_writes_bytes_total{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"}[5m]))", "legendFormat": "Запись", "range": true, "refId": "B"}
+      ],
+      "title": "Дисковый I/O",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 28},
+      "id": 8,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"editorMode": "code", "expr": "{compose_project=\"curier-flow-apps\",compose_service=\"worker\"} | json | event=~\".*(retry|failed|dead_letter).*\"", "queryType": "range", "refId": "A"}],
+      "title": "Retry, dead-letter и ошибки worker",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 37},
+      "id": 9,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"editorMode": "code", "expr": "{compose_project=\"curier-flow-apps\",compose_service=\"worker\"}", "queryType": "range", "refId": "A"}],
+      "title": "Все логи backend worker",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["curier-flow", "apps", "service"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Сервис: backend worker",
+  "uid": "cf-service-worker",
+  "version": 1
+}

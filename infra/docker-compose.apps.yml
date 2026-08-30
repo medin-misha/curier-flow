@@ -17,12 +17,19 @@
 # через env_file. Пути ниже относительны этого файла, то есть каталога infra.
 name: curier-flow-apps
 
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 # Общая часть процессов бекенда. В infra/.env адреса записаны так, как их видно
 # с хоста (localhost). Внутри compose сервисы зовутся по именам, поэтому блок
 # environment перекрывает env_file и подставляет внутренние DSN. Сам .env
 # необязателен — без него работают дефолты.
 x-backend: &backend
   restart: unless-stopped
+  logging: *default-logging
   env_file:
     - path: .env
       required: false
@@ -33,6 +40,12 @@ x-backend: &backend
     # Секрет Telegram нужен только опциональному worker и не должен попадать в
     # окружение API/backend worker через общий env_file.
     TELEGRAM_BOT_TOKEN: ""
+    # Контейнерные логи всегда структурированы для Loki независимо от наличия
+    # локального infra/.env.
+    LOG_FORMAT: json
+    # HTTP access log пишет middleware приложения; штатный uvicorn access log
+    # иначе создавал бы вторую запись на тот же запрос.
+    UVICORN_ACCESS_LOG: "false"
     # Внутренний адрес хранилища: по нему в MinIO ходит само приложение.
     S3_ENDPOINT_URL: http://minio:9000
     # Ключи приложения — это корневые ключи MinIO, взятые из тех же переменных,
@@ -90,6 +103,7 @@ services:
     # token поэтому не создаёт контейнер и не запускает worker даже кратковременно.
     profiles: ["telegram"]
     restart: unless-stopped
+    logging: *default-logging
     build:
       context: ../apps/telegram-bot
     # Намеренно без общего env_file: sending-only процессу не нужны JWT,
@@ -109,6 +123,7 @@ services:
 
   frontend-site:
     restart: unless-stopped
+    logging: *default-logging
     build:
       context: ../apps/frontend-site
       args:
@@ -137,6 +152,7 @@ services:
 
   frontend-admin:
     restart: unless-stopped
+    logging: *default-logging
     build:
       context: ../apps/frontend-admin
     ports:

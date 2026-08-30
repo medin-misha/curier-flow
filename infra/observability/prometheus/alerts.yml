@@ -1,0 +1,248 @@
+groups:
+  - name: availability
+    rules:
+      - alert: ScrapeTargetDown
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Prometheus не может собрать метрики {{ $labels.job }}"
+          description: "Target {{ $labels.instance }} недоступен не менее 5 минут."
+
+      - alert: BlackboxProbeFailed
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Проверка доступности {{ $labels.instance }} не проходит"
+          description: "HTTP/TCP probe остаётся неуспешным не менее 2 минут."
+
+  - name: host
+    rules:
+      - alert: HostDiskSpacePressure
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}
+              / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          ) < 0.10
+          and on (instance, device, mountpoint) node_filesystem_readonly == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "На {{ $labels.instance }} заканчивается диск"
+          description: "На {{ $labels.mountpoint }} свободно менее 10%."
+
+      - alert: HostMemoryPressure
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "На {{ $labels.instance }} мало доступной памяти"
+          description: "Доступно менее 10% RAM не менее 10 минут."
+
+  - name: containers
+    rules:
+      - alert: ContainerOOMKilled
+        expr: |
+          increase(container_oom_events_total{
+            container_label_com_docker_compose_project=~"curier-flow-(apps|infra|logging)"
+          }[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Контейнер завершался из-за OOM"
+          description: "За последние 10 минут cAdvisor зарегистрировал OOM event."
+
+      - alert: ContainerRestartLoop
+        expr: |
+          changes(container_start_time_seconds{
+            container_label_com_docker_compose_project=~"curier-flow-(apps|infra|logging)"
+          }[15m]) > 2
+        labels:
+          severity: critical
+        annotations:
+          summary: "Контейнер {{ $labels.name }} постоянно перезапускается"
+          description: "Время старта контейнера менялось более двух раз за 15 минут."
+
+      - alert: RequiredContainerMissing
+        expr: |
+          absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-apps",container_label_com_docker_compose_service="api"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-apps",container_label_com_docker_compose_service="worker"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-apps",container_label_com_docker_compose_service="frontend-site"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-apps",container_label_com_docker_compose_service="frontend-admin"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="postgres"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="rabbitmq"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="redis"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="minio"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="grafana"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="loki"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="alloy"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="docker-socket-proxy"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="prometheus"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="cadvisor"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="node-exporter"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="blackbox-exporter"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="postgres-exporter"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="redis-exporter"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Обязательный контейнер {{ $labels.container_label_com_docker_compose_service }} отсутствует"
+          description: "cAdvisor не видит обязательный Compose-сервис не менее 5 минут."
+
+  - name: datastores
+    rules:
+      - alert: PostgreSQLExporterCannotConnect
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL exporter не может подключиться к базе"
+          description: "Соединение с PostgreSQL не работает не менее 2 минут."
+
+      - alert: PostgreSQLDeadlocks
+        expr: increase(pg_stat_database_deadlocks{datname!~"template.*"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "В PostgreSQL обнаружены deadlock'и"
+          description: "База {{ $labels.datname }} зарегистрировала deadlock за последние 15 минут."
+
+      - alert: RedisExporterCannotConnect
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis exporter не может подключиться к Redis"
+          description: "Соединение с Redis не работает не менее 2 минут."
+
+      - alert: RedisMemoryPressure
+        expr: |
+          (
+            redis_memory_max_bytes > 0
+            and redis_memory_used_bytes / redis_memory_max_bytes > 0.90
+          )
+          or (
+            redis_memory_max_bytes == 0
+            and redis_memory_used_bytes / scalar(node_memory_MemTotal_bytes) > 0.25
+          )
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis использует опасно много памяти"
+          description: "Redis использует более 90% maxmemory или, без лимита, более 25% RAM хоста не менее 10 минут."
+
+      - alert: RedisRejectedConnections
+        expr: increase(redis_rejected_connections_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis отклоняет подключения"
+          description: "За последние 5 минут Redis отклонил хотя бы одно подключение."
+
+      - alert: RabbitMQMemoryPressure
+        expr: rabbitmq_process_resident_memory_bytes / rabbitmq_resident_memory_limit_bytes > 0.90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ приблизился к memory watermark"
+          description: "Использование памяти RabbitMQ превышает 90% лимита."
+
+      - alert: RabbitMQDiskPressure
+        expr: rabbitmq_disk_space_available_bytes / rabbitmq_disk_space_available_limit_bytes < 1.20
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ приблизился к disk watermark"
+          description: "Свободное место менее чем на 20% выше аварийного лимита."
+
+      - alert: RabbitMQUnroutableMessages
+        expr: |
+          increase(rabbitmq_global_messages_unroutable_dropped_total[10m]) > 0
+          or increase(rabbitmq_global_messages_unroutable_returned_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ получает unroutable-сообщения"
+          description: "За последние 10 минут сообщение было удалено или возвращено mandatory-publisher из-за отсутствия route."
+
+      - alert: RabbitMQRequiredConsumerMissing
+        expr: |
+          rabbitmq_detailed_queue_consumers{queue="taskiq"} < 1
+          or absent(rabbitmq_detailed_queue_consumers{queue="taskiq"})
+          or rabbitmq_detailed_queue_consumers{queue="domain.events.subscribers"} < 1
+          or absent(rabbitmq_detailed_queue_consumers{queue="domain.events.subscribers"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "У обязательной очереди {{ $labels.queue }} нет consumer"
+          description: "Очередь отсутствует или остаётся без consumer не менее 2 минут."
+
+      - alert: RabbitMQDeadLetterBacklog
+        expr: rabbitmq_detailed_queue_messages_ready{queue=~".*\\.dlq|taskiq\\.dead_letter"} > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "В dead-letter очереди {{ $labels.queue }} есть сообщения"
+          description: "Необработанные сообщения остаются в dead-letter очереди не менее 2 минут."
+
+  - name: log-pipeline
+    rules:
+      - alert: AlloyConfigLoadFailed
+        expr: alloy_config_last_load_successful == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alloy не может загрузить конфигурацию"
+          description: "Последняя загрузка конфигурации Alloy остаётся неуспешной не менее 2 минут."
+
+      - alert: AlloyDockerLogStalled
+        expr: increase(loki_source_docker_target_entries_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alloy перестал получать Docker-логи"
+          description: "Ни одна Docker log entry не поступила в Alloy за последние 10 минут."
+
+      - alert: AlloyDockerDiscoveryFailures
+        expr: increase(prometheus_sd_refresh_failures_total{mechanism="docker"}[1m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alloy не может обновить список Docker-контейнеров"
+          description: "Docker discovery завершается ошибкой при каждом обновлении не менее 5 минут."
+
+      - alert: AlloyDockerLogParsingErrors
+        expr: increase(loki_source_docker_target_parsing_errors_total[5m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Alloy не может разобрать Docker log entry"
+          description: "За последние 5 минут обнаружена хотя бы одна ошибка разбора Docker-логов."
+
+      - alert: AlloyLogEntriesDropped
+        expr: increase(loki_write_dropped_entries_total[1m]) > 0
+        # После штатного рестарта Docker source может дочитать старый rotated
+        # хвост, который Loki отклонит как out-of-order. Alert должен ловить
+        # продолжающуюся потерю, а не единичный replay при перекатке.
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Alloy теряет записи при отправке в Loki"
+          description: "За последние 5 минут Alloy отбросил хотя бы одну log entry; причина: {{ $labels.reason }}."

@@ -1,0 +1,126 @@
+{
+  "annotations": {"list": []},
+  "description": "RabbitMQ: контейнерные ресурсы, blackbox/native metrics и логи.",
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Нет свежих метрик"}, "1": {"color": "green", "index": 1, "text": "Работает"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "RabbitMQ", "range": false, "refId": "A"}],
+      "title": "Состояние контейнера",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "dateTimeFromNow"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"}) * 1000", "instant": true, "legendFormat": "Последняя метрика", "range": false, "refId": "A"}],
+      "title": "Последняя метрика",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"decimals": 0}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "changes(max(container_start_time_seconds{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"})[$__range:1m])", "instant": true, "legendFormat": "Изменения запуска", "range": false, "refId": "A"}],
+      "title": "Перезапуски / новые запуски",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Blackbox target или scrape job RabbitMQ, если он настроен.",
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Ошибка"}, "1": {"color": "green", "index": 1, "text": "OK"}}, "type": "value"}]}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [
+        {"editorMode": "code", "expr": "max(probe_success{instance=~\".*rabbitmq.*\"})", "instant": true, "legendFormat": "Blackbox", "range": false, "refId": "A"},
+        {"editorMode": "code", "expr": "max(up{job=~\".*rabbitmq.*\"})", "instant": true, "legendFormat": "Metrics scrape", "range": false, "refId": "B"}
+      ],
+      "title": "Проверки RabbitMQ",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "id": 5,
+      "targets": [{"editorMode": "code", "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"}[5m])) * 100", "legendFormat": "RabbitMQ", "range": true, "refId": "A"}],
+      "title": "CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "id": 6,
+      "targets": [{"editorMode": "code", "expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"})", "legendFormat": "RabbitMQ", "range": true, "refId": "A"}],
+      "title": "Рабочая память",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "id": 7,
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"}[5m]))", "legendFormat": "Получено", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"}[5m]))", "legendFormat": "Отправлено", "range": true, "refId": "B"}
+      ],
+      "title": "Сеть",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "id": 8,
+      "targets": [
+        {"editorMode": "code", "expr": "sum by (queue) (rabbitmq_detailed_queue_messages)", "legendFormat": "{{queue}}: сообщения", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rabbitmq_connections)", "legendFormat": "Соединения", "range": true, "refId": "B"},
+        {"editorMode": "code", "expr": "sum by (queue) (rabbitmq_detailed_queue_consumers)", "legendFormat": "{{queue}}: consumers", "range": true, "refId": "C"}
+      ],
+      "title": "Очереди и соединения",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "id": 10,
+      "targets": [
+        {"editorMode": "code", "expr": "sum(rate(container_fs_reads_bytes_total{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"}[5m]))", "legendFormat": "Чтение", "range": true, "refId": "A"},
+        {"editorMode": "code", "expr": "sum(rate(container_fs_writes_bytes_total{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"}[5m]))", "legendFormat": "Запись", "range": true, "refId": "B"}
+      ],
+      "title": "Дисковый I/O",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 11, "w": 24, "x": 0, "y": 28},
+      "id": 9,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"editorMode": "code", "expr": "{compose_project=\"curier-flow-infra\",compose_service=\"rabbitmq\"}", "queryType": "range", "refId": "A"}],
+      "title": "Логи RabbitMQ",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["curier-flow", "infra", "service"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Сервис: RabbitMQ",
+  "uid": "cf-service-rabbitmq",
+  "version": 1
+}

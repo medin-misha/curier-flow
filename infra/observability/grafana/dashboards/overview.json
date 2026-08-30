@@ -1,0 +1,196 @@
+{
+  "annotations": {"list": []},
+  "description": "Сводка состояния приложений, инфраструктуры и стека наблюдаемости Curier Flow.",
+  "editable": false,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true,
+      "tags": ["curier-flow"],
+      "title": "Детальные дашборды",
+      "type": "dashboards"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "1 означает, что cAdvisor видел контейнер в последние 90 секунд. Telegram worker может отсутствовать штатно.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "options": {
+                "0": {"color": "red", "index": 0, "text": "Нет свежих метрик"},
+                "1": {"color": "green", "index": 1, "text": "Работает"}
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"api\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "API", "range": false, "refId": "A"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"worker\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Backend worker", "range": false, "refId": "B"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"telegram-bot\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Telegram worker (optional)", "range": false, "refId": "C"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"frontend-site\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Frontend site", "range": false, "refId": "D"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-apps\",container_label_com_docker_compose_service=\"frontend-admin\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Frontend admin", "range": false, "refId": "E"}
+      ],
+      "title": "Приложения",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Свежесть метрик контейнеров compose-проекта curier-flow-infra.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Нет свежих метрик"}, "1": {"color": "green", "index": 1, "text": "Работает"}}, "type": "value"}],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"postgres\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "PostgreSQL", "range": false, "refId": "A"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"rabbitmq\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "RabbitMQ", "range": false, "refId": "B"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"redis\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Redis", "range": false, "refId": "C"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-infra\",container_label_com_docker_compose_service=\"minio\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "MinIO", "range": false, "refId": "D"}
+      ],
+      "title": "Инфраструктура",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Все контейнеры проекта curier-flow-logging.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Нет свежих метрик"}, "1": {"color": "green", "index": 1, "text": "Работает"}}, "type": "value"}],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"grafana\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Grafana", "range": false, "refId": "A"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"loki\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Loki", "range": false, "refId": "B"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"alloy\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Alloy", "range": false, "refId": "C"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"prometheus\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Prometheus", "range": false, "refId": "D"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "cAdvisor", "range": false, "refId": "E"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"node-exporter\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Node exporter", "range": false, "refId": "F"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"blackbox-exporter\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Blackbox exporter", "range": false, "refId": "G"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"postgres-exporter\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Postgres exporter", "range": false, "refId": "H"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"redis-exporter\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Redis exporter", "range": false, "refId": "I"},
+        {"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"docker-socket-proxy\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "Docker socket proxy", "range": false, "refId": "J"}
+      ],
+      "title": "Наблюдаемость",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Активные алерты из правил Prometheus.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "id": 4,
+      "options": {"cellHeight": "sm", "showHeader": true},
+      "targets": [{"editorMode": "code", "expr": "ALERTS{alertstate=\"firing\"}", "format": "table", "instant": true, "legendFormat": "{{alertname}}", "range": false, "refId": "A"}],
+      "title": "Активные алерты",
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "id": 5,
+      "targets": [{"editorMode": "code", "expr": "sum by (container_label_com_docker_compose_project, container_label_com_docker_compose_service) (rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=~\"curier-flow-(apps|infra|logging)\",container_label_com_docker_compose_service!=\"\"}[5m])) * 100", "legendFormat": "{{container_label_com_docker_compose_project}} / {{container_label_com_docker_compose_service}}", "range": true, "refId": "A"}],
+      "title": "CPU контейнеров",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "id": 6,
+      "targets": [{"editorMode": "code", "expr": "sum by (container_label_com_docker_compose_project, container_label_com_docker_compose_service) (container_memory_working_set_bytes{container_label_com_docker_compose_project=~\"curier-flow-(apps|infra|logging)\",container_label_com_docker_compose_service!=\"\"})", "legendFormat": "{{container_label_com_docker_compose_project}} / {{container_label_com_docker_compose_service}}", "range": true, "refId": "A"}],
+      "title": "Память контейнеров",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 10,
+      "targets": [
+        {"editorMode": "code", "expr": "sum by (container_label_com_docker_compose_project, container_label_com_docker_compose_service) (rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=~\"curier-flow-(apps|infra|logging)\",container_label_com_docker_compose_service!=\"\"}[5m]) + rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=~\"curier-flow-(apps|infra|logging)\",container_label_com_docker_compose_service!=\"\"}[5m]))", "legendFormat": "{{container_label_com_docker_compose_project}} / {{container_label_com_docker_compose_service}}", "range": true, "refId": "A"}
+      ],
+      "title": "Сеть контейнеров",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "id": 11,
+      "targets": [
+        {"editorMode": "code", "expr": "sum by (container_label_com_docker_compose_project, container_label_com_docker_compose_service) (rate(container_fs_reads_bytes_total{container_label_com_docker_compose_project=~\"curier-flow-(apps|infra|logging)\",container_label_com_docker_compose_service!=\"\"}[5m]) + rate(container_fs_writes_bytes_total{container_label_com_docker_compose_project=~\"curier-flow-(apps|infra|logging)\",container_label_com_docker_compose_service!=\"\"}[5m]))", "legendFormat": "{{container_label_com_docker_compose_project}} / {{container_label_com_docker_compose_service}}", "range": true, "refId": "A"}
+      ],
+      "title": "Дисковый I/O контейнеров",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "description": "Структурные error-level записи приложений. Поле level извлекается на этапе запроса, поэтому оно не обязано быть stream label.",
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 40},
+      "id": 7,
+      "options": {"colorMode": "background", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "sum by (compose_service) (count_over_time({compose_project=~\"curier-flow-(apps|infra)\"} | json | __error__=\"\" | level=~\"error|critical|fatal\" [$__range]))", "legendFormat": "{{compose_service}}", "queryType": "instant", "refId": "A"}],
+      "title": "Ошибки в логах за период",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [{"options": {"0": {"color": "green", "index": 0, "text": "OK"}}, "type": "value"}],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 40},
+      "id": 8,
+      "options": {"cellHeight": "sm", "showHeader": true},
+      "targets": [{"editorMode": "code", "expr": "probe_success == 0", "format": "table", "instant": true, "legendFormat": "{{instance}}", "range": false, "refId": "A"}],
+      "title": "Неуспешные blackbox-проверки",
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 48},
+      "id": 9,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"editorMode": "code", "expr": "{compose_project=~\"curier-flow-(apps|infra)\"}", "queryType": "range", "refId": "A"}],
+      "title": "Последние логи стека",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["curier-flow", "overview"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Curier Flow: обзор",
+  "uid": "cf-overview",
+  "version": 1
+}

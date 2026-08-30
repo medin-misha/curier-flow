@@ -1,0 +1,31 @@
+{
+  "annotations": {"list": []},
+  "description": "Ресурсы контейнера cAdvisor. Логи observability-проекта намеренно не отправляются в Loki.",
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "index": 0, "text": "Нет свежих метрик"}, "1": {"color": "green", "index": 1, "text": "Работает"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "reduceOptions": {"calcs": ["lastNotNull"], "values": false}, "textMode": "value_and_name"},
+      "targets": [{"editorMode": "code", "expr": "(time() - max(container_last_seen{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"})) < bool 90 or on() vector(0)", "instant": true, "legendFormat": "cAdvisor", "range": false, "refId": "A"}],
+      "title": "Состояние контейнера",
+      "type": "stat"
+    },
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"min": 0, "unit": "percent"}, "overrides": []}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}, "id": 2, "targets": [{"editorMode": "code", "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"}[5m])) * 100", "legendFormat": "cAdvisor", "range": true, "refId": "A"}], "title": "CPU", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"min": 0, "unit": "bytes"}, "overrides": []}, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}, "id": 3, "targets": [{"editorMode": "code", "expr": "sum(container_memory_working_set_bytes{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"})", "legendFormat": "cAdvisor", "range": true, "refId": "A"}], "title": "Рабочая память", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []}, "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}, "id": 4, "targets": [{"editorMode": "code", "expr": "sum(rate(container_network_receive_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"}[5m]))", "legendFormat": "Получено", "range": true, "refId": "A"}, {"editorMode": "code", "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"}[5m]))", "legendFormat": "Отправлено", "range": true, "refId": "B"}], "title": "Сеть", "type": "timeseries"},
+    {"datasource": {"type": "prometheus", "uid": "prometheus"}, "fieldConfig": {"defaults": {"min": 0, "unit": "Bps"}, "overrides": []}, "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}, "id": 5, "targets": [{"editorMode": "code", "expr": "sum(rate(container_fs_reads_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"}[5m]))", "legendFormat": "Чтение", "range": true, "refId": "A"}, {"editorMode": "code", "expr": "sum(rate(container_fs_writes_bytes_total{container_label_com_docker_compose_project=\"curier-flow-logging\",container_label_com_docker_compose_service=\"cadvisor\"}[5m]))", "legendFormat": "Запись", "range": true, "refId": "B"}], "title": "Дисковый I/O", "type": "timeseries"}
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["curier-flow", "observability", "service"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Наблюдаемость: cAdvisor",
+  "uid": "cf-observability-cadvisor",
+  "version": 1
+}
