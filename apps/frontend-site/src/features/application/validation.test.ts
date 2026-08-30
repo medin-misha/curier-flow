@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { emptyFiles, emptyForm } from './form.types'
 import type { ApplicationFiles, ApplicationForm } from './form.types'
-import { ageOn, digitsOnly, firstInvalidStep, validateStep } from './validation'
+import {
+  MAX_DOCUMENT_FILE_SIZE,
+  ageOn,
+  digitsOnly,
+  firstInvalidStep,
+  validateStep,
+} from './validation'
 
 const TODAY = new Date(2026, 7, 14)
 
@@ -179,7 +185,44 @@ describe('validateStep, шаг 3', () => {
     expect(validateStep(3, form(validDocuments), emptyFiles, TODAY)).toBe('Загрузи скан паспорта.')
     expect(
       validateStep(3, form(validDocuments), files({ passport: scan('p.png') }), TODAY),
-    ).toBe('Загрузи скан визы.')
+    ).toBe('Загрузи скан визы или ВНЖ.')
+  })
+
+  it('проверяет MIME документов', () => {
+    const unsupported = new File(['x'], 'passport.gif', { type: 'image/gif' })
+
+    expect(
+      validateStep(
+        3,
+        form(validDocuments),
+        files({ passport: unsupported, visa: scan('permit.png') }),
+        TODAY,
+      ),
+    ).toBe('Формат файла «passport.gif» не поддерживается. Нужен PNG, JPEG, WebP или PDF.')
+  })
+
+  it('отвергает пустые и слишком большие документы', () => {
+    const empty = new File([], 'empty.pdf', { type: 'application/pdf' })
+    const tooLarge = new File([new Uint8Array(MAX_DOCUMENT_FILE_SIZE + 1)], 'large.pdf', {
+      type: 'application/pdf',
+    })
+
+    expect(
+      validateStep(
+        3,
+        form(validDocuments),
+        files({ passport: empty, visa: scan('permit.png') }),
+        TODAY,
+      ),
+    ).toBe('Файл «empty.pdf» пуст. Выбери документ ещё раз.')
+    expect(
+      validateStep(
+        3,
+        form(validDocuments),
+        files({ passport: tooLarge, visa: scan('permit.png') }),
+        TODAY,
+      ),
+    ).toBe('Файл «large.pdf» больше 10 МБ.')
   })
 })
 

@@ -16,7 +16,14 @@ import styles from './ApplyWizard.module.css'
 export function ApplyWizard() {
   const wizard = useApplyWizard()
 
-  if (wizard.sent) return <SuccessScreen messenger={wizard.form.messenger} />
+  if (wizard.sent) {
+    return (
+      <SuccessScreen
+        messenger={wizard.form.messenger}
+        existing={wizard.submissionOutcome === 'existing'}
+      />
+    )
+  }
 
   const { step, error, submitting } = wizard
 

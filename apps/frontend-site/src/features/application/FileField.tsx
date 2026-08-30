@@ -1,4 +1,5 @@
 import type { ChangeEvent } from 'react'
+import { DOCUMENT_FILE_ACCEPT } from './validation'
 import styles from './FileField.module.css'
 
 /** Поле загрузки скана: сам инпут скрыт, кликом работает вся плашка. */
@@ -29,7 +30,7 @@ export function FileField({
       </span>
       <input
         type="file"
-        accept="image/*,.pdf"
+        accept={DOCUMENT_FILE_ACCEPT}
         className={styles.input}
         onChange={handleChange}
         aria-label={title}

@@ -2,15 +2,20 @@ import { PixelLink } from '@/components/PixelButton'
 import type { Messenger } from './form.types'
 import styles from './SuccessScreen.module.css'
 
-/** Экран после успешной отправки заявки. */
-export function SuccessScreen({ messenger }: { messenger: Messenger }) {
+/** Экран после успешной отправки или естественно идемпотентного повтора. */
+export function SuccessScreen({ messenger, existing }: { messenger: Messenger; existing: boolean }) {
   return (
     <section className={styles.root}>
       <div className={styles.mark}>OK!</div>
-      <h1 className={styles.title}>Заявка отправлена</h1>
+      <h1 className={styles.title}>
+        {existing ? 'Заявка уже зарегистрирована' : 'Заявка отправлена'}
+      </h1>
       <p className={styles.lead}>
-        Проверим документы и напишем тебе в <span className={styles.messenger}>{messenger}</span> в
-        течение рабочего дня. Обычно это занимает пару часов.
+        {existing
+          ? 'Мы уже получили твои данные и напишем тебе в '
+          : 'Проверим документы и напишем тебе в '}
+        <span className={styles.messenger}>{messenger}</span> в течение рабочего дня. Обычно это
+        занимает пару часов.
       </p>
 
       <div className={styles.panel}>

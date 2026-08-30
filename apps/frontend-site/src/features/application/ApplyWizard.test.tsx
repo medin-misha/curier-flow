@@ -3,9 +3,22 @@ import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApplyWizard } from './ApplyWizard'
+import { submitApplication } from './submitApplication'
+
+vi.mock('./submitApplication', () => ({ submitApplication: vi.fn() }))
 
 beforeEach(() => {
   vi.stubGlobal('scrollTo', vi.fn())
+  vi.mocked(submitApplication).mockReset()
+  vi.mocked(submitApplication).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        setTimeout(
+          () => resolve({ ok: true, outcome: 'created', courierId: 'courier-1' }),
+          50,
+        )
+      }),
+  )
 })
 
 function scan(name: string): File {
@@ -29,7 +42,7 @@ async function fillAllSteps(user: UserEvent): Promise<void> {
   await user.type(screen.getByLabelText(/Счёт в чешском банке/), 'CZ00 1234 5678')
   await user.selectOptions(screen.getByLabelText(/Гражданство/), 'Украина')
   await user.upload(screen.getByLabelText('Скан паспорта'), scan('passport.png'))
-  await user.upload(screen.getByLabelText('Скан визы'), scan('visa.png'))
+  await user.upload(screen.getByLabelText('Скан визы / ВНЖ'), scan('visa.png'))
   await user.click(screen.getByRole('button', { name: 'Далее' }))
 }
 
@@ -97,6 +110,24 @@ describe('ApplyWizard', () => {
     expect(screen.getByRole('heading', { name: 'Документы и счёт' })).toBeInTheDocument()
   })
 
+  it('показывает отдельный экран для уже зарегистрированной заявки', async () => {
+    vi.mocked(submitApplication).mockResolvedValueOnce({
+      ok: true,
+      outcome: 'existing',
+      courierId: 'courier-1',
+    })
+    const user = userEvent.setup()
+    render(<ApplyWizard />)
+
+    await fillAllSteps(user)
+    await user.click(screen.getByRole('checkbox'))
+    await user.click(screen.getByRole('button', { name: 'Отправить заявку' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Заявка уже зарегистрирована' }),
+    ).toBeInTheDocument()
+  })
+
   it('на время отправки гасит кнопку и меняет надпись', async () => {
     const user = userEvent.setup()
     render(<ApplyWizard />)
@@ -104,7 +135,7 @@ describe('ApplyWizard', () => {
     await fillAllSteps(user)
     await user.click(screen.getByRole('checkbox'))
 
-    // Не ждём завершения: проверяем состояние внутри 600 мс задержки заглушки.
+    // Не ждём завершения: контролируем transport и проверяем промежуточное состояние.
     const submit = screen.getByRole('button', { name: 'Отправить заявку' })
     await user.click(submit)
 

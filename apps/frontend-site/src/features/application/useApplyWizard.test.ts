@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { submitApplication } from './submitApplication'
 import { useApplyWizard } from './useApplyWizard'
 
 vi.mock('./submitApplication', async (importOriginal) => {
@@ -15,6 +16,12 @@ function scan(name: string): File {
 
 beforeEach(() => {
   vi.stubGlobal('scrollTo', vi.fn())
+  vi.mocked(submitApplication).mockReset()
+  vi.mocked(submitApplication).mockResolvedValue({
+    ok: true,
+    outcome: 'created',
+    courierId: 'courier-1',
+  })
 })
 
 function fillIdentity(result: { current: ReturnType<typeof useApplyWizard> }) {
@@ -80,7 +87,7 @@ describe('useApplyWizard', () => {
 
     act(() => result.current.setField('phone', '+420 777 123 456 999'))
 
-    expect(result.current.form.phone).toBe('420777123')
+    expect(result.current.form.phone).toBe('777123456')
   })
 
   it('идёт вперёд по заполненным шагам и возвращается назад', async () => {
@@ -139,12 +146,12 @@ describe('useApplyWizard', () => {
     })
 
     await waitFor(() => expect(result.current.sent).toBe(true))
+    expect(result.current.submissionOutcome).toBe('created')
     expect(result.current.error).toBe('')
     expect(result.current.submitting).toBe(false)
   })
 
   it('не отправляет заявку дважды при двойном нажатии', async () => {
-    const { submitApplication } = await import('./submitApplication')
     vi.mocked(submitApplication).mockClear()
 
     const { result } = renderHook(() => useApplyWizard(TODAY))
@@ -164,7 +171,6 @@ describe('useApplyWizard', () => {
   })
 
   it('не запирает форму, если отправка упала с ошибкой', async () => {
-    const { submitApplication } = await import('./submitApplication')
     vi.mocked(submitApplication).mockClear()
     vi.mocked(submitApplication).mockRejectedValueOnce(new Error('network down'))
 
@@ -191,6 +197,29 @@ describe('useApplyWizard', () => {
       await result.current.next()
     })
     await waitFor(() => expect(result.current.sent).toBe(true))
+  })
+
+  it('показывает problem-сообщение transport и оставляет форму открытой', async () => {
+    vi.mocked(submitApplication).mockResolvedValueOnce({
+      ok: false,
+      message: 'Не удалось проверить данные заявки. Проверь поля и документы.',
+    })
+    const { result } = renderHook(() => useApplyWizard(TODAY))
+
+    fillIdentity(result)
+    fillContacts(result)
+    fillDocuments(result)
+    act(() => result.current.goTo(4))
+    act(() => result.current.setField('consent', true))
+
+    await act(async () => {
+      await result.current.next()
+    })
+
+    expect(result.current.sent).toBe(false)
+    expect(result.current.error).toBe(
+      'Не удалось проверить данные заявки. Проверь поля и документы.',
+    )
   })
 
   it('чистит ошибку при выборе файла', async () => {

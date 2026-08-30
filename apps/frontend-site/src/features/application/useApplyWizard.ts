@@ -14,6 +14,7 @@ export interface ApplyWizard {
   error: string
   submitting: boolean
   sent: boolean
+  submissionOutcome: 'created' | 'existing' | null
   setField<K extends keyof ApplicationForm>(key: K, value: ApplicationForm[K]): void
   setFile(key: keyof ApplicationFiles, file: File | null): void
   goTo(step: StepNumber): void
@@ -24,16 +25,19 @@ export interface ApplyWizard {
 }
 
 /**
- * Телефон хранится цифрами без префикса — так его проверяет валидация
- * и так его ждёт бекенд. Нормализация здесь, а не в поле ввода: иначе
- * инвариант держался бы только для одного способа заполнить форму.
+ * Телефон хранится цифрами без префикса — так его проверяет валидация.
+ * API-адаптер добавляет E.164-префикс +420 перед отправкой. Нормализация
+ * здесь, а не в поле ввода: иначе инвариант держался бы только для одного
+ * способа заполнить форму.
  */
 function normalize<K extends keyof ApplicationForm>(
   key: K,
   value: ApplicationForm[K],
 ): ApplicationForm[K] {
   if (key !== 'phone') return value
-  return digitsOnly(String(value)).slice(0, PHONE_DIGITS) as ApplicationForm[K]
+  const digits = digitsOnly(String(value))
+  const local = digits.length > PHONE_DIGITS && digits.startsWith('420') ? digits.slice(3) : digits
+  return local.slice(0, PHONE_DIGITS) as ApplicationForm[K]
 }
 
 function scrollToTop(): void {
@@ -48,6 +52,7 @@ export function useApplyWizard(now: () => Date = () => new Date()): ApplyWizard 
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
+  const [submissionOutcome, setSubmissionOutcome] = useState<'created' | 'existing' | null>(null)
   const inFlight = useRef(false)
 
   const setField = useCallback<ApplyWizard['setField']>((key, value) => {
@@ -119,9 +124,24 @@ export function useApplyWizard(now: () => Date = () => new Date()): ApplyWizard 
     }
 
     setError('')
+    setSubmissionOutcome(result.outcome)
     setSent(true)
     scrollToTop()
   }, [files, form, goTo, now, step])
 
-  return { step, form, files, error, submitting, sent, setField, setFile, goTo, back, next, now }
+  return {
+    step,
+    form,
+    files,
+    error,
+    submitting,
+    sent,
+    submissionOutcome,
+    setField,
+    setFile,
+    goTo,
+    back,
+    next,
+    now,
+  }
 }

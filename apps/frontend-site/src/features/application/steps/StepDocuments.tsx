@@ -13,8 +13,8 @@ export function StepDocuments({ wizard }: { wizard: ApplyWizard }) {
       <div className={styles.head}>
         <h1 className={styles.title}>Документы и счёт</h1>
         <p className={styles.lead}>
-          Паспорт и визу запрашиваем только для оформления во флоте. Счёт — чтобы платить тебе за
-          смены.
+          Паспорт и визу или ВНЖ запрашиваем только для оформления во флоте. Счёт — чтобы платить
+          тебе за смены.
         </p>
       </div>
 
@@ -24,6 +24,7 @@ export function StepDocuments({ wizard }: { wizard: ApplyWizard }) {
             value={form.bankAccount}
             onChange={(event) => setField('bankAccount', event.target.value)}
             placeholder="CZ00 0000 0000 0000 0000 0000"
+            maxLength={64}
           />
         </Field>
 
@@ -50,7 +51,7 @@ export function StepDocuments({ wizard }: { wizard: ApplyWizard }) {
             onSelect={(file) => setFile('passport', file)}
           />
           <FileField
-            title="Скан визы"
+            title="Скан визы / ВНЖ"
             order="2"
             file={files.visa}
             onSelect={(file) => setFile('visa', file)}

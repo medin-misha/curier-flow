@@ -23,6 +23,7 @@ export function StepIdentity({ wizard }: { wizard: ApplyWizard }) {
             onChange={(event) => setField('fullName', event.target.value)}
             placeholder="Ivan Ivanov"
             autoComplete="name"
+            maxLength={255}
           />
         </Field>
 
@@ -52,6 +53,7 @@ export function StepIdentity({ wizard }: { wizard: ApplyWizard }) {
             onChange={(event) => setField('city', event.target.value)}
             placeholder="Или впиши свой город"
             aria-label="Город"
+            maxLength={128}
           />
         </div>
 

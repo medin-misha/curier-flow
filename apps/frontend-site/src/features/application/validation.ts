@@ -4,6 +4,10 @@ export const MIN_AGE = 18
 export const MAX_AGE = 75
 export const PHONE_DIGITS = 9
 export const MIN_BANK_ACCOUNT_DIGITS = 8
+export const MAX_DOCUMENT_FILE_SIZE = 10 * 1024 * 1024
+export const DOCUMENT_FILE_ACCEPT = 'image/png,image/jpeg,image/webp,application/pdf'
+
+const DOCUMENT_CONTENT_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'application/pdf'])
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const EMAIL = /^\S+@\S+\.\S+$/
@@ -70,8 +74,22 @@ function validateDocuments(form: ApplicationForm, files: ApplicationFiles): stri
   }
   if (!form.citizenship) return 'Выбери гражданство.'
   if (!files.passport) return 'Загрузи скан паспорта.'
-  if (!files.visa) return 'Загрузи скан визы.'
+  if (!files.visa) return 'Загрузи скан визы или ВНЖ.'
 
+  const fileError = validateDocumentFile(files.passport) || validateDocumentFile(files.visa)
+  if (fileError) return fileError
+
+  return ''
+}
+
+function validateDocumentFile(file: File): string {
+  if (file.size === 0) return `Файл «${file.name}» пуст. Выбери документ ещё раз.`
+  if (!DOCUMENT_CONTENT_TYPES.has(file.type.toLowerCase())) {
+    return `Формат файла «${file.name}» не поддерживается. Нужен PNG, JPEG, WebP или PDF.`
+  }
+  if (file.size > MAX_DOCUMENT_FILE_SIZE) {
+    return `Файл «${file.name}» больше 10 МБ.`
+  }
   return ''
 }
 

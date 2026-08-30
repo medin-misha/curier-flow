@@ -70,6 +70,6 @@ describe('reviewRows', () => {
 
     expect(of(emptyFiles)).toBe('—')
     expect(of({ passport: scan('p.png'), visa: null })).toBe('1 из 2')
-    expect(of({ passport: scan('p.png'), visa: scan('v.png') })).toBe('паспорт + виза')
+    expect(of({ passport: scan('p.png'), visa: scan('v.png') })).toBe('паспорт + виза / ВНЖ')
   })
 })

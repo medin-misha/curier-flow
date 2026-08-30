@@ -16,7 +16,7 @@ function row(label: string, value: string, step: StepNumber): ReviewRow {
 }
 
 function scansValue(files: ApplicationFiles): string {
-  if (files.passport && files.visa) return 'паспорт + виза'
+  if (files.passport && files.visa) return 'паспорт + виза / ВНЖ'
   if (files.passport || files.visa) return '1 из 2'
   return ''
 }

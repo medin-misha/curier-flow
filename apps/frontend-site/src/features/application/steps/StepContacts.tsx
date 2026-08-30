@@ -45,6 +45,7 @@ export function StepContacts({ wizard }: { wizard: ApplyWizard }) {
             onChange={(event) => setField('email', event.target.value)}
             placeholder="ivan@email.com"
             autoComplete="email"
+            maxLength={320}
           />
         </Field>
 
@@ -67,6 +68,7 @@ export function StepContacts({ wizard }: { wizard: ApplyWizard }) {
             onChange={(event) => setField('messengerContact', event.target.value)}
             placeholder={messengerPlaceholder(form.messenger)}
             aria-label={`Контакт в ${form.messenger}`}
+            maxLength={255}
           />
           <span className={styles.note}>{messengerHint(form.messenger)}</span>
         </div>
