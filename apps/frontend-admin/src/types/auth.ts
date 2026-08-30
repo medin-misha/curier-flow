@@ -1,11 +1,4 @@
-export interface Admin {
-  id: string
-  username: string
-  telegram_id: number | null
-  is_active: boolean
-  created_at: string
-  updated_at: string
-}
+export type { Admin } from './admin'
 
 export interface LoginCredentials {
   username: string

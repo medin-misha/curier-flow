@@ -29,6 +29,7 @@ export class ApiError extends Error {
 interface ApiRequestOptions extends RequestInit {
   auth?: boolean
   retryAuth?: boolean
+  responseType?: 'json' | 'blob'
 }
 
 const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
@@ -67,21 +68,22 @@ export async function apiRequest<T>(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const headers = new Headers(options.headers)
-  if (options.auth !== false && accessToken) {
+  const { auth = true, retryAuth = true, responseType = 'json', ...requestOptions } = options
+  const headers = new Headers(requestOptions.headers)
+  if (auth && accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`)
   }
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    ...options,
+    ...requestOptions,
     headers,
     credentials: 'include',
   })
 
   if (
     response.status === 401 &&
-    options.auth !== false &&
-    options.retryAuth !== false &&
+    auth &&
+    retryAuth &&
     (await recoverOnce())
   ) {
     return apiRequest<T>(path, { ...options, retryAuth: false })
@@ -91,6 +93,7 @@ export async function apiRequest<T>(
     throw new ApiError(response.status, await problemFrom(response))
   }
   if (response.status === 204) return undefined as T
+  if (responseType === 'blob') return (await response.blob()) as T
   return (await response.json()) as T
 }
 

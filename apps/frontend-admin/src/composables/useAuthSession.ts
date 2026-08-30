@@ -72,6 +72,10 @@ export function useAuthSession() {
     }
   }
 
+  function syncAdmin(updated: Admin) {
+    if (admin.value?.id === updated.id) admin.value = updated
+  }
+
   function dispose() {
     configureAccessRecovery(null)
     setAccessToken(null)
@@ -85,6 +89,7 @@ export function useAuthSession() {
     initialize,
     login,
     logout,
+    syncAdmin,
     dispose,
   }
 }

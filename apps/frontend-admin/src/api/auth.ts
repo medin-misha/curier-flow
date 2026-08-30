@@ -1,4 +1,5 @@
-import type { AccessToken, Admin, LoginCredentials } from '../types/auth'
+import type { AccessToken, LoginCredentials } from '../types/auth'
+import { mapAdmin, type AdminResponse } from './admins'
 import { apiRequest, jsonBody } from './client'
 
 export function loginAdmin(credentials: LoginCredentials) {
@@ -18,8 +19,8 @@ export function refreshAdminSession() {
   })
 }
 
-export function getCurrentAdmin() {
-  return apiRequest<Admin>('/admin/admins/me')
+export async function getCurrentAdmin() {
+  return mapAdmin(await apiRequest<AdminResponse>('/admin/admins/me'))
 }
 
 export function logoutAdmin() {
