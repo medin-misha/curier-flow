@@ -26,12 +26,13 @@ import structlog
 from pydantic import Field
 from pydantic_settings import SettingsConfigDict
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from uuid_utils.compat import uuid7
 
 from app.kernel.context import actor_id
 from app.kernel.db.crud import CRUD
-from app.kernel.errors import NotFound, ValidationFailed
+from app.kernel.errors import Conflict, NotFound, ValidationFailed
 from app.kernel.events.bus import emit
 from app.kernel.pagination import Page, PageParams
 from app.modules.storage.models import File, FileStatus
@@ -267,17 +268,22 @@ async def mark_for_deletion(
     """Пометить файл к удалению.
 
     Принимает идентификатор и фабрику сессий, ничего не возвращает. Кидает
-    `NotFound`, если строки нет; повторный вызов на уже помеченном файле
-    проходит молча.
+    `NotFound`, если строки нет, и `Conflict`, если File защищён бизнес-ссылкой;
+    повторный вызов на уже помеченном файле проходит молча.
 
     Объект остаётся в бакете до прохода задачи. Удалять его прямо здесь
     нельзя: это сеть внутри запроса, а поставить задачу через `kiq()` —
     обращение к брокеру внутри транзакции. Клиенту файл при этом уже не виден.
     """
-    async with session_factory() as session, session.begin():
-        file = await mark_file_deleting(session, file_id)
-        if file is None:
-            raise NotFound("File not found", resource=File.__name__, pk=str(file_id))
+    try:
+        async with session_factory() as session, session.begin():
+            file = await mark_file_deleting(session, file_id)
+            if file is None:
+                raise NotFound("File not found", resource=File.__name__, pk=str(file_id))
+    except IntegrityError as error:
+        if _constraint_name(error) == "file_deletion_protected":
+            raise Conflict("File is used by another resource", reason="file-in-use") from error
+        raise
 
 
 async def sweep_orphans(
@@ -358,6 +364,27 @@ def _build_key(file_id: UUID) -> str:
     """
     today = datetime.now(tz=UTC)
     return f"{_KEY_PREFIX}/{today:%Y/%m/%d}/{file_id}"
+
+
+def _constraint_name(error: IntegrityError) -> str | None:
+    """Достать имя PostgreSQL constraint из цепочки asyncpg adapter."""
+    original = error.orig
+    candidates = (
+        original,
+        original.__cause__ if original is not None else None,
+        original.__context__ if original is not None else None,
+    )
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        name = getattr(candidate, "constraint_name", None)
+        if isinstance(name, str):
+            return name
+        diag = getattr(candidate, "diag", None)
+        name = getattr(diag, "constraint_name", None)
+        if isinstance(name, str):
+            return name
+    return None
 
 
 def _check_declared(

@@ -10,7 +10,13 @@ import httpx
 import pytest
 from botocore.exceptions import ClientError
 
-from app.platform.s3 import ObjectStorage, S3Settings, s3_settings, storage
+from app.platform.s3 import (
+    ObjectStorage,
+    ObjectTooLargeError,
+    S3Settings,
+    s3_settings,
+    storage,
+)
 
 #: Заведомо закрытый порт: клиент, который полез бы в сеть, упал бы сразу.
 UNREACHABLE = "http://127.0.0.1:1"
@@ -131,6 +137,32 @@ async def test_head_returns_metadata_of_an_existing_object(bucket: ObjectStorage
 async def test_head_of_a_missing_object_is_none(bucket: ObjectStorage) -> None:
     """Отсутствие объекта — ответ на вопрос, а не сбой хранилища."""
     assert await bucket.head_object("docs/never-uploaded.pdf") is None
+
+
+async def test_read_returns_bounded_content_and_metadata(bucket: ObjectStorage) -> None:
+    await put(bucket, "docs/template.docx", b"document", "application/docx")
+
+    downloaded = await bucket.read_object("docs/template.docx", max_size=8)
+
+    assert downloaded is not None
+    assert downloaded.body == b"document"
+    assert downloaded.info.size == 8
+    assert downloaded.info.content_type == "application/docx"
+
+
+async def test_read_handles_missing_and_oversized_objects(bucket: ObjectStorage) -> None:
+    await put(bucket, "docs/large.docx", b"too large", "application/docx")
+
+    assert await bucket.read_object("docs/missing.docx", max_size=8) is None
+    with pytest.raises(ObjectTooLargeError) as raised:
+        await bucket.read_object("docs/large.docx", max_size=8)
+
+    assert (raised.value.size, raised.value.max_size) == (9, 8)
+
+
+async def test_read_requires_a_positive_limit(bucket: ObjectStorage) -> None:
+    with pytest.raises(ValueError, match="max_size must be positive"):
+        await bucket.read_object("docs/template.docx", max_size=0)
 
 
 async def test_head_reraises_a_real_storage_failure(minio_endpoint: str) -> None:

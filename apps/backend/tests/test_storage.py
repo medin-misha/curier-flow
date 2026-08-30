@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from app.kernel.db import session as session_module
 from app.kernel.events.models import OutboxMessage
 from app.kernel.pagination import PageParams
+from app.kernel.security.tokens import issue_tokens, jwt_settings
 from app.main import create_app
 from app.modules import MODULES
 from app.modules.storage import tasks as storage_tasks
@@ -55,6 +56,7 @@ LIMITS: Final = StorageSettings(
     orphan_ttl=600,
     batch_size=10,
 )
+ADMIN_ID: Final = UUID(int=601)
 
 PNG: Final = "image/png"
 
@@ -157,7 +159,33 @@ async def client(
         lifespan=storage_lifespan(storage_config=bucket, limits=LIMITS),
     )
     async with app_client([module], lifespan=True) as http:
+        access = issue_tokens(
+            ADMIN_ID,
+            settings=jwt_settings,
+            claims={"kind": "admin"},
+        ).access_token
+        http.headers["authorization"] = f"Bearer {access}"
         yield http
+
+
+async def test_every_storage_endpoint_requires_admin_jwt(client: AsyncClient) -> None:
+    """Метаданные и presigned links не доступны без Admin access JWT."""
+    authorization = client.headers.pop("authorization")
+    file_id = uuid4()
+    requests = (
+        ("POST", "/files/upload-url"),
+        ("POST", f"/files/{file_id}/confirm"),
+        ("GET", "/files"),
+        ("GET", f"/files/{file_id}"),
+        ("DELETE", f"/files/{file_id}"),
+    )
+    try:
+        for method, path in requests:
+            response = await client.request(method, path, json={})
+            assert response.status_code == 401, (method, path, response.text)
+            assert response.json()["reason"] == "missing-token"
+    finally:
+        client.headers["authorization"] = authorization
 
 
 async def ask_url(
@@ -249,7 +277,7 @@ async def test_upload_url_creates_a_pending_row_and_signs_the_key(
     ticket = await ask_url(client, name="отчёт.png", size=4)
 
     file = await stored(UUID(ticket["file_id"]))
-    assert (file.status, file.etag, file.owner_id) == (FileStatus.PENDING, None, None)
+    assert (file.status, file.etag, file.owner_id) == (FileStatus.PENDING, None, ADMIN_ID)
     assert (file.bucket, file.original_name, file.size) == (bucket.bucket, "отчёт.png", 4)
     assert file.key.startswith("uploads/") and str(file.id) in file.key
     assert file.original_name not in file.key

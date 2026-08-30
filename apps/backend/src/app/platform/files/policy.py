@@ -19,7 +19,13 @@ class FilePolicySettings(BaseSettings):
 
     max_file_size: int = Field(default=26_214_400, gt=0)
     allowed_content_types: Annotated[frozenset[str], NoDecode] = frozenset(
-        {"image/png", "image/jpeg", "image/webp", "application/pdf"}
+        {
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
     )
 
     @field_validator("allowed_content_types", mode="before")

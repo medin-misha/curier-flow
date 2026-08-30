@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.kernel.db import session as db_session
 from app.kernel.pagination import Page, PageParams
+from app.kernel.security.authentication import authenticated
 from app.modules.storage.schemas.requests import ConfirmRequest, UploadUrlRequest
 from app.modules.storage.schemas.responses import (
     FileDetailResponse,
@@ -60,6 +61,7 @@ router = APIRouter(tags=["files"])
 
 
 @router.post("/upload-url", status_code=HTTPStatus.CREATED, summary="Issue an upload URL")
+@authenticated
 async def upload_url(
     body: UploadUrlRequest,
     sessions: Sessions,
@@ -76,6 +78,7 @@ async def upload_url(
 
 
 @router.post("/{file_id}/confirm", summary="Confirm an uploaded file")
+@authenticated
 async def confirm(
     file_id: UUID,
     body: ConfirmRequest,
@@ -88,6 +91,7 @@ async def confirm(
 
 
 @router.get("", summary="List files")
+@authenticated
 async def list_page(page: PageQuery, sessions: Sessions) -> Page[FileResponse]:
     """Отдать страницу файлов по keyset-курсору."""
     found = await list_files(page, session_factory=sessions)
@@ -98,6 +102,7 @@ async def list_page(page: PageQuery, sessions: Sessions) -> Page[FileResponse]:
 
 
 @router.get("/{file_id}", summary="File metadata and a download link")
+@authenticated
 async def retrieve(file_id: UUID, sessions: Sessions, storage: Storage) -> FileDetailResponse:
     """Отдать метаданные файла и ссылку на скачивание, если он готов."""
     link = await get_file(file_id, session_factory=sessions, storage=storage)
@@ -108,6 +113,7 @@ async def retrieve(file_id: UUID, sessions: Sessions, storage: Storage) -> FileD
 
 
 @router.delete("/{file_id}", status_code=HTTPStatus.NO_CONTENT, summary="Delete a file")
+@authenticated
 async def remove(file_id: UUID, sessions: Sessions) -> None:
     """Пометить файл к удалению; объект уберёт периодическая задача."""
     await mark_for_deletion(file_id, session_factory=sessions)

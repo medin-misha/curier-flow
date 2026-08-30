@@ -227,10 +227,13 @@ async def delete_courier(courier_id: UUID, *, session: AsyncSession) -> None:
             )
         ).all()
     )
-    for file_id in file_ids:
-        await mark_file_deleting(session, file_id)
-    await session.delete(courier)
-    await session.flush()
+    try:
+        for file_id in file_ids:
+            await mark_file_deleting(session, file_id)
+        await session.delete(courier)
+        await session.flush()
+    except IntegrityError as error:
+        raise_known_integrity(error)
 
 
 def _validate_upload_count(

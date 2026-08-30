@@ -12,12 +12,18 @@ from typing import Final
 from app.kernel.registry import Module
 from app.modules.admin.module import admin_module
 from app.modules.courier_module.module import courier_module
+from app.modules.documents.module import documents_module
+from app.modules.finance.module import finance_module
 from app.modules.health.module import health_module
 from app.modules.storage.module import storage_module
+from app.modules.transport_module.module import transport_module
 
 MODULES: Final[tuple[Module, ...]] = (
     health_module,
     storage_module,
     courier_module,
     admin_module,
+    transport_module,
+    finance_module,
+    documents_module,
 )

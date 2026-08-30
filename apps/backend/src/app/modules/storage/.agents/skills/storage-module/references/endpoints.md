@@ -4,10 +4,12 @@
 Приложение хранит метаданные, выдаёт подписанные ссылки и проверяет результат;
 байты ходят между клиентом и объектным хранилищем напрямую.
 
+Все ручки требуют Admin access JWT через `@authenticated`.
+
 | Ручка                       | Что делает                                       |
 | --------------------------- | ------------------------------------------------ |
 | `POST /files/upload-url`    | заводит строку `pending`, отдаёт presigned PUT   |
 | `POST /files/{id}/confirm`  | HEAD объекта, сверка, `ready` + `FileConfirmed`  |
 | `GET /files/{id}`           | метаданные и presigned GET (только у `ready`)    |
 | `GET /files`                | keyset-страница, без файлов в `deleting`         |
-| `DELETE /files/{id}`        | помечает `deleting`, объект удалит задача        |
+| `DELETE /files/{id}`        | помечает `deleting`, либо 409 для занятого File  |

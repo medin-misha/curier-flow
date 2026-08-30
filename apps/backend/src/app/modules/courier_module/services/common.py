@@ -34,7 +34,7 @@ def normalize_phone(value: str) -> str:
 
 
 def raise_known_integrity(error: IntegrityError) -> NoReturn:
-    """Преобразовать только известные unique constraints в Conflict."""
+    """Преобразовать только известные именованные DB-конфликты."""
     constraint = _constraint_name(error)
     if constraint == "uq_couriers_email":
         raise Conflict("Email already belongs to another courier", field="email") from error
@@ -42,6 +42,11 @@ def raise_known_integrity(error: IntegrityError) -> NoReturn:
         raise Conflict("Phone already belongs to another courier", field="phone") from error
     if constraint == "uq_courier_platform_accounts_courier_id_platform":
         raise Conflict("Courier already has this platform", reason="duplicate-platform") from error
+    if constraint in {"signed_contract_protects_rental", "file_deletion_protected"}:
+        raise Conflict(
+            "A signed contract prevents deleting this courier",
+            reason="signed-contract-protects-rental",
+        ) from error
     raise error
 
 

@@ -92,6 +92,23 @@ class ObjectInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class ObjectContent:
+    """Ограниченно прочитанный объект вместе с фактическими метаданными."""
+
+    body: bytes
+    info: ObjectInfo
+
+
+class ObjectTooLargeError(ValueError):
+    """Объект превышает предел безопасного чтения в память."""
+
+    def __init__(self, *, size: int, max_size: int) -> None:
+        self.size = size
+        self.max_size = max_size
+        super().__init__(f"Object size {size} exceeds the {max_size} byte limit")
+
+
+@dataclass(frozen=True, slots=True)
 class ObjectEntry:
     """Строка листинга. Без `content_type`: S3 его в листинге не отдаёт."""
 
@@ -270,6 +287,44 @@ class ObjectStorage:
             etag=response["ETag"].strip('"'),
             last_modified=response["LastModified"],
         )
+
+    async def read_object(
+        self,
+        key: str,
+        *,
+        max_size: int,
+        bucket: str | None = None,
+    ) -> ObjectContent | None:
+        """Прочитать объект не больше заданного предела.
+
+        Принимает ключ, обязательный положительный предел и необязательный
+        bucket. Возвращает содержимое с фактическими метаданными либо `None`,
+        если объекта нет. Кидает `ObjectTooLargeError`, не читая тело, когда
+        заявленный S3 размер уже превышает предел, и после ограниченного чтения,
+        если хранилище прислало больше байтов, чем обещало в metadata.
+        """
+        if max_size <= 0:
+            raise ValueError("max_size must be positive")
+        try:
+            response = await self.client.get_object(Bucket=self._bucket(bucket), Key=key)
+        except ClientError as error:
+            if _is_not_found(error):
+                return None
+            raise
+
+        info = ObjectInfo(
+            size=response["ContentLength"],
+            content_type=response.get("ContentType", "application/octet-stream"),
+            etag=response["ETag"].strip('"'),
+            last_modified=response["LastModified"],
+        )
+        async with response["Body"] as stream:
+            if info.size > max_size:
+                raise ObjectTooLargeError(size=info.size, max_size=max_size)
+            body = await stream.read(max_size + 1)
+        if len(body) > max_size:
+            raise ObjectTooLargeError(size=len(body), max_size=max_size)
+        return ObjectContent(body=body, info=info)
 
     async def delete_object(self, key: str, *, bucket: str | None = None) -> None:
         """Удалить объект.

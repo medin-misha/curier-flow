@@ -32,6 +32,8 @@ Marker используется любым бизнес-модулем для т
 Marker не ходит в БД. Поэтому деактивированный Admin сохраняет доступ к таким
 ручкам до истечения уже выданного access JWT; при текущем default это не более
 `JWT_ACCESS_TTL=900` секунд. Это осознанная граница stateless access-токена.
+Для ручки, одновременно помеченной `@idempotent`, эта JWT-проверка выполняется
+до поиска replay-ответа: сохранённый ответ не превращает endpoint в публичный.
 
 Каноническое объявление:
 
@@ -153,6 +155,13 @@ Courier endpoints с `@authenticated`:
 - `POST /courier/{courier_id}/documents`;
 - `PATCH /courier/{courier_id}/documents/{document_id}`;
 - `DELETE /courier/{courier_id}/documents/{document_id}`.
+
+Все endpoints `/transport` используют `@authenticated`: CRUD транспорта и
+комплектации, чтение истории аренды, создание/завершение аренды и прикрепление
+договора. Создающие и командные POST дополнительно требуют `Idempotency-Key`.
+
+Все CRUD endpoints `/receipts` используют `@authenticated`; создание чека
+дополнительно требует `Idempotency-Key`.
 
 Endpoints с `CurrentAdmin`:
 

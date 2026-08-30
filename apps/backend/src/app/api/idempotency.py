@@ -2,10 +2,12 @@
 
 Что здесь происходит на одном запросе:
 
-1. до зависимостей — прочитать ключ, посчитать отпечаток запроса, поискать
-   сохранённый ответ и, если он есть, вернуть его, не выполняя ручку;
-2. в транзакции запроса — занять ключ (`INSERT ... ON CONFLICT DO NOTHING`);
-3. после ручки, но всё ещё до коммита — записать ответ в ту же транзакцию.
+1. для `@authenticated` сначала проверить Admin access JWT, чтобы replay не
+   обходил защиту ручки;
+2. до остальных зависимостей — прочитать ключ, посчитать отпечаток запроса,
+   поискать сохранённый ответ и, если он есть, вернуть его, не выполняя ручку;
+3. в транзакции запроса — занять ключ (`INSERT ... ON CONFLICT DO NOTHING`);
+4. после ручки, но всё ещё до коммита — записать ответ в ту же транзакцию.
 
 Отсюда главное свойство: ключ, данные и сохранённый ответ уезжают в базу одним
 коммитом. Упавший запрос откатывает все три вещи сразу, поэтому «ключ занят, а
@@ -42,6 +44,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.routing import BaseRoute
 
+from app.api.authentication import require_authenticated_admin
 from app.api.deps import Uow, actor_from_headers
 from app.api.middleware import REQUEST_ID_HEADER
 from app.kernel.db import session as db_session
@@ -57,6 +60,7 @@ from app.kernel.idempotency import (
     reserve_key,
     store_response,
 )
+from app.kernel.security.authentication import is_authenticated
 
 #: Признак того, что ответ не выполнен заново, а взят из-под ключа. Клиенту он
 #: нужен редко, а вот при разборе «почему счёт не создался» отвечает на главный
@@ -115,7 +119,10 @@ class IdempotentRoute(APIRoute):
 
     def get_route_handler(self) -> RouteHandler:
         """Обернуть штатный обработчик проверкой ключа и сохранением ответа."""
-        return _guarded(super().get_route_handler())
+        return _guarded(
+            super().get_route_handler(),
+            requires_authentication=is_authenticated(self.endpoint),
+        )
 
 
 def install_idempotency(app: FastAPI) -> None:
@@ -195,10 +202,14 @@ def _protect(route: APIRoute) -> None:
     route.__class__ = IdempotentRoute
 
 
-def _guarded(handler: RouteHandler) -> RouteHandler:
-    """Обернуть обработчик маршрута проверкой ключа и сохранением ответа."""
+def _guarded(handler: RouteHandler, *, requires_authentication: bool) -> RouteHandler:
+    """Обернуть маршрут auth-проверкой, ключом и сохранением ответа."""
 
     async def guarded(request: Request) -> Response:
+        # Replay не должен обходить marker-зависимость, которая живёт внутри
+        # штатного FastAPI handler и иначе выполнилась бы слишком поздно.
+        if requires_authentication:
+            await require_authenticated_admin(request)
         key = _required_key(request.headers)
         digest = request_digest(
             method=request.method,

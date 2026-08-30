@@ -9,7 +9,9 @@ import pytest
 from fastapi import APIRouter
 from httpx import AsyncClient
 
+from app.api.deps import Uow
 from app.kernel.context import actor_id
+from app.kernel.idempotency import idempotent
 from app.kernel.registry import Module
 from app.kernel.security.authentication import authenticated, is_authenticated
 from app.kernel.security.tokens import issue_tokens, jwt_settings
@@ -29,6 +31,12 @@ def authentication_module() -> Module:
     @router.get("/protected")
     @authenticated
     async def protected() -> dict[str, str]:
+        return {"actor": str(actor_id.get())}
+
+    @router.post("/protected-command")
+    @authenticated
+    @idempotent
+    async def protected_command(_uow: Uow) -> dict[str, str]:
         return {"actor": str(actor_id.get())}
 
     return Module(name="authentication", router=router, prefix="")
@@ -93,3 +101,23 @@ async def test_refresh_is_not_accepted_as_access(http: AsyncClient) -> None:
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.json()["reason"] == "wrong-token-type"
+
+
+async def test_idempotency_replay_does_not_bypass_authentication(clean_db: None) -> None:  # noqa: ARG001
+    headers = {**bearer(), "Idempotency-Key": "protected-command"}
+    async with app_client([authentication_module()]) as client:
+        created = await client.post("/protected-command", headers=headers)
+        missing = await client.post(
+            "/protected-command",
+            headers={"Idempotency-Key": "protected-command"},
+        )
+        wrong_kind = await client.post(
+            "/protected-command",
+            headers={**bearer(kind="courier"), "Idempotency-Key": "protected-command"},
+        )
+
+    assert created.status_code == HTTPStatus.OK
+    assert missing.status_code == HTTPStatus.UNAUTHORIZED
+    assert missing.json()["reason"] == "missing-token"
+    assert wrong_kind.status_code == HTTPStatus.UNAUTHORIZED
+    assert wrong_kind.json()["reason"] == "wrong-actor-kind"

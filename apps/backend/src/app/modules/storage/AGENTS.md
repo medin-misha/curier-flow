@@ -9,13 +9,16 @@
 
 ## Обязательные инварианты
 
+- Все `/files` endpoints защищены `@authenticated`: метаданные, presigned URL
+  и lifecycle-команды доступны только по Admin access JWT.
 - Обычный `/files` API не принимает и не проксирует байты: его flow остаётся
   direct-to-S3. Aggregate routes Courier — документированное ADR 0009 узкое
   исключение, которое использует общий framework-neutral platform uploader.
 - Внешний I/O не выполняется внутри транзакции: чтение БД → закрытие сессии →
   S3 → короткая пишущая транзакция.
 - Жизненный цикл однонаправленный: `pending → ready` или
-  `pending/ready → deleting`; из `deleting` возврата нет.
+  `pending/ready → deleting`; из `deleting` возврата нет. Переход отклоняется,
+  если File защищён бизнес-ссылкой, например подписанным договором аренды.
 - `confirm` меняет статус на `ready` в одной транзакции с
   `emit(FileConfirmed)`.
 - Удаление выполняет задача: сначала объект в S3, затем строка БД.
