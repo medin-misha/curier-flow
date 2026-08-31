@@ -3,7 +3,9 @@
 import asyncio
 import urllib.parse
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
@@ -20,6 +22,25 @@ from app.platform.s3 import (
 
 #: Заведомо закрытый порт: клиент, который полез бы в сеть, упал бы сразу.
 UNREACHABLE = "http://127.0.0.1:1"
+
+
+class ShortReadBody:
+    def __init__(self, body: bytes, *, chunk_size: int) -> None:
+        self.body = body
+        self.chunk_size = chunk_size
+        self.offset = 0
+
+    async def __aenter__(self) -> "ShortReadBody":
+        return self
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+    async def read(self, amount: int) -> bytes:
+        size = min(amount, self.chunk_size)
+        chunk = self.body[self.offset : self.offset + size]
+        self.offset += len(chunk)
+        return chunk
 
 
 @pytest.fixture
@@ -148,6 +169,43 @@ async def test_read_returns_bounded_content_and_metadata(bucket: ObjectStorage) 
     assert downloaded.body == b"document"
     assert downloaded.info.size == 8
     assert downloaded.info.content_type == "application/docx"
+
+
+async def test_read_coalesces_short_stream_reads() -> None:
+    client = AsyncMock()
+    stream = ShortReadBody(b"document", chunk_size=3)
+    client.get_object.return_value = {
+        "ContentLength": 8,
+        "ContentType": "application/docx",
+        "ETag": '"etag"',
+        "LastModified": datetime.now(tz=UTC),
+        "Body": stream,
+    }
+    objects = ObjectStorage(client=client, signer=client, bucket="files", presign_ttl=900)
+
+    downloaded = await objects.read_object("docs/template.docx", max_size=8)
+
+    assert downloaded is not None
+    assert downloaded.body == b"document"
+    assert stream.offset == 8
+
+
+async def test_read_rejects_oversized_short_stream() -> None:
+    client = AsyncMock()
+    stream = ShortReadBody(b"oversized", chunk_size=2)
+    client.get_object.return_value = {
+        "ContentLength": 8,
+        "ContentType": "application/docx",
+        "ETag": '"etag"',
+        "LastModified": datetime.now(tz=UTC),
+        "Body": stream,
+    }
+    objects = ObjectStorage(client=client, signer=client, bucket="files", presign_ttl=900)
+
+    with pytest.raises(ObjectTooLargeError) as raised:
+        await objects.read_object("docs/template.docx", max_size=8)
+
+    assert (raised.value.size, raised.value.max_size) == (9, 8)
 
 
 async def test_read_handles_missing_and_oversized_objects(bucket: ObjectStorage) -> None:

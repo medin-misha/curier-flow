@@ -321,10 +321,15 @@ class ObjectStorage:
         async with response["Body"] as stream:
             if info.size > max_size:
                 raise ObjectTooLargeError(size=info.size, max_size=max_size)
-            body = await stream.read(max_size + 1)
+            body = bytearray()
+            while len(body) <= max_size:
+                chunk = await stream.read(max_size + 1 - len(body))
+                if not chunk:
+                    break
+                body.extend(chunk)
         if len(body) > max_size:
             raise ObjectTooLargeError(size=len(body), max_size=max_size)
-        return ObjectContent(body=body, info=info)
+        return ObjectContent(body=bytes(body), info=info)
 
     async def delete_object(self, key: str, *, bucket: str | None = None) -> None:
         """Удалить объект.
