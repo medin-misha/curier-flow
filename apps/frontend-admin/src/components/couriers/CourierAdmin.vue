@@ -171,7 +171,7 @@ async function submitCreate(input: CourierCreateInput) {
   }
 }
 
-async function openDetails(courier: Courier, event: MouseEvent) {
+async function openDetails(courier: Courier, event: Event) {
   rememberFocus(event.currentTarget)
   selectedCourier.value = courier
   try {

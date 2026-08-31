@@ -384,6 +384,7 @@ h3 {
 .select:focus-visible,
 .textarea:focus-visible,
 .table-action:focus-visible,
+.clickable-row:focus-visible,
 .page-button:focus-visible,
 .checkbox-row:focus-within {
   outline: 3px solid var(--accent-soft);
@@ -601,6 +602,10 @@ h3 {
 
 .ds-table tbody tr:hover {
   background: var(--fg-soft);
+}
+
+.ds-table tbody tr.clickable-row {
+  cursor: pointer;
 }
 
 .ds-table tbody tr:last-child td {

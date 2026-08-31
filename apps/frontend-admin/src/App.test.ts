@@ -809,7 +809,7 @@ describe('Courier CRUD', () => {
   it('читает, редактирует и удаляет профиль курьера', async () => {
     const page = await mountApp()
 
-    await page.get('.table-action').trigger('click')
+    await page.get('[data-od-id="courier-row-00000000-0000-4000-8000-000000000001"]').trigger('click')
     await flushPromises()
     expect(page.get('[data-od-id="courier-detail-dialog"]').text()).toContain(
       'passport_scan.pdf',

@@ -18,7 +18,7 @@ const searchQuery = defineModel<string>('searchQuery', { required: true })
 
 defineEmits<{
   create: [event: MouseEvent]
-  select: [courier: Courier, event: MouseEvent]
+  select: [courier: Courier, event: Event]
   page: [page: number]
   retry: []
   search: []

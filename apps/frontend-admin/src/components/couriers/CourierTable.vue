@@ -5,9 +5,13 @@ defineProps<{
   couriers: Courier[]
 }>()
 
-defineEmits<{
-  select: [courier: Courier, event: MouseEvent]
+const emit = defineEmits<{
+  select: [courier: Courier, event: Event]
 }>()
+
+function selectCourier(courier: Courier, event: Event) {
+  emit('select', courier, event)
+}
 </script>
 
 <template>
@@ -29,7 +33,13 @@ defineEmits<{
         <tr
           v-for="courier in couriers"
           :key="courier.id"
+          class="clickable-row"
+          tabindex="0"
+          :aria-label="`Открыть профиль ${courier.fullName}`"
           :data-od-id="`courier-row-${courier.id}`"
+          @click="selectCourier(courier, $event)"
+          @keydown.enter="selectCourier(courier, $event)"
+          @keydown.space.prevent="selectCourier(courier, $event)"
         >
           <td data-label="Курьер">
             <div class="person">
@@ -39,7 +49,7 @@ defineEmits<{
           </td>
           <td data-label="Контакты">
             <div class="contact-cell">
-              <a :href="`mailto:${courier.email}`">{{ courier.email }}</a>
+              <a :href="`mailto:${courier.email}`" @click.stop>{{ courier.email }}</a>
               <span class="num">{{ courier.phone }}</span>
             </div>
           </td>
@@ -71,7 +81,7 @@ defineEmits<{
               class="table-action"
               type="button"
               :aria-label="`Открыть профиль ${courier.fullName}`"
-              @click="$emit('select', courier, $event)"
+              @click.stop="selectCourier(courier, $event)"
             >
               <svg
                 viewBox="0 0 24 24"
