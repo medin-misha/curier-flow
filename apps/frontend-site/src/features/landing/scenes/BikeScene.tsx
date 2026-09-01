@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import { SpecBlock } from '../SpecBlock'
 import type { BikeScene as BikeSceneData } from '../scene.types'
 import { sceneEyebrow } from '../sceneEyebrow'
@@ -18,13 +20,16 @@ export function BikeScene({
   index,
   active,
   revealed,
+  locale = 'ru',
 }: {
   scene: BikeSceneData
   index: number
   active: boolean
   revealed: boolean
+  locale?: Locale
 }) {
   const { bike } = scene
+  const copy = getMessages(locale).landing
   const video = useRef<HTMLVideoElement | null>(null)
   const played = useRef(false)
 
@@ -102,7 +107,7 @@ export function BikeScene({
           ))}
 
           <p className={styles.price}>
-            Аренда —{' '}
+            {copy.rental} —{' '}
             <span className={styles.priceValue}>
               {bike.price.amount} {bike.price.period}
             </span>

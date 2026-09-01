@@ -1,3 +1,5 @@
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import type { Scene } from './scene.types'
 
 export type NavKey = 'home' | 'transport' | 'gear'
@@ -14,14 +16,17 @@ export interface NavTarget {
  * Индексы считаются из массива сцен, поэтому новый велосипед сдвигает
  * цель «Сумки» сам, без правок в шапке.
  */
-export function navTargets(scenes: Scene[]): NavTarget[] {
-  const targets: NavTarget[] = [{ key: 'home', label: 'Главная', index: 0 }]
+export function navTargets(scenes: Scene[], locale: Locale = 'ru'): NavTarget[] {
+  const labels = getMessages(locale).landing.nav
+  const targets: NavTarget[] = [{ key: 'home', label: labels.home, index: 0 }]
 
   const transport = scenes.findIndex((scene) => scene.kind === 'bike')
-  if (transport >= 0) targets.push({ key: 'transport', label: 'Транспорт', index: transport })
+  if (transport >= 0) {
+    targets.push({ key: 'transport', label: labels.transport, index: transport })
+  }
 
   const gear = scenes.findIndex((scene) => scene.kind === 'gear')
-  if (gear >= 0) targets.push({ key: 'gear', label: 'Сумки', index: gear })
+  if (gear >= 0) targets.push({ key: 'gear', label: labels.gear, index: gear })
 
   return targets
 }

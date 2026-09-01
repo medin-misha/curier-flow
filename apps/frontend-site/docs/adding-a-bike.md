@@ -36,26 +36,32 @@ public/bikes/<slug>/
 
 ## 2. Добавить запись каталога
 
-Добавь объект в нужную позицию массива `bikes` в `src/content/bikes.ts`. Под
-`BikeContent` в этом workflow понимается контентная запись велосипеда; текущее
-имя её TypeScript-типа в коде: `Bike` из
-`src/features/landing/scene.types.ts`.
+Добавь объект в нужную позицию массива `bikeCatalog` в
+`src/content/bikes.ts`. Медиа задаются один раз, а `copy` обязан содержать
+варианты `ru`, `en` и `cs`. `getBikes()` преобразует запись каталога в текущий
+UI-тип `Bike` из `src/features/landing/scene.types.ts`.
 
 ```ts
 {
   slug: 'cargo-x2',
-  name: 'MFS Cargo X2',
   media: {
     poster: '/bikes/cargo-x2/poster.png',
     video: '/bikes/cargo-x2/loop.mp4',
     focus: '55%',
   },
-  specs: [
-    { label: 'АКБ', value: '48V · 30Ah', note: 'зарядка 6 часов' },
-    { label: 'ЗАПАС ХОДА', value: 'до 90 км', note: 'на одном заряде' },
-  ],
-  description: ['Описание велосипеда и условий выдачи.'],
-  price: { amount: 'от 2400 CZK', period: 'в неделю' },
+  copy: {
+    ru: {
+      name: 'MFS Cargo X2',
+      specs: [
+        { label: 'АКБ', value: '48V · 30Ah', note: 'зарядка 6 часов' },
+        { label: 'ЗАПАС ХОДА', value: 'до 90 км', note: 'на одном заряде' },
+      ],
+      description: ['Описание велосипеда и условий выдачи.'],
+      price: { amount: 'от 2400 CZK', period: 'в неделю' },
+    },
+    en: { /* те же поля на английском */ },
+    cs: { /* те же поля на чешском */ },
+  },
 },
 ```
 
@@ -63,21 +69,22 @@ public/bikes/<slug>/
 
 - `slug`: уникальная часть путей ассетов и производного ID сцены
   `bike-<slug>`. Используй стабильный lowercase kebab-case без пробелов.
-- `name`: имя активного велосипеда в шапке.
+- `copy.<locale>.name`: имя активного велосипеда в шапке.
 - `media.poster`: обязательный URL постера от корня сайта.
 - `media.video`: опциональный URL MP4. Источник подставляется только после
   первого показа сцены и затем не выгружается.
 - `media.focus`: горизонтальный `object-position`, обычно процент вроде `55%`;
   вертикальная позиция остаётся по центру.
-- `specs`: tuple ровно из двух объектов `Spec`. Каждый содержит `label`,
+- `copy.<locale>.specs`: tuple ровно из двух объектов `Spec`. Каждый содержит `label`,
   `value` и `note`; рендер раскладывает элементы в левый и правый блок.
-- `description`: массив абзацев. Каждый элемент выводится отдельным `<p>`.
-- `price.amount` и `price.period`: части строки стоимости аренды.
+- `copy.<locale>.description`: массив абзацев. Каждый элемент выводится отдельным `<p>`.
+- `copy.<locale>.price.amount` и `copy.<locale>.price.period`: части строки стоимости аренды.
 
 Не добавляй третью характеристику без намеренного редизайна типа и раскладки.
 Не добавляй `BikeScene` вручную и не меняй discriminated union `Scene`:
-`composeScenes()` преобразует все элементы `bikes` через `toBikeScene()`.
-Порядок объектов в `bikes` определяет порядок велосипедных сцен.
+`composeScenes()` преобразует все элементы локализованного результата
+`getBikes()` через `toBikeScene()`. Порядок объектов в `bikeCatalog` определяет
+порядок велосипедных сцен на всех языках.
 
 ## 3. Проверить автоматические производные
 

@@ -1,9 +1,13 @@
 'use client'
 
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { PixelLink } from '@/components/PixelButton'
+import { getMessages } from '@/i18n/messages'
+import { localePath } from '@/i18n/locales'
+import type { Locale } from '@/i18n/locales'
 import type { Scene } from './scene.types'
 import { activeBikeName, activeNavKey, navTargets } from './sceneNavigation'
 import { scrollToScene } from './sceneScroll'
-import { PixelLink } from '@/components/PixelButton'
 import styles from './SiteHeader.module.css'
 
 /** Шапка: логотип, меню по сценам, имя активного велосипеда и CTA. */
@@ -11,12 +15,15 @@ export function SiteHeader({
   scenes,
   active,
   ctaVisible,
+  locale = 'ru',
 }: {
   scenes: Scene[]
   active: number
   ctaVisible: boolean
+  locale?: Locale
 }) {
-  const targets = navTargets(scenes)
+  const copy = getMessages(locale).landing
+  const targets = navTargets(scenes, locale)
   const currentKey = activeNavKey(scenes, active)
   const bikeName = activeBikeName(scenes, active)
 
@@ -32,12 +39,15 @@ export function SiteHeader({
           Имя остаётся в разметке при смене сцены, чтобы уезжало плавно,
           а не пропадало вместе с узлом.
         */}
-        <div
-          className={styles.bikeName}
-          data-visible={bikeName !== null}
-          data-testid="header-bike-name"
-        >
-          {bikeName ?? ''}
+        <div className={styles.topControls}>
+          <div
+            className={styles.bikeName}
+            data-visible={bikeName !== null}
+            data-testid="header-bike-name"
+          >
+            {bikeName ?? ''}
+          </div>
+          <LanguageSwitcher locale={locale} route="landing" />
         </div>
       </div>
 
@@ -57,14 +67,14 @@ export function SiteHeader({
         </nav>
 
         <PixelLink
-          href="/apply"
+          href={localePath(locale, 'apply')}
           variant="primary"
           size="sm"
           className={styles.headerCta}
           data-visible={ctaVisible}
           tabIndex={ctaVisible ? undefined : -1}
         >
-          Оставить заявку
+          {copy.applyCta}
         </PixelLink>
       </div>
     </header>

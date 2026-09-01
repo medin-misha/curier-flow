@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { Manrope, Press_Start_2P } from 'next/font/google'
-import './globals.css'
+import { getMessages } from '@/i18n/messages'
+import '../globals.css'
 
 const manrope = Manrope({
   subsets: ['latin', 'cyrillic'],
@@ -17,10 +18,14 @@ const pixel = Press_Start_2P({
   display: 'swap',
 })
 
+const copy = getMessages('ru').metadata.landing
+
 export const metadata: Metadata = {
-  title: 'May Fleet Solutions — работа курьером Bolt Food в Чехии',
-  description:
-    'Подключение к Bolt Food, аренда электровелосипеда и термосумка — одной заявкой. Комиссия флотилии 10%.',
+  ...copy,
+  alternates: {
+    canonical: '/',
+    languages: { ru: '/', en: '/en', cs: '/cs' },
+  },
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {

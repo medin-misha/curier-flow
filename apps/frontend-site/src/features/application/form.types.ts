@@ -39,6 +39,4 @@ export const emptyForm: ApplicationForm = {
 
 export const emptyFiles: ApplicationFiles = { passport: null, visa: null }
 
-export const STEP_LABELS = ['Личные данные', 'Контакты', 'Документы', 'Отправка'] as const
-
 export const LAST_STEP: StepNumber = 4

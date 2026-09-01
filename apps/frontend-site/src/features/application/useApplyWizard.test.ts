@@ -82,6 +82,30 @@ describe('useApplyWizard', () => {
     expect(result.current.error).toBe('')
   })
 
+  it('оставляет в имени только латиницу и разделители', () => {
+    const { result } = renderHook(() => useApplyWizard(TODAY))
+
+    act(() => result.current.setField('fullName', "Iván Иванов 123 O'Neil-Novák"))
+
+    expect(result.current.form.fullName).toBe("Iván   O'Neil-Novák")
+  })
+
+  it('подставляет телефон в контакт WhatsApp или @ для Telegram', () => {
+    const { result } = renderHook(() => useApplyWizard(TODAY))
+
+    act(() => result.current.setField('phone', '+420 777 123 456'))
+    expect(result.current.form.messengerContact).toBe('+420777123456')
+
+    act(() => result.current.setField('messenger', 'Telegram'))
+    expect(result.current.form.messengerContact).toBe('@')
+
+    act(() => result.current.setField('phone', '604 111 222'))
+    expect(result.current.form.messengerContact).toBe('@')
+
+    act(() => result.current.setField('messenger', 'WhatsApp'))
+    expect(result.current.form.messengerContact).toBe('+420604111222')
+  })
+
   it('оставляет в телефоне только цифры и режет до девяти', () => {
     const { result } = renderHook(() => useApplyWizard(TODAY))
 

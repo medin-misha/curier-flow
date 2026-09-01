@@ -90,12 +90,12 @@ describe('validateStep, шаг 1', () => {
     )
   })
 
-  it('держит нижнюю границу возраста на 18 годах', () => {
+  it('держит нижнюю границу возраста на 15 годах', () => {
     expect(
-      validateStep(1, form({ ...validIdentity, birthDate: '2008-08-15' }), emptyFiles, TODAY),
-    ).toBe('Работать курьером можно с 18 лет.')
+      validateStep(1, form({ ...validIdentity, birthDate: '2011-08-15' }), emptyFiles, TODAY),
+    ).toBe('Работать курьером можно с 15 лет.')
     expect(
-      validateStep(1, form({ ...validIdentity, birthDate: '2008-08-14' }), emptyFiles, TODAY),
+      validateStep(1, form({ ...validIdentity, birthDate: '2011-08-14' }), emptyFiles, TODAY),
     ).toBe('')
   })
 
@@ -230,6 +230,15 @@ describe('validateStep, шаг 4', () => {
   it('требует согласие', () => {
     expect(validateStep(4, form(), emptyFiles, TODAY)).toBe('Нужно согласие на обработку данных.')
     expect(validateStep(4, form({ consent: true }), emptyFiles, TODAY)).toBe('')
+  })
+})
+
+describe('локализация ошибок', () => {
+  it('возвращает ошибки выбранного языка, не меняя правила', () => {
+    expect(validateStep(1, form(), emptyFiles, TODAY, 'en')).toBe(
+      'Enter your first and last name.',
+    )
+    expect(validateStep(1, form(), emptyFiles, TODAY, 'cs')).toBe('Zadej jméno a příjmení.')
   })
 })
 

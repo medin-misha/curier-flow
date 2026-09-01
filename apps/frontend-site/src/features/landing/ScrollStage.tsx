@@ -1,5 +1,8 @@
 'use client'
 
+import { getMessages } from '@/i18n/messages'
+import { localePath } from '@/i18n/locales'
+import type { Locale } from '@/i18n/locales'
 import { MobileCta } from './MobileCta'
 import { SiteFooter } from './SiteFooter'
 import { SiteHeader } from './SiteHeader'
@@ -30,15 +33,16 @@ const CTA_FROM_SCENE = 1
  * и цели меню считаются из массива сцен, поэтому новый велосипед не требует
  * правок в этом файле.
  */
-export function ScrollStage({ scenes }: { scenes: Scene[] }) {
+export function ScrollStage({ scenes, locale = 'ru' }: { scenes: Scene[]; locale?: Locale }) {
   const active = useActiveScene(scenes.length)
+  const copy = getMessages(locale).landing
   const { stage, overlay } = partitionScenes(scenes)
   const backToIndex = Math.max(lastBikeIndex(scenes), 0)
   const ctaVisible = active >= CTA_FROM_SCENE
 
   return (
     <>
-      <SiteHeader scenes={scenes} active={active} ctaVisible={ctaVisible} />
+      <SiteHeader scenes={scenes} active={active} ctaVisible={ctaVisible} locale={locale} />
 
       <section
         className={styles.track}
@@ -67,6 +71,7 @@ export function ScrollStage({ scenes }: { scenes: Scene[] }) {
                   index={index}
                   active={active === index}
                   revealed={active >= index}
+                  locale={locale}
                 />
               )
             }
@@ -88,10 +93,17 @@ export function ScrollStage({ scenes }: { scenes: Scene[] }) {
         ) : null,
       )}
 
-      <MobileCta visible={ctaVisible} label="Оставить заявку" href="/apply" />
+      <MobileCta
+        visible={ctaVisible}
+        label={copy.applyCta}
+        href={localePath(locale, 'apply')}
+      />
       <SceneDots count={scenes.length} active={active} />
-      <ScrollHint hidden={scenes[active]?.kind === 'gear'} />
-      <SiteFooter eyebrow={sceneEyebrow(scenes.length, 'КОНТАКТЫ')} />
+      <ScrollHint hidden={scenes[active]?.kind === 'gear'} locale={locale} />
+      <SiteFooter
+        eyebrow={sceneEyebrow(scenes.length, copy.contactsEyebrow)}
+        locale={locale}
+      />
     </>
   )
 }

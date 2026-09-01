@@ -56,6 +56,36 @@
   gap: 7px;
 }
 
+.emailRow {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.emailRow > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.emailSuggestion {
+  flex: none;
+  padding: 0 12px;
+  border: 1px solid var(--mfs-line-soft);
+  border-left: 0;
+  background: rgb(var(--mfs-accent-rgb) / 0.08);
+  color: rgb(var(--mfs-fg-rgb) / 0.48);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.emailSuggestion:hover,
+.emailSuggestion:focus-visible {
+  color: var(--mfs-accent);
+  background: rgb(var(--mfs-accent-rgb) / 0.14);
+}
+
 .phoneRow {
   display: flex;
   align-items: stretch;

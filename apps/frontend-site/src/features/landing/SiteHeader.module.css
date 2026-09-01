@@ -50,7 +50,16 @@
   color: rgb(var(--mfs-fg-rgb) / 0.5);
 }
 
+.topControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
 .bikeName {
+  overflow: hidden;
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
@@ -113,6 +122,10 @@
 @media (min-width: 768px) {
   .headerCta {
     display: inline-flex;
+  }
+
+  .topControls {
+    gap: 16px;
   }
 
   .bikeName {

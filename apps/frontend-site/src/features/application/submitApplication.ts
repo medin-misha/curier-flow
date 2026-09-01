@@ -1,3 +1,5 @@
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import type { ApplicationFiles, ApplicationForm } from './form.types'
 import { digitsOnly } from './validation'
 
@@ -45,11 +47,29 @@ interface ProblemDetails {
 
 const ENDPOINT = '/api/courier'
 const REQUEST_TIMEOUT_MS = 60_000
+const NAME_WORD_SEPARATORS = new Set([' ', '-', "'", '’'])
+
+function formatFullName(value: string): string {
+  let shouldCapitalize = true
+
+  return Array.from(value.trim().toLocaleLowerCase('en-US'))
+    .map((char) => {
+      if (NAME_WORD_SEPARATORS.has(char)) {
+        shouldCapitalize = true
+        return char
+      }
+
+      if (!shouldCapitalize) return char
+      shouldCapitalize = false
+      return char.toLocaleUpperCase('en-US')
+    })
+    .join('')
+}
 
 /** Переводит UI-модель в неизменяемый backend-контракт. */
 export function toCourierPayload(form: ApplicationForm): CourierCreatePayload {
   return {
-    full_name: form.fullName.trim(),
+    full_name: formatFullName(form.fullName),
     email: form.email.trim(),
     phone: `+420${digitsOnly(form.phone)}`,
     date_of_birth: form.birthDate,
@@ -92,28 +112,28 @@ async function responseJson(response: Response): Promise<unknown> {
   }
 }
 
-function problemMessage(status: number, body: ProblemDetails | null): string {
+function problemMessage(status: number, body: ProblemDetails | null, locale: Locale): string {
+  const copy = getMessages(locale).application.errors
   const reason = typeof body?.reason === 'string' ? body.reason : ''
 
-  if (reason === 'identity-split') {
-    return 'Почта и телефон уже связаны с разными заявками. Напиши нам, чтобы проверить данные.'
-  }
-  if (reason === 'content-type-not-allowed') {
-    return 'Формат документа не поддерживается. Загрузи PNG, JPEG, WebP или PDF.'
-  }
-  if (reason === 'empty_file') return 'Один из документов пуст. Выбери файл ещё раз.'
+  if (reason === 'identity-split') return copy.identitySplit
+  if (reason === 'content-type-not-allowed') return copy.documentType
+  if (reason === 'empty_file') return copy.emptyDocument
   if (reason === 'file_too_large' || reason === 'total_upload_too_large' || status === 413) {
-    return 'Документы слишком большие. Каждый файл должен быть не больше 10 МБ.'
+    return copy.documentsLarge
   }
-  if (status === 422) return 'Не удалось проверить данные заявки. Проверь поля и документы.'
-  if (status === 429) return 'Слишком много попыток. Подожди немного и отправь заявку снова.'
-  if (status >= 500) return 'Сервис временно недоступен. Попробуй отправить заявку позже.'
+  if (status === 422) return copy.invalidPayload
+  if (status === 429) return copy.tooManyAttempts
+  if (status >= 500) return copy.unavailable
 
-  return 'Не удалось отправить заявку. Проверь данные и попробуй ещё раз.'
+  return copy.generic
 }
 
 /** Отправляет заявку через same-origin proxy на backend POST /courier. */
-export async function submitApplication(payload: ApplicationPayload): Promise<SubmitResult> {
+export async function submitApplication(
+  payload: ApplicationPayload,
+  locale: Locale = 'ru',
+): Promise<SubmitResult> {
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -129,7 +149,7 @@ export async function submitApplication(payload: ApplicationPayload): Promise<Su
       if (!isRecord(body) || typeof body.id !== 'string') {
         return {
           ok: false,
-          message: 'Сервис вернул неполный ответ. Попробуй отправить заявку ещё раз.',
+          message: getMessages(locale).application.errors.incompleteResponse,
         }
       }
       return {
@@ -141,7 +161,7 @@ export async function submitApplication(payload: ApplicationPayload): Promise<Su
 
     return {
       ok: false,
-      message: problemMessage(response.status, isRecord(body) ? body : null),
+      message: problemMessage(response.status, isRecord(body) ? body : null, locale),
     }
   } finally {
     window.clearTimeout(timeout)

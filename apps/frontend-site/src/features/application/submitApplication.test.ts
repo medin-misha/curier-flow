@@ -24,6 +24,15 @@ const payload = {
 }
 
 describe('toCourierPayload', () => {
+  it('форматирует имя и фамилию перед отправкой', () => {
+    expect(toCourierPayload({ ...payload.form, fullName: '  iVAN iVANov  ' }).full_name).toBe(
+      'Ivan Ivanov',
+    )
+    expect(toCourierPayload({ ...payload.form, fullName: "o'NEIL-smITH" }).full_name).toBe(
+      "O'Neil-Smith",
+    )
+  })
+
   it('переводит форму в backend DTO', () => {
     expect(toCourierPayload(payload.form)).toEqual({
       full_name: 'Ivan Ivanov',

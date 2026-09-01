@@ -1,0 +1,33 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding: 3px;
+  border: 1px solid rgb(var(--mfs-fg-rgb) / 0.14);
+  background: rgb(var(--mfs-bg-rgb) / 0.62);
+  clip-path: var(--mfs-clip-3);
+}
+
+.link {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 24px;
+  padding: 0 5px;
+  color: rgb(var(--mfs-fg-rgb) / 0.48);
+  font-family: var(--font-pixel), monospace;
+  font-size: 7px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.link:hover,
+.link:focus-visible {
+  color: var(--mfs-accent);
+}
+
+.link[aria-current='page'] {
+  color: var(--mfs-bg);
+  background: var(--mfs-gold);
+}

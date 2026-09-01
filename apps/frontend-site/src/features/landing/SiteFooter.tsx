@@ -1,5 +1,7 @@
 import { Fragment } from 'react'
 import { company } from '@/content/company'
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import styles from './SiteFooter.module.css'
 
 /**
@@ -8,7 +10,9 @@ import styles from './SiteFooter.module.css'
  * Подпись приходит готовой строкой: футер не знает про сцены, номер за него
  * считает тот, кто владеет их массивом.
  */
-export function SiteFooter({ eyebrow }: { eyebrow: string }) {
+export function SiteFooter({ eyebrow, locale = 'ru' }: { eyebrow: string; locale?: Locale }) {
+  const copy = getMessages(locale).landing.footer
+
   return (
     <footer className={styles.root}>
       <div className={styles.top}>
@@ -18,7 +22,7 @@ export function SiteFooter({ eyebrow }: { eyebrow: string }) {
 
       <div className={styles.columns}>
         <div className={styles.column}>
-          <span className={styles.columnTitle}>РЕКВИЗИТЫ</span>
+          <span className={styles.columnTitle}>{copy.details}</span>
           <span className={styles.legalName}>{company.legalName}</span>
           <span className={styles.address}>
             {company.addressLines.map((line, index) => (
@@ -36,7 +40,7 @@ export function SiteFooter({ eyebrow }: { eyebrow: string }) {
         </div>
 
         <div className={styles.column}>
-          <span className={styles.columnTitle}>СВЯЗЬ</span>
+          <span className={styles.columnTitle}>{copy.contact}</span>
           <a href={company.phone.href} className={styles.phone}>
             {company.phone.display}
           </a>
@@ -44,7 +48,7 @@ export function SiteFooter({ eyebrow }: { eyebrow: string }) {
             {company.email}
           </a>
           <a href={company.privacyPolicy.href} className={styles.policy}>
-            {company.privacyPolicy.label} <span className={styles.arrow}>→</span>
+            {copy.privacy} <span className={styles.arrow}>→</span>
           </a>
         </div>
       </div>

@@ -3,7 +3,7 @@ import type { Bike } from '@/features/landing/scene.types'
 import { activeNavKey, lastBikeIndex, navTargets } from '@/features/landing/sceneNavigation'
 import { sceneEyebrow } from '@/features/landing/sceneEyebrow'
 import { bikes } from './bikes'
-import { composeScenes, scenes } from './scenes'
+import { composeScenes, getScenes, scenes } from './scenes'
 
 const secondBike: Bike = {
   slug: 'cargo-x2',
@@ -33,6 +33,32 @@ describe('порядок сцен', () => {
 
     expect(gearIndex).toBe(scenes.length - 1)
     expect(sceneEyebrow(gearIndex, 'ЭКИПИРОВКА')).toContain(`${scenes.length} / `)
+  })
+})
+
+describe('локализация сцен', () => {
+  it('сохраняет одинаковый порядок и ID на всех языках', () => {
+    const russian = getScenes('ru')
+
+    for (const locale of ['en', 'cs'] as const) {
+      expect(getScenes(locale).map((scene) => [scene.kind, scene.id])).toEqual(
+        russian.map((scene) => [scene.kind, scene.id]),
+      )
+    }
+  })
+
+  it('локализует контент и адрес заявки', () => {
+    const english = getScenes('en')[0]
+    const czech = getScenes('cs')[0]
+
+    expect(english.kind === 'intro' ? english.title : '').toBe(
+      'Work as a Bolt Food courier in Czechia',
+    )
+    expect(english.kind === 'intro' ? english.cta?.href : '').toBe('/en/apply')
+    expect(czech.kind === 'intro' ? czech.title : '').toBe(
+      'Pracuj jako kurýr Bolt Food v Česku',
+    )
+    expect(czech.kind === 'intro' ? czech.cta?.href : '').toBe('/cs/apply')
   })
 })
 

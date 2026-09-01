@@ -1,4 +1,6 @@
 import { PixelChip } from '@/components/PixelChip'
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import { cities } from '@/content/application'
 import { Field, TextInput } from '../Field'
 import { ageHint } from '../hints'
@@ -6,18 +8,25 @@ import type { ApplyWizard } from '../useApplyWizard'
 import styles from './Step.module.css'
 
 /** Шаг 1: имя, дата рождения, город и адрес. */
-export function StepIdentity({ wizard }: { wizard: ApplyWizard }) {
+export function StepIdentity({
+  wizard,
+  locale = 'ru',
+}: {
+  wizard: ApplyWizard
+  locale?: Locale
+}) {
   const { form, setField, now } = wizard
+  const copy = getMessages(locale).application.identity
 
   return (
     <section className={styles.section}>
       <div className={styles.head}>
-        <h1 className={styles.title}>Кто ты</h1>
-        <p className={styles.lead}>Пиши как в паспорте — по этим данным оформим тебя во флоте.</p>
+        <h1 className={styles.title}>{copy.title}</h1>
+        <p className={styles.lead}>{copy.lead}</p>
       </div>
 
       <div className={styles.fields}>
-        <Field label="Имя и фамилия">
+        <Field label={copy.fullName}>
           <TextInput
             value={form.fullName}
             onChange={(event) => setField('fullName', event.target.value)}
@@ -27,7 +36,7 @@ export function StepIdentity({ wizard }: { wizard: ApplyWizard }) {
           />
         </Field>
 
-        <Field label="Дата рождения" hint={ageHint(form.birthDate, now())}>
+        <Field label={copy.birthDate} hint={ageHint(form.birthDate, now(), locale)}>
           <TextInput
             type="date"
             value={form.birthDate}
@@ -36,7 +45,7 @@ export function StepIdentity({ wizard }: { wizard: ApplyWizard }) {
         </Field>
 
         <div className={styles.group}>
-          <span className={styles.groupTitle}>Город</span>
+          <span className={styles.groupTitle}>{copy.city}</span>
           <div className={styles.chips}>
             {cities.map((city) => (
               <PixelChip
@@ -51,17 +60,17 @@ export function StepIdentity({ wizard }: { wizard: ApplyWizard }) {
           <TextInput
             value={form.city}
             onChange={(event) => setField('city', event.target.value)}
-            placeholder="Или впиши свой город"
-            aria-label="Город"
+            placeholder={copy.cityPlaceholder}
+            aria-label={copy.city}
             maxLength={128}
           />
         </div>
 
-        <Field label="Адрес проживания">
+        <Field label={copy.address}>
           <TextInput
             value={form.address}
             onChange={(event) => setField('address', event.target.value)}
-            placeholder="Улица, дом, квартира"
+            placeholder={copy.addressPlaceholder}
             autoComplete="street-address"
           />
         </Field>

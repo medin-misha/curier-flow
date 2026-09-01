@@ -36,7 +36,7 @@ async function fillAllSteps(user: UserEvent): Promise<void> {
   await user.type(screen.getByLabelText(/Чешский номер телефона/), '777123456')
   await user.type(screen.getByLabelText(/Почта/), 'ivan@email.com')
   await user.click(screen.getByRole('button', { name: 'Telegram' }))
-  await user.type(screen.getByLabelText(/Контакт в Telegram/), '@ivan')
+  await user.type(screen.getByLabelText(/Контакт в Telegram/), 'ivan')
   await user.click(screen.getByRole('button', { name: 'Далее' }))
 
   await user.type(screen.getByLabelText(/Счёт в чешском банке/), 'CZ00 1234 5678')
@@ -55,6 +55,26 @@ describe('ApplyWizard', () => {
     expect(screen.getByText('Личные данные')).toBeInTheDocument()
   })
 
+  it('показывает английскую версию и локализованные языковые ссылки', async () => {
+    render(<ApplyWizard locale="en" />)
+
+    expect(screen.getByRole('heading', { name: 'About you' })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Site language' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'RU' })).toHaveAttribute('href', '/apply')
+    expect(screen.getByRole('link', { name: 'CZ' })).toHaveAttribute('href', '/cs/apply')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter your first and last name.')
+  })
+
+  it('показывает чешскую версию первого шага', () => {
+    render(<ApplyWizard locale="cs" />)
+
+    expect(screen.getByRole('heading', { name: 'Kdo jsi' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Jméno a příjmení/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pokračovat' })).toBeInTheDocument()
+  })
+
   it('не пускает дальше и показывает ошибку', async () => {
     render(<ApplyWizard />)
 
@@ -68,6 +88,28 @@ describe('ApplyWizard', () => {
     render(<ApplyWizard />)
 
     expect(screen.queryByRole('button', { name: 'Назад' })).not.toBeInTheDocument()
+  })
+
+  it('предлагает добавить домен Gmail, пока в почте нет @', async () => {
+    const user = userEvent.setup()
+    render(<ApplyWizard />)
+
+    await user.type(screen.getByLabelText(/Имя и фамилия/), 'Ivan Ivanov')
+    await user.type(screen.getByLabelText(/Дата рождения/), '1998-03-10')
+    await user.click(screen.getByRole('button', { name: 'Praha' }))
+    await user.type(screen.getByLabelText(/Адрес проживания/), 'Karlova 1')
+    await user.click(screen.getByRole('button', { name: 'Далее' }))
+
+    const email = screen.getByLabelText(/Почта/)
+    await user.type(email, 'ivan')
+    expect(screen.getByRole('button', { name: /Добавить @gmail.com/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Добавить @gmail.com/ }))
+    expect(email).toHaveValue('ivan@gmail.com')
+
+    await user.clear(email)
+    await user.type(email, 'ivan@example.com')
+    expect(screen.queryByRole('button', { name: /Добавить @gmail.com/ })).not.toBeInTheDocument()
   })
 
   it('проходит все четыре шага и показывает экран успеха', async () => {

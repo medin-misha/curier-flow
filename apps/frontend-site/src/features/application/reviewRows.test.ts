@@ -64,6 +64,17 @@ describe('reviewRows', () => {
     expect(empty?.filled).toBe(false)
   })
 
+  it('локализует подписи, гражданство и сканы', () => {
+    const english = reviewRows(filled, { passport: scan('p.png'), visa: scan('v.png') }, 'en')
+    const czech = reviewRows(filled, emptyFiles, 'cs')
+
+    expect(english.find((row) => row.label === 'Citizenship')?.value).toBe('Ukraine')
+    expect(english.find((row) => row.label === 'Scans')?.value).toBe(
+      'passport + visa / residence permit',
+    )
+    expect(czech.find((row) => row.label === 'Občanství')?.value).toBe('Ukrajina')
+  })
+
   it('считает загруженные сканы', () => {
     const of = (files: Parameters<typeof reviewRows>[1]) =>
       reviewRows(filled, files).find((row) => row.label === 'Сканы')?.value

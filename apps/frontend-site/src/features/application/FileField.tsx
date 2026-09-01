@@ -1,4 +1,6 @@
 import type { ChangeEvent } from 'react'
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import { DOCUMENT_FILE_ACCEPT } from './validation'
 import styles from './FileField.module.css'
 
@@ -8,12 +10,14 @@ export function FileField({
   file,
   order,
   onSelect,
+  locale = 'ru',
 }: {
   title: string
   file: File | null
   /** Номер на значке, пока файл не выбран. */
   order: string
   onSelect: (file: File | null) => void
+  locale?: Locale
 }) {
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     onSelect(event.target.files?.[0] ?? null)
@@ -26,7 +30,9 @@ export function FileField({
       </span>
       <span className={styles.text}>
         <span className={styles.title}>{title}</span>
-        <span className={styles.fileName}>{file?.name ?? 'Нажми, чтобы загрузить'}</span>
+        <span className={styles.fileName}>
+          {file?.name ?? getMessages(locale).application.fileUpload}
+        </span>
       </span>
       <input
         type="file"

@@ -1,3 +1,6 @@
+import { getCountryOptions } from '@/content/application'
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import type { ApplicationFiles, ApplicationForm, StepNumber } from './form.types'
 import { digitsOnly } from './validation'
 
@@ -15,26 +18,35 @@ function row(label: string, value: string, step: StepNumber): ReviewRow {
   return { label, value: filled ? value : '—', step, filled }
 }
 
-function scansValue(files: ApplicationFiles): string {
-  if (files.passport && files.visa) return 'паспорт + виза / ВНЖ'
-  if (files.passport || files.visa) return '1 из 2'
+function scansValue(files: ApplicationFiles, locale: Locale): string {
+  const copy = getMessages(locale).application.review.rows
+  if (files.passport && files.visa) return copy.bothScans
+  if (files.passport || files.visa) return copy.oneOfTwo
   return ''
 }
 
 /** Сводка перед отправкой: что введено и на каком шаге это править. */
-export function reviewRows(form: ApplicationForm, files: ApplicationFiles): ReviewRow[] {
+export function reviewRows(
+  form: ApplicationForm,
+  files: ApplicationFiles,
+  locale: Locale = 'ru',
+): ReviewRow[] {
   const phone = digitsOnly(form.phone)
+  const copy = getMessages(locale).application.review.rows
+  const citizenship =
+    getCountryOptions(locale).find((country) => country.value === form.citizenship)?.label ??
+    form.citizenship
 
   return [
-    row('Имя', form.fullName, 1),
-    row('Рождение', form.birthDate, 1),
-    row('Город', form.city, 1),
-    row('Адрес', form.address, 1),
-    row('Телефон', phone ? `+420 ${phone}` : '', 2),
-    row('Почта', form.email, 2),
+    row(copy.name, form.fullName, 1),
+    row(copy.birthDate, form.birthDate, 1),
+    row(copy.city, form.city, 1),
+    row(copy.address, form.address, 1),
+    row(copy.phone, phone ? `+420 ${phone}` : '', 2),
+    row(copy.email, form.email, 2),
     row(form.messenger, form.messengerContact, 2),
-    row('Счёт', form.bankAccount, 3),
-    row('Гражданство', form.citizenship, 3),
-    row('Сканы', scansValue(files), 3),
+    row(copy.bankAccount, form.bankAccount, 3),
+    row(copy.citizenship, citizenship, 3),
+    row(copy.scans, scansValue(files, locale), 3),
   ]
 }

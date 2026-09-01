@@ -1,6 +1,8 @@
+import { getMessages } from '@/i18n/messages'
+import type { Locale } from '@/i18n/locales'
 import type { ApplicationFiles, ApplicationForm, StepNumber } from './form.types'
 
-export const MIN_AGE = 18
+export const MIN_AGE = 15
 export const MAX_AGE = 75
 export const PHONE_DIGITS = 9
 export const MIN_BANK_ACCOUNT_DIGITS = 8
@@ -42,54 +44,59 @@ export function ageOn(birthDate: string, today: Date): number | null {
   return age
 }
 
-function validateIdentity(form: ApplicationForm, today: Date): string {
+function validateIdentity(form: ApplicationForm, today: Date, locale: Locale): string {
+  const copy = getMessages(locale).application.errors
   const fullName = form.fullName.trim()
-  if (!fullName) return 'Впиши имя и фамилию.'
-  if (fullName.split(/\s+/).length < 2) return 'Нужно имя и фамилия — два слова.'
-  if (!form.birthDate) return 'Укажи дату рождения.'
+  if (!fullName) return copy.fullNameRequired
+  if (fullName.split(/\s+/).length < 2) return copy.fullNameTwoWords
+  if (!form.birthDate) return copy.birthDateRequired
 
   const age = ageOn(form.birthDate, today)
-  if (age === null || age < MIN_AGE) return 'Работать курьером можно с 18 лет.'
-  if (age > MAX_AGE) return 'Проверь дату рождения.'
+  if (age === null || age < MIN_AGE) return copy.ageMinimum(MIN_AGE)
+  if (age > MAX_AGE) return copy.birthDateInvalid
 
-  if (!form.city.trim()) return 'Выбери или впиши город.'
-  if (!form.address.trim()) return 'Впиши адрес проживания.'
+  if (!form.city.trim()) return copy.cityRequired
+  if (!form.address.trim()) return copy.addressRequired
 
   return ''
 }
 
-function validateContacts(form: ApplicationForm): string {
+function validateContacts(form: ApplicationForm, locale: Locale): string {
+  const copy = getMessages(locale).application.errors
   const phone = digitsOnly(form.phone)
-  if (!phone) return 'Впиши чешский номер телефона.'
-  if (phone.length !== PHONE_DIGITS) return 'Чешский номер — 9 цифр после +420.'
-  if (!EMAIL.test(form.email.trim())) return 'Проверь почту.'
-  if (!form.messengerContact.trim()) return `Оставь контакт в ${form.messenger}.`
+  if (!phone) return copy.phoneRequired
+  if (phone.length !== PHONE_DIGITS) return copy.phoneInvalid
+  if (!EMAIL.test(form.email.trim())) return copy.emailInvalid
+  if (!form.messengerContact.trim()) return copy.messengerRequired(form.messenger)
 
   return ''
 }
 
-function validateDocuments(form: ApplicationForm, files: ApplicationFiles): string {
+function validateDocuments(
+  form: ApplicationForm,
+  files: ApplicationFiles,
+  locale: Locale,
+): string {
+  const copy = getMessages(locale).application.errors
   if (digitsOnly(form.bankAccount).length < MIN_BANK_ACCOUNT_DIGITS) {
-    return 'Впиши счёт в чешском банке.'
+    return copy.bankRequired
   }
-  if (!form.citizenship) return 'Выбери гражданство.'
-  if (!files.passport) return 'Загрузи скан паспорта.'
-  if (!files.visa) return 'Загрузи скан визы или ВНЖ.'
+  if (!form.citizenship) return copy.citizenshipRequired
+  if (!files.passport) return copy.passportRequired
+  if (!files.visa) return copy.visaRequired
 
-  const fileError = validateDocumentFile(files.passport) || validateDocumentFile(files.visa)
+  const fileError =
+    validateDocumentFile(files.passport, locale) || validateDocumentFile(files.visa, locale)
   if (fileError) return fileError
 
   return ''
 }
 
-function validateDocumentFile(file: File): string {
-  if (file.size === 0) return `Файл «${file.name}» пуст. Выбери документ ещё раз.`
-  if (!DOCUMENT_CONTENT_TYPES.has(file.type.toLowerCase())) {
-    return `Формат файла «${file.name}» не поддерживается. Нужен PNG, JPEG, WebP или PDF.`
-  }
-  if (file.size > MAX_DOCUMENT_FILE_SIZE) {
-    return `Файл «${file.name}» больше 10 МБ.`
-  }
+function validateDocumentFile(file: File, locale: Locale): string {
+  const copy = getMessages(locale).application.errors
+  if (file.size === 0) return copy.fileEmpty(file.name)
+  if (!DOCUMENT_CONTENT_TYPES.has(file.type.toLowerCase())) return copy.fileType(file.name)
+  if (file.size > MAX_DOCUMENT_FILE_SIZE) return copy.fileLarge(file.name)
   return ''
 }
 
@@ -99,12 +106,13 @@ export function validateStep(
   form: ApplicationForm,
   files: ApplicationFiles,
   today: Date,
+  locale: Locale = 'ru',
 ): string {
-  if (step === 1) return validateIdentity(form, today)
-  if (step === 2) return validateContacts(form)
-  if (step === 3) return validateDocuments(form, files)
+  if (step === 1) return validateIdentity(form, today, locale)
+  if (step === 2) return validateContacts(form, locale)
+  if (step === 3) return validateDocuments(form, files, locale)
 
-  return form.consent ? '' : 'Нужно согласие на обработку данных.'
+  return form.consent ? '' : getMessages(locale).application.errors.consentRequired
 }
 
 /**
@@ -117,11 +125,12 @@ export function firstInvalidStep(
   form: ApplicationForm,
   files: ApplicationFiles,
   today: Date,
+  locale: Locale = 'ru',
 ): StepNumber | null {
   const steps: StepNumber[] = [1, 2, 3]
 
   for (const step of steps) {
-    if (validateStep(step, form, files, today)) return step
+    if (validateStep(step, form, files, today, locale)) return step
   }
 
   return null
