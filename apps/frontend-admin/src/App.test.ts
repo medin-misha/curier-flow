@@ -577,6 +577,9 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       download_url: 'https://storage.test/passport_scan.pdf?signature=test',
     })
   }
+  if (url.hostname === 'storage.test' && url.pathname === '/passport_scan.pdf' && method === 'GET') {
+    return new Response(new Blob(['photo'], { type: 'image/jpeg' }), { status: 200 })
+  }
 
   if (url.pathname.startsWith('/files/')) {
     const pathParts = url.pathname.split('/')
@@ -808,6 +811,7 @@ describe('Courier CRUD', () => {
 
   it('читает, редактирует и удаляет профиль курьера', async () => {
     serverCouriers[0].documents[0].file.content_type = 'image/jpeg'
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:passport-preview')
     const page = await mountApp()
 
     await page.get('[data-od-id="courier-row-00000000-0000-4000-8000-000000000001"]').trigger('click')
@@ -818,7 +822,11 @@ describe('Courier CRUD', () => {
     )
     expect(
       page.get('[data-od-id="document-card-document-1"] img').attributes('src'),
-    ).toBe('https://storage.test/passport_scan.pdf?signature=test')
+    ).toBe('blob:passport-preview')
+    const previewRequest = requests.find(
+      (request) => request.url === '/passport_scan.pdf?signature=test',
+    )
+    expect(previewRequest?.init.credentials).toBe('omit')
 
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
