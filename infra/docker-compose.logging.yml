@@ -9,6 +9,29 @@ x-logging: &default-logging
     max-file: "5"
 
 services:
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # /data хранит локальный CA: обычный down/reboot не должен менять root.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - public
+      - curier-flow
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   grafana:
     image: grafana/grafana:13.2.0
     restart: unless-stopped
@@ -18,11 +41,11 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_METRICS_ENABLED: "true"
+      GF_SERVER_DOMAIN: grafana.localhost
+      GF_SERVER_ROOT_URL: https://grafana.localhost/
       # Production image фиксирован по версии; фоновые загрузки bundled-плагинов
       # не должны менять его содержимое или создавать лишние error-записи.
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
-    ports:
-      - "${GRAFANA_PORT:-3001}:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -184,6 +207,8 @@ services:
 
 volumes:
   alloy-data:
+  caddy-config:
+  caddy-data:
   grafana-data:
   loki-data:
   prometheus-data:
@@ -193,8 +218,8 @@ networks:
   observability:
     name: curier-flow-observability
     internal: true
-  # Отдельная bridge-сеть даёт только Grafana host port и default gateway;
-  # хранилища и collectors остаются изолированы в observability.
+  # Через эту bridge-сеть Caddy проксирует Grafana; хранилища и collectors
+  # остаются изолированы в observability.
   public:
     name: curier-flow-observability-public
   # Docker API изолирован даже от Grafana и остальных collectors.

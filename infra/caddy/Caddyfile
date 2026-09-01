@@ -1,0 +1,49 @@
+{
+	# Admin API нужен для healthcheck контейнера и доступен только внутри него.
+	admin 127.0.0.1:2019
+}
+
+https://localhost {
+	tls internal
+
+	request_body {
+		max_size 104857600
+	}
+
+	reverse_proxy frontend-site:3000
+}
+
+https://admin.localhost {
+	tls internal
+
+	request_body {
+		max_size 104857600
+	}
+
+	reverse_proxy frontend-admin:8080
+}
+
+https://backend.localhost {
+	tls internal
+
+	request_body {
+		max_size 104857600
+	}
+
+	reverse_proxy api:8000
+}
+
+https://grafana.localhost {
+	tls internal
+	reverse_proxy grafana:3000
+}
+
+https://minio.localhost {
+	tls internal
+
+	request_body {
+		max_size 104857600
+	}
+
+	reverse_proxy minio:9000
+}

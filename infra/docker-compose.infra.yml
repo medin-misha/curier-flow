@@ -96,9 +96,6 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       # MinIO настраивает CORS глобально и не реализует bucket PutBucketCors.
       MINIO_API_CORS_ALLOW_ORIGIN: "*"
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
     healthcheck:

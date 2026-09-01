@@ -78,6 +78,7 @@ groups:
           or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="rabbitmq"})
           or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="redis"})
           or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-infra",container_label_com_docker_compose_service="minio"})
+          or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="caddy"})
           or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="grafana"})
           or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="loki"})
           or absent(container_last_seen{container_label_com_docker_compose_project="curier-flow-logging",container_label_com_docker_compose_service="alloy"})

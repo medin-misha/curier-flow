@@ -1,7 +1,7 @@
 # Управление стеком. Перед первым запуском: cp infra/.env.example infra/.env
 
 .DEFAULT_GOAL := help
-.PHONY: help check ps \
+.PHONY: help check caddy-validate caddy-ca smoke-caddy ps \
 	up up-all up-infra up-logging migrate up-apps \
 	reboot reboot-all reboot-infra reboot-logging reboot-apps \
 	down down-all down-infra down-logging down-apps \
@@ -14,16 +14,37 @@ INFRA := docker compose -f $(HERE)/docker-compose.infra.yml
 APPS  := docker compose -f $(HERE)/docker-compose.apps.yml
 LOGGING := docker compose -f $(HERE)/docker-compose.logging.yml
 APPS_WITH_TELEGRAM := $(APPS) --profile telegram
+CADDY_IMAGE := caddy:2.10.2-alpine
+CADDY_CA := $(HERE)/secrets/caddy-root.crt
 
 help: ## Показать список целей
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
-check: ## Проверить compose-файлы и контекст агента
+check: caddy-validate ## Проверить compose-файлы, Caddyfile и контекст агента
 	$(INFRA) config --quiet
 	$(LOGGING) config --quiet
 	$(APPS) config --quiet
 	../scripts/check-agent-context.sh
+
+caddy-validate: ## Проверить синтаксис и семантику Caddyfile
+	docker run --rm \
+		--volume "$(abspath $(HERE)/caddy/Caddyfile):/etc/caddy/Caddyfile:ro" \
+		$(CADDY_IMAGE) caddy validate --config /etc/caddy/Caddyfile
+
+caddy-ca: ## Экспортировать локальный root CA запущенного Caddy
+	@mkdir -p "$(HERE)/secrets"
+	$(LOGGING) cp caddy:/data/caddy/pki/authorities/local/root.crt "$(CADDY_CA)"
+	@chmod 600 "$(CADDY_CA)"
+	@printf '%s\n' 'Root CA экспортирован в $(CADDY_CA)'
+
+smoke-caddy: caddy-ca ## Проверить все публичные HTTPS-маршруты Caddy
+	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://localhost/ >/dev/null
+	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://admin.localhost/ >/dev/null
+	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://backend.localhost/health/live >/dev/null
+	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://grafana.localhost/api/health >/dev/null
+	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://minio.localhost/minio/health/live >/dev/null
+	@printf '%s\n' 'Все HTTPS-маршруты Caddy отвечают успешно'
 
 ps: ## Показать состояние инфраструктуры, logging и приложений
 	$(INFRA) ps
@@ -42,7 +63,7 @@ up-infra: ## Поднять инфраструктуру и дождаться h
 	$(INFRA) up -d --wait
 	$(INFRA) run --rm minio-init
 
-up-logging: ## Поднять Grafana, логи и метрики
+up-logging: ## Поднять Caddy, Grafana, логи и метрики
 	@test -s $(HERE)/secrets/grafana_admin_password || { \
 		printf '%s\n' 'Нет infra/secrets/grafana_admin_password; создайте его по инструкции в infra/.env.example.'; \
 		exit 1; \
@@ -121,8 +142,8 @@ delete-infra: ## Удалить инфраструктуру вместе с д�
 	$(LOGGING) down
 	$(INFRA) down --volumes --remove-orphans
 
-delete-logging: ## Удалить logging вместе с метриками, логами и Grafana
-	@printf 'Удалить данные Grafana, Loki, Prometheus и Alloy? [y/N] '
+delete-logging: ## Удалить logging, Caddy CA, метрики, логи и Grafana
+	@printf 'Удалить Caddy CA и данные Grafana, Loki, Prometheus и Alloy? [y/N] '
 	@read answer && [ "$$answer" = "y" ] || { echo "отменено"; exit 1; }
 	$(LOGGING) down --volumes --remove-orphans
 

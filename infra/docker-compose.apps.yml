@@ -56,7 +56,10 @@ x-backend: &backend
     # Адрес, по которому в MinIO приходит браузер. Подпись SigV4 накрывает
     # Host, поэтому ссылка, подписанная на http://minio:9000, снаружи отдала бы
     # SignatureDoesNotMatch: presigned-ссылки подписываются по этому адресу.
-    S3_PUBLIC_ENDPOINT_URL: http://localhost:${MINIO_PORT:-9000}
+    S3_PUBLIC_ENDPOINT_URL: https://minio.localhost
+    # Compose-контракт использует HTTPS, поэтому refresh cookie не должна
+    # передаваться по незашифрованному соединению.
+    ADMIN_REFRESH_COOKIE_SECURE: "true"
 
 services:
   api:
@@ -64,8 +67,6 @@ services:
     build:
       context: ../apps/backend
       target: api
-    ports:
-      - "${API_PORT:-8000}:8000"
     healthcheck:
       # Строго /health/live: readiness падает вместе с любой зависимостью, и
       # healthcheck на нём перезапускал бы исправный контейнер из-за чужой
@@ -132,8 +133,6 @@ services:
     environment:
       # То же значение остаётся в рантайме для единого контракта конфигурации.
       BACKEND_API_URL: http://api:8000
-    ports:
-      - "${FRONTEND_SITE_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
@@ -155,8 +154,6 @@ services:
     logging: *default-logging
     build:
       context: ../apps/frontend-admin
-    ports:
-      - "${FRONTEND_ADMIN_PORT:-5173}:8080"
     depends_on:
       api:
         condition: service_healthy
