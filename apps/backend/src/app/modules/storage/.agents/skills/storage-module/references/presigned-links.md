@@ -8,7 +8,8 @@
 Поэтому в настройках два адреса:
 
 - `S3_ENDPOINT_URL` — куда ходит приложение (`http://minio:9000` в compose);
-- `S3_PUBLIC_ENDPOINT_URL` — куда придёт клиент (`http://localhost:9000`);
+- `S3_PUBLIC_ENDPOINT_URL` — куда придёт клиент
+  (`https://minio.localhost` в локальном Compose через Caddy);
   пусто — значит совпадает с первым.
 
 `platform/s3.py` создаёт под публичный адрес второй клиент и подписывает

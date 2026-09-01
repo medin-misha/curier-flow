@@ -10,7 +10,8 @@
 - `docker-compose.infra.yml` — PostgreSQL, RabbitMQ, Redis и MinIO;
 - `docker-compose.apps.yml` — процессы приложений; Telegram worker вынесен в
   опциональный Compose profile;
-- `docker-compose.logging.yml` — Grafana, Loki, Alloy, Prometheus и exporters;
+- `docker-compose.logging.yml` — Caddy, Grafana, Loki, Alloy, Prometheus и
+  exporters;
 - `observability/` — provisioned dashboards, правила и конфигурации сборщиков;
 - `.env.example` — единый документированный контракт окружения стека;
 - `Makefile` — публичный интерфейс операций.
@@ -35,6 +36,10 @@
 - Новая переменная одновременно появляется в `.env.example`, compose и
   настройках владельца; секреты и локальный `.env` не коммитятся.
 - Healthcheck приложения проверяет `/health/live`, не `/health/ready`.
+- Caddy — единственный публичный HTTP ingress: внешние URL используют HTTPS, а
+  upstream-адреса внутри Compose остаются HTTP.
+- Локальный Caddy CA хранится в volume и сохраняется при `down`/`reboot`;
+  `delete-logging` удаляет его и требует заново установить доверенный root.
 
 После изменения используй skill `infra-check`. Для backend-кода начни
 отдельную сессию с рабочим каталогом `apps/backend/`.

@@ -3,7 +3,24 @@
 Vue 3-панель для работы с реестром курьеров May Fleet Solutions. Панель
 аутентифицирует администратора и работает с существующими Admin и Courier API.
 
-## Локальный запуск
+## Запуск в Docker Compose
+
+Единственная точка управления контейнерами находится в `infra/`:
+
+```bash
+make -C infra up
+make -C infra caddy-ca
+```
+
+Админка откроется по адресу `https://admin.localhost`. Caddy завершает TLS, а
+nginx внутри frontend-контейнера сохраняет same-origin контракт и проксирует
+API по внутреннему адресу `http://api:8000`. Не задавайте `VITE_API_URL` для
+Compose-сборки: refresh cookie привязана к `admin.localhost`.
+
+Root CA для доверия локальным сертификатам экспортируется в
+`infra/secrets/caddy-root.crt`; процедура установки описана в backend README.
+
+## Отдельный Vite dev-сервер
 
 ```bash
 cd apps/frontend-admin
@@ -11,8 +28,9 @@ npm install
 npm run dev
 ```
 
-Vite откроет приложение по адресу `http://127.0.0.1:5173`. В dev-режиме
-запросы `/admin`, `/courier` и `/files` проксируются на `http://127.0.0.1:8000`.
+Vite откроет приложение по адресу `http://127.0.0.1:5173`. Этот режим не входит
+в стандартный Compose-стек: его proxy ожидает отдельно доступный API на
+`http://127.0.0.1:8000`, тогда как Compose публикует API только через Caddy.
 
 Если API публикуется на отдельном origin и окружение разрешает такие запросы,
 его можно задать во время сборки:

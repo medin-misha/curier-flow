@@ -36,7 +36,10 @@ Python ставить отдельно не нужно: версию из `.pyth
 cp infra/.env.example infra/.env
 make -C apps/backend install
 make -C infra up
-curl -s localhost:8000/health/ready
+make -C infra caddy-ca
+sudo security add-trusted-cert -d -r trustRoot \
+  -k /Library/Keychains/System.keychain infra/secrets/caddy-root.crt
+curl -s https://backend.localhost/health/ready
 ```
 
 Перед первым `make -C infra up` замените пример
@@ -46,6 +49,13 @@ curl -s localhost:8000/health/ready
 его Telegram user ID. Bootstrap выполняется только при пустой таблице `admins`;
 после создания администратора bootstrap credentials можно удалить из
 `infra/.env`.
+
+Caddy выпускает сертификаты через локальный CA, сохранённый в Docker volume.
+Команда `caddy-ca` экспортирует его в игнорируемый Git файл, а `security`
+добавляет root в системное хранилище доверия macOS. После `delete-logging`
+создаётся новый CA, поэтому старый сертификат нужно удалить из Keychain и
+установить новый. Без изменения системного trust store запросы можно проверять
+с `curl --cacert infra/secrets/caddy-root.crt ...`.
 
 Telegram worker для запуска остального стека необязателен. Если
 `TELEGRAM_BOT_TOKEN` пуст, `make -C infra up` выводит предупреждение, не создаёт
@@ -80,11 +90,13 @@ Telegram worker для запуска остального стека необя
 Дальше можно потрогать шаблон руками:
 
 ```bash
-curl -s localhost:8000/health/info   # {"name":...,"version":...,"revision":"8f4f401e3143"}
-curl -s localhost:8000/files         # {"items":[],"next_cursor":null} — пустая keyset-страница
-open http://localhost:8000/docs                    # Swagger (DEBUG=true)
-open http://localhost:15672                        # RabbitMQ, guest/guest
-open http://localhost:9001                         # консоль MinIO, minioadmin/minioadmin
+curl -s https://backend.localhost/health/info # {"name":...,"version":...,"revision":"8f4f401e3143"}
+curl -s https://backend.localhost/files       # {"items":[],"next_cursor":null} — пустая keyset-страница
+open https://backend.localhost/docs           # Swagger (DEBUG=true)
+open https://localhost                        # публичный сайт
+open https://admin.localhost                  # Admin
+open https://grafana.localhost                # Grafana
+open http://localhost:15672                   # RabbitMQ, guest/guest
 ```
 
 ### Применить изменения backend
