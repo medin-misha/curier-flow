@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, reactive } from 'vue'
+import { nextTick, onMounted, reactive } from 'vue'
 import type {
   Courier,
   CourierFormErrors,
@@ -13,6 +13,7 @@ const props = defineProps<{
   courier: Courier
   saving: boolean
   error: string
+  focusField?: keyof CourierFormValues | null
 }>()
 
 const emit = defineEmits<{
@@ -40,6 +41,11 @@ const errors = reactive<CourierFormErrors>({
   birthDate: false,
   email: false,
   phone: false,
+})
+
+onMounted(() => {
+  if (!props.focusField) return
+  void nextTick(() => document.getElementById(`edit-${props.focusField}`)?.focus())
 })
 
 function validate() {

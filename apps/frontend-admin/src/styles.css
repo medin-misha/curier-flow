@@ -385,6 +385,7 @@ h3 {
 .textarea:focus-visible,
 .table-action:focus-visible,
 .clickable-row:focus-visible,
+.detail-item-interactive:focus-visible,
 .page-button:focus-visible,
 .checkbox-row:focus-within {
   outline: 3px solid var(--accent-soft);
@@ -1175,6 +1176,28 @@ h3 {
   font-weight: 620;
 }
 
+.detail-item-interactive {
+  cursor: copy;
+  transition: background 140ms ease;
+}
+
+.detail-header-field {
+  width: fit-content;
+  max-width: 100%;
+  margin: -2px -6px 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.detail-item-interactive:hover {
+  background: var(--fg-soft);
+}
+
+.detail-item-interactive:active {
+  background: color-mix(in oklch, var(--fg-soft) 70%, var(--surface));
+}
+
 .detail-group {
   margin-top: 24px;
 }
@@ -1430,6 +1453,24 @@ h3 {
   border: 0;
   object-fit: cover;
   pointer-events: none;
+}
+
+.document-preview-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.document-preview-state .spinner {
+  width: 20px;
+  height: 20px;
 }
 
 .document-preview-page {

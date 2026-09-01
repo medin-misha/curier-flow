@@ -4,6 +4,7 @@ import type {
   Courier,
   CourierDocument,
   CourierFile,
+  CourierFormValues,
   CourierPlatform,
   PlatformStatus,
 } from '../../types/courier'
@@ -13,12 +14,17 @@ const props = defineProps<{
   courier: Courier
   downloadingFileIds: string[]
   updatingPlatformIds: string[]
+  previewUrls: Record<string, string>
+  previewLoadingFileIds: string[]
+  previewErrorFileIds: string[]
 }>()
 
 const emit = defineEmits<{
   close: []
-  edit: []
+  edit: [field?: keyof CourierFormValues]
   delete: []
+  copied: [label: string]
+  copyError: [label: string]
   download: [file: CourierFile]
   updatePlatform: [platform: CourierPlatform, status: PlatformStatus]
 }>()
@@ -69,6 +75,51 @@ function formatBirthDate(value: string) {
   return `${day}.${month}.${year}`
 }
 
+async function writeToClipboard(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value)
+    return
+  }
+
+  const textarea = document.createElement('textarea')
+  const activeElement = document.activeElement as HTMLElement | null
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.append(textarea)
+
+  let copied = false
+  try {
+    textarea.select()
+    copied = typeof document.execCommand === 'function' && document.execCommand('copy')
+  } finally {
+    textarea.remove()
+    activeElement?.focus()
+  }
+
+  if (!copied) throw new Error('Clipboard is unavailable')
+}
+
+async function copyField(label: string, value: string) {
+  try {
+    await writeToClipboard(value)
+    emit('copied', label)
+  } catch {
+    emit('copyError', label)
+  }
+}
+
+function handleFieldKeydown(event: KeyboardEvent, label: string, value: string) {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  void copyField(label, value)
+}
+
+function editField(field: keyof CourierFormValues) {
+  emit('edit', field)
+}
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`
   return `${(bytes / 1024 / 1024).toLocaleString('ru-RU', {
@@ -82,6 +133,10 @@ function formatDocumentDate(value: string) {
     month: '2-digit',
     year: 'numeric',
   }).format(new Date(value))
+}
+
+function isImageDocument(document: CourierDocument) {
+  return document.file.contentType.toLowerCase().startsWith('image/')
 }
 
 function fileFormat(document: CourierDocument) {
@@ -101,7 +156,19 @@ function fileFormat(document: CourierDocument) {
       <div class="row-between">
         <div>
           <p class="eyebrow">Профиль курьера</p>
-          <h2 id="detailTitle">{{ courier.fullName }}</h2>
+          <h2
+            id="detailTitle"
+            class="detail-header-field detail-item-interactive"
+            role="button"
+            tabindex="0"
+            title="Нажмите для копирования, дважды нажмите для редактирования"
+            data-copy-field="fullName"
+            @click="copyField('Полное имя', courier.fullName)"
+            @dblclick="editField('fullName')"
+            @keydown="handleFieldKeydown($event, 'Полное имя', courier.fullName)"
+          >
+            {{ courier.fullName }}
+          </h2>
           <p class="num">ID {{ courier.id }}</p>
         </div>
         <button
@@ -125,35 +192,127 @@ function fileFormat(document: CourierDocument) {
 
     <div class="modal-body">
       <div class="detail-grid">
-        <div class="detail-item"><span>Email</span><strong>{{ courier.email }}</strong></div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="email"
+          @click="copyField('Email', courier.email)"
+          @dblclick="editField('email')"
+          @keydown="handleFieldKeydown($event, 'Email', courier.email)"
+        >
+          <span>Email</span><strong>{{ courier.email }}</strong>
+        </div>
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="phone"
+          @click="copyField('Телефон', courier.phone)"
+          @dblclick="editField('phone')"
+          @keydown="handleFieldKeydown($event, 'Телефон', courier.phone)"
+        >
           <span>Телефон</span><strong class="num">{{ courier.phone }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="birthDate"
+          @click="copyField('Дата рождения', formatBirthDate(courier.birthDate))"
+          @dblclick="editField('birthDate')"
+          @keydown="handleFieldKeydown($event, 'Дата рождения', formatBirthDate(courier.birthDate))"
+        >
           <span>Дата рождения</span>
           <strong class="num">{{ formatBirthDate(courier.birthDate) }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="city"
+          @click="copyField('Город', courier.city || 'Не указан')"
+          @dblclick="editField('city')"
+          @keydown="handleFieldKeydown($event, 'Город', courier.city || 'Не указан')"
+        >
           <span>Город</span><strong>{{ courier.city || 'Не указан' }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="citizenship"
+          @click="copyField('Гражданство', courier.citizenship || 'Не указано')"
+          @dblclick="editField('citizenship')"
+          @keydown="handleFieldKeydown($event, 'Гражданство', courier.citizenship || 'Не указано')"
+        >
           <span>Гражданство</span><strong>{{ courier.citizenship || 'Не указано' }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="bankAccount"
+          @click="copyField('Банковский счёт', courier.bank || 'Не указан')"
+          @dblclick="editField('bankAccount')"
+          @keydown="handleFieldKeydown($event, 'Банковский счёт', courier.bank || 'Не указан')"
+        >
           <span>Банковский счёт</span>
           <strong class="num">{{ courier.bank || 'Не указан' }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="contact"
+          @click="copyField('Канал связи', `${courier.contactPlatform || 'Не указан'} · ${courier.contact || '—'}`)"
+          @dblclick="editField('contactPlatform')"
+          @keydown="handleFieldKeydown($event, 'Канал связи', `${courier.contactPlatform || 'Не указан'} · ${courier.contact || '—'}`)"
+        >
           <span>Канал связи</span>
           <strong>{{ courier.contactPlatform || 'Не указан' }} · {{ courier.contact || '—' }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="source"
+          @click="copyField('Источник', courier.source || 'Не указан')"
+          @dblclick="editField('source')"
+          @keydown="handleFieldKeydown($event, 'Источник', courier.source || 'Не указан')"
+        >
           <span>Источник</span><strong>{{ courier.source || 'Не указан' }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="address"
+          @click="copyField('Адрес', courier.address || 'Не указан')"
+          @dblclick="editField('address')"
+          @keydown="handleFieldKeydown($event, 'Адрес', courier.address || 'Не указан')"
+        >
           <span>Адрес</span><strong>{{ courier.address || 'Не указан' }}</strong>
         </div>
-        <div class="detail-item">
+        <div
+          class="detail-item detail-item-interactive"
+          role="button"
+          tabindex="0"
+          title="Нажмите для копирования, дважды нажмите для редактирования"
+          data-copy-field="consent"
+          @click="copyField('Согласие', courier.consent ? 'Получено' : 'Не получено')"
+          @dblclick="editField('consent')"
+          @keydown="handleFieldKeydown($event, 'Согласие', courier.consent ? 'Получено' : 'Не получено')"
+        >
           <span>Согласие</span><strong>{{ courier.consent ? 'Получено' : 'Не получено' }}</strong>
         </div>
       </div>
@@ -233,7 +392,31 @@ function fileFormat(document: CourierDocument) {
             :data-od-id="`document-card-${document.id}`"
           >
             <div class="document-thumb">
+              <img
+                v-if="isImageDocument(document) && previewUrls[document.file.id]"
+                :src="previewUrls[document.file.id]"
+                :alt="`Миниатюра файла ${document.file.originalName}`"
+              />
               <div
+                v-else-if="isImageDocument(document) && previewLoadingFileIds.includes(document.file.id)"
+                class="document-preview-state"
+                role="status"
+                aria-live="polite"
+              >
+                <span class="spinner" aria-hidden="true"></span>
+                <span>Загружаем фото…</span>
+              </div>
+              <div
+                v-else-if="isImageDocument(document) && previewErrorFileIds.includes(document.file.id)"
+                class="document-preview-state"
+                role="img"
+                :aria-label="`Превью файла ${document.file.originalName} недоступно`"
+              >
+                <span class="preview-file-type">{{ fileFormat(document) }}</span>
+                <span>Превью недоступно</span>
+              </div>
+              <div
+                v-else
                 class="document-preview-page"
                 role="img"
                 :aria-label="`Миниатюра файла ${document.file.originalName}`"

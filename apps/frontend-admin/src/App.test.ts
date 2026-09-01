@@ -807,13 +807,31 @@ describe('Courier CRUD', () => {
   })
 
   it('читает, редактирует и удаляет профиль курьера', async () => {
+    serverCouriers[0].documents[0].file.content_type = 'image/jpeg'
     const page = await mountApp()
 
     await page.get('[data-od-id="courier-row-00000000-0000-4000-8000-000000000001"]').trigger('click')
     await flushPromises()
+    await flushPromises()
     expect(page.get('[data-od-id="courier-detail-dialog"]').text()).toContain(
       'passport_scan.pdf',
     )
+    expect(
+      page.get('[data-od-id="document-card-document-1"] img').attributes('src'),
+    ).toBe('https://storage.test/passport_scan.pdf?signature=test')
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { clipboard: { writeText } })
+    await page.get('[data-copy-field="email"]').trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenCalledWith('courier1@example.com')
+    expect(page.get('[role="status"]').text()).toContain('Email скопировано')
+
+    await page.get('[data-copy-field="phone"]').trigger('dblclick')
+    await flushPromises()
+    await flushPromises()
+    expect(page.find('[data-od-id="edit-courier-dialog"]').exists()).toBe(true)
+    await buttonWithText(page, 'Отмена').trigger('click')
 
     await page.get('[data-od-id="platform-status-platform-1"]').setValue('inactive')
     await buttonWithText(page, 'Изменить').trigger('click')

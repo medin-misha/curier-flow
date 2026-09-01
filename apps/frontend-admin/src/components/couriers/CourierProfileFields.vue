@@ -151,7 +151,7 @@ function fieldId(name: string) {
       />
     </div>
     <label class="checkbox-row field-wide">
-      <input v-model="form.consent" type="checkbox" />
+      <input :id="fieldId('consent')" v-model="form.consent" type="checkbox" />
       <span class="checkbox-copy">
         <strong>Получено согласие на обработку данных</strong>
         <span>Backend синхронизирует дату согласия при сохранении.</span>

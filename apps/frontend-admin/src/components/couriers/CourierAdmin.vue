@@ -9,11 +9,12 @@ import {
   updateCourierPlatformStatus,
 } from '../../api/couriers'
 import { apiErrorMessage } from '../../api/client'
-import { getFileDownloadUrl } from '../../api/files'
+import { getFileDownloadUrl, getFilePreviewUrl } from '../../api/files'
 import type {
   Courier,
   CourierCreateInput,
   CourierFile,
+  CourierFormValues,
   CourierPlatform,
   CourierUpdateInput,
   PlatformStatus,
@@ -37,6 +38,7 @@ const loading = ref(false)
 const loadError = ref('')
 const createOpen = ref(false)
 const editOpen = ref(false)
+const editField = ref<keyof CourierFormValues | null>(null)
 const deleteOpen = ref(false)
 const selectedCourier = ref<Courier | null>(null)
 const creating = ref(false)
@@ -47,12 +49,16 @@ const editError = ref('')
 const deleteError = ref('')
 const downloadingFileIds = ref<string[]>([])
 const updatingPlatformIds = ref<string[]>([])
+const previewUrls = ref<Record<string, string>>({})
+const previewLoadingFileIds = ref<string[]>([])
+const previewErrorFileIds = ref<string[]>([])
 const toastVisible = ref(false)
 const toastTitle = ref('')
 const toastMessage = ref('')
 const lastFocused = ref<HTMLElement | null>(null)
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 let loadSequence = 0
+let previewSequence = 0
 
 const platformStatusLabels: Record<PlatformStatus, string> = {
   active: 'Активен',
@@ -152,6 +158,59 @@ function closeCreate() {
   restoreFocus()
 }
 
+function revokePreviewUrls(urls: Record<string, string>) {
+  if (typeof URL.revokeObjectURL !== 'function') return
+  Object.values(urls).forEach((url) => URL.revokeObjectURL(url))
+}
+
+function resetDocumentPreviews() {
+  previewSequence += 1
+  revokePreviewUrls(previewUrls.value)
+  previewUrls.value = {}
+  previewLoadingFileIds.value = []
+  previewErrorFileIds.value = []
+}
+
+function isImageFile(file: CourierFile) {
+  return file.contentType.toLowerCase().startsWith('image/')
+}
+
+async function loadDocumentPreviews(courier: Courier) {
+  const imageFiles = courier.documentFiles
+    .map((document) => document.file)
+    .filter((file) => isImageFile(file) && file.status === 'ready')
+  if (!imageFiles.length) return
+
+  const sequence = previewSequence
+  previewLoadingFileIds.value = imageFiles.map((file) => file.id)
+  const results = await Promise.all(
+    imageFiles.map(async (file) => {
+      try {
+        return { id: file.id, url: await getFilePreviewUrl(file.id), error: false }
+      } catch {
+        return { id: file.id, url: null, error: true }
+      }
+    }),
+  )
+
+  if (sequence !== previewSequence || selectedCourier.value?.id !== courier.id) {
+    results.forEach((result) => {
+      if (result.url && typeof URL.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(result.url)
+      }
+    })
+    return
+  }
+
+  previewUrls.value = Object.fromEntries(
+    results.flatMap((result) => (result.url ? [[result.id, result.url]] : [])),
+  )
+  previewErrorFileIds.value = results
+    .filter((result) => result.error || !result.url)
+    .map((result) => result.id)
+  previewLoadingFileIds.value = []
+}
+
 async function submitCreate(input: CourierCreateInput) {
   creating.value = true
   createError.value = ''
@@ -173,6 +232,7 @@ async function submitCreate(input: CourierCreateInput) {
 
 async function openDetails(courier: Courier, event: Event) {
   rememberFocus(event.currentTarget)
+  resetDocumentPreviews()
   selectedCourier.value = courier
   try {
     const fresh = await getCourier(courier.id)
@@ -180,8 +240,10 @@ async function openDetails(courier: Courier, event: Event) {
       selectedCourier.value = fresh
       const index = couriers.value.findIndex((item) => item.id === fresh.id)
       if (index >= 0) couriers.value[index] = fresh
+      void loadDocumentPreviews(fresh)
     }
   } catch (error) {
+    void loadDocumentPreviews(courier)
     showToast(
       'Карточка открыта из списка',
       apiErrorMessage(error, 'Не удалось обновить данные профиля.'),
@@ -191,6 +253,7 @@ async function openDetails(courier: Courier, event: Event) {
 
 function closeDetails() {
   selectedCourier.value = null
+  resetDocumentPreviews()
   restoreFocus()
 }
 
@@ -268,14 +331,16 @@ async function updatePlatformStatus(platform: CourierPlatform, status: PlatformS
   }
 }
 
-function openEdit() {
+function openEdit(field?: keyof CourierFormValues) {
   editError.value = ''
+  editField.value = field ?? null
   editOpen.value = true
 }
 
 function closeEdit() {
   if (saving.value) return
   editOpen.value = false
+  editField.value = null
 }
 
 async function submitEdit(input: CourierUpdateInput) {
@@ -288,6 +353,7 @@ async function submitEdit(input: CourierUpdateInput) {
     const index = couriers.value.findIndex((courier) => courier.id === updated.id)
     if (index >= 0) couriers.value[index] = updated
     editOpen.value = false
+    editField.value = null
     showToast('Изменения сохранены', `Профиль ${updated.fullName} обновлён.`)
   } catch (error) {
     editError.value = apiErrorMessage(error, 'Не удалось сохранить изменения.')
@@ -315,6 +381,7 @@ async function confirmDelete() {
     await deleteCourier(selectedCourier.value.id)
     deleteOpen.value = false
     selectedCourier.value = null
+    resetDocumentPreviews()
     cursors.value = [null]
     currentPage.value = 1
     await loadPage(1)
@@ -333,6 +400,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.body.classList.remove('modal-open')
+  revokePreviewUrls(previewUrls.value)
   if (toastTimer) clearTimeout(toastTimer)
 })
 </script>
@@ -368,9 +436,14 @@ onBeforeUnmount(() => {
     :courier="selectedCourier"
     :downloading-file-ids="downloadingFileIds"
     :updating-platform-ids="updatingPlatformIds"
+    :preview-urls="previewUrls"
+    :preview-loading-file-ids="previewLoadingFileIds"
+    :preview-error-file-ids="previewErrorFileIds"
     @close="closeDetails"
     @download="downloadFile"
     @edit="openEdit"
+    @copied="showToast('Скопировано', `${$event} скопировано в буфер обмена.`)"
+    @copy-error="showToast('Не удалось скопировать', `Поле «${$event}» не скопировано.`)"
     @delete="openDelete"
     @update-platform="updatePlatformStatus"
   />
@@ -379,6 +452,7 @@ onBeforeUnmount(() => {
     :courier="selectedCourier"
     :saving="saving"
     :error="editError"
+    :focus-field="editField"
     @close="closeEdit"
     @save="submitEdit"
   />

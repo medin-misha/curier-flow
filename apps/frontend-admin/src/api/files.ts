@@ -36,6 +36,16 @@ export async function getFileDownloadUrl(fileId: string) {
   return file.download_url
 }
 
+export async function getFilePreviewUrl(fileId: string) {
+  const downloadUrl = await getFileDownloadUrl(fileId)
+  if (!downloadUrl) return null
+
+  const response = await fetch(downloadUrl, { credentials: 'omit' })
+  if (!response.ok) throw new Error('Не удалось загрузить файл для предпросмотра.')
+
+  return URL.createObjectURL(await response.blob())
+}
+
 interface UploadTicketResponse {
   file_id: string
   upload_url: string
