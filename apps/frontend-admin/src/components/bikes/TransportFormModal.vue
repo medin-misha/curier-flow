@@ -23,6 +23,8 @@ const form = reactive<TransportInput>({
   depositRequired: props.transport?.depositRequired ?? false,
   depositAmount: props.transport?.depositAmount ?? '',
   rentalPrice: props.transport?.rentalPrice ?? '',
+  comment: props.transport?.comment ?? '',
+  debtAmount: props.transport?.debtAmount ?? '0.00',
 })
 const errors = reactive<Record<string, string>>({})
 
@@ -31,7 +33,7 @@ function submit() {
   for (const key of Object.keys(errors)) delete errors[key]
   Object.assign(errors, result.errors)
   if (!result.value) {
-    const first = ['type', 'model', 'serialNumber', 'color', 'rentalPrice', 'depositAmount'].find((key) => errors[key])
+    const first = ['type', 'model', 'serialNumber', 'color', 'rentalPrice', 'debtAmount', 'depositAmount', 'comment'].find((key) => errors[key])
     void nextTick(() => document.getElementById(`bike-${first}`)?.focus())
     return
   }
@@ -55,8 +57,10 @@ function submit() {
         <div class="form-section"><div class="form-section-title"><h3>Условия аренды</h3><p>Денежные значения указываются в CZK.</p></div>
           <div class="form-grid">
             <div class="field" :class="{ invalid: errors.rentalPrice }"><label class="required" for="bike-rentalPrice">Ставка аренды</label><input id="bike-rentalPrice" v-model="form.rentalPrice" class="input num" inputmode="decimal" placeholder="1250.00" /><span class="field-error">{{ errors.rentalPrice }}</span></div>
+            <div class="field" :class="{ invalid: errors.debtAmount }"><label class="required" for="bike-debtAmount">Задолженность</label><input id="bike-debtAmount" v-model="form.debtAmount" class="input num" inputmode="decimal" placeholder="0.00" /><span class="field-error">{{ errors.debtAmount }}</span></div>
             <label class="checkbox-row"><input v-model="form.depositRequired" type="checkbox" /><span class="checkbox-copy"><strong>Требуется залог</strong><span>Сумма обязательна только при включённом залоге.</span></span></label>
             <div v-if="form.depositRequired" class="field" :class="{ invalid: errors.depositAmount }"><label class="required" for="bike-depositAmount">Сумма залога</label><input id="bike-depositAmount" v-model="form.depositAmount" class="input num" inputmode="decimal" placeholder="500.00" /><span class="field-error">{{ errors.depositAmount }}</span></div>
+            <div class="field field-wide" :class="{ invalid: errors.comment }"><label for="bike-comment">Комментарий</label><textarea id="bike-comment" v-model="form.comment" class="textarea" maxlength="2000" rows="4" placeholder="Состояние, обслуживание или другие примечания"></textarea><span class="field-error">{{ errors.comment }}</span></div>
           </div>
         </div>
         <p v-if="error" class="form-api-error" role="alert">{{ error }}</p>

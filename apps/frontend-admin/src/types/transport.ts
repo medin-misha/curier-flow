@@ -48,6 +48,8 @@ export interface TransportListItem {
 export interface Transport extends TransportListItem {
   components: TransportComponent[]
   activeRental: TransportRental | null
+  comment: string | null
+  debtAmount: string
 }
 
 export interface TransportFilters {
@@ -65,6 +67,8 @@ export interface TransportInput {
   depositRequired: boolean
   depositAmount: string
   rentalPrice: string
+  comment: string
+  debtAmount: string
 }
 
 export interface TransportComponentInput {

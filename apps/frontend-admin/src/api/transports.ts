@@ -61,6 +61,8 @@ interface TransportListItemResponse {
 interface TransportDetailResponse extends TransportListItemResponse {
   components: TransportComponentResponse[]
   active_rental: TransportRentalResponse | null
+  comment: string | null
+  debt_amount: string
 }
 
 interface PageResponse<T> {
@@ -128,6 +130,8 @@ function mapTransport(response: TransportDetailResponse): Transport {
     ...mapTransportListItem(response),
     components: response.components.map(mapComponent),
     activeRental: response.active_rental ? mapRental(response.active_rental) : null,
+    comment: response.comment,
+    debtAmount: response.debt_amount,
   }
 }
 
@@ -151,17 +155,21 @@ function transportPayload(input: TransportInput, patch: boolean) {
         ? {}
         : { deposit_amount: null }),
     rental_price: input.rentalPrice.trim(),
+    comment: input.comment.trim() || null,
+    debt_amount: input.debtAmount.trim(),
   }
 }
 
 function transportPatch(input: TransportInput, current: Transport) {
   const normalized = transportPayload(input, true)
-  const patch: Record<string, string | boolean> = {}
+  const patch: Record<string, string | boolean | null> = {}
   if (normalized.type !== current.type) patch.type = normalized.type
   if (normalized.model !== current.model) patch.model = normalized.model
   if (normalized.serial_number !== current.serialNumber) patch.serial_number = normalized.serial_number
   if (normalized.color !== current.color) patch.color = normalized.color
   if (normalized.rental_price !== current.rentalPrice) patch.rental_price = normalized.rental_price
+  if (normalized.comment !== current.comment) patch.comment = normalized.comment
+  if (normalized.debt_amount !== current.debtAmount) patch.debt_amount = normalized.debt_amount
   if (input.depositRequired !== current.depositRequired) {
     patch.deposit_required = input.depositRequired
     if (input.depositRequired) patch.deposit_amount = input.depositAmount.trim()

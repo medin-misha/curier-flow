@@ -101,7 +101,7 @@ function selectCourier(courier: Courier, event: Event) {
     </table>
     <div v-else class="empty-state">
       <h2>Ничего не найдено</h2>
-      <p>Проверьте точное имя, email или телефон и повторите поиск.</p>
+      <p>Проверьте имя, email, телефон или статус и повторите поиск.</p>
     </div>
   </div>
 </template>

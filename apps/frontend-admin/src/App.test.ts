@@ -11,6 +11,7 @@ let serverCouriers: CourierResponse[]
 let serverTransports: TestTransport[]
 let serverRentals: TestRental[]
 let serverReceipts: TestReceipt[]
+let serverReceiptTags: TestReceiptTag[]
 let serverReceiptFiles: Record<string, TestStoredFile>
 let receiptUploadIndex: number
 let hasRefreshSession: boolean
@@ -61,6 +62,8 @@ interface TestTransport {
   deposit_required: boolean
   deposit_amount: string | null
   rental_price: string
+  comment: string | null
+  debt_amount: string
   is_available: boolean
   components: TestComponent[]
   active_rental: TestRental | null
@@ -73,6 +76,14 @@ interface TestReceipt {
   file_id: string
   amount: string
   date: string
+  tag_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+interface TestReceiptTag {
+  id: string
+  name: string
   created_at: string
   updated_at: string
 }
@@ -99,6 +110,8 @@ function bike(index: number): TestTransport {
     deposit_required: true,
     deposit_amount: '500.00',
     rental_price: '1250.00',
+    comment: null,
+    debt_amount: '0.00',
     is_available: true,
     components: [],
     active_rental: null,
@@ -107,14 +120,30 @@ function bike(index: number): TestTransport {
   }
 }
 
-function receipt(index: number, amount: string, date: string, createdAt: string): TestReceipt {
+function receipt(
+  index: number,
+  amount: string,
+  date: string,
+  createdAt: string,
+  tagId: string | null = null,
+): TestReceipt {
   return {
     id: `30000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
     file_id: `receipt-file-${index}`,
     amount,
     date,
+    tag_id: tagId,
     created_at: createdAt,
     updated_at: createdAt,
+  }
+}
+
+function receiptTag(index: number, name: string): TestReceiptTag {
+  return {
+    id: `40000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    name,
+    created_at: '2026-08-29T10:00:00Z',
+    updated_at: '2026-08-29T10:00:00Z',
   }
 }
 
@@ -307,20 +336,60 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
     if (method === 'POST' && action === 'reset-password') return jsonResponse(null, 204)
   }
 
+  if (url.pathname === '/receipts/tags' && method === 'GET') {
+    return jsonResponse({ items: serverReceiptTags, next_cursor: null })
+  }
+  if (url.pathname === '/receipts/tags' && method === 'POST') {
+    const body = JSON.parse(String(init.body)) as { name: string }
+    if (serverReceiptTags.some((tag) => tag.name.toLowerCase() === body.name.toLowerCase())) {
+      return problem(409, 'Duplicate receipt tag', 'receipt-tag-name-in-use')
+    }
+    const created = receiptTag(99, body.name)
+    serverReceiptTags.push(created)
+    return jsonResponse(created, 201)
+  }
+  if (url.pathname.startsWith('/receipts/tags/')) {
+    const tagId = url.pathname.split('/')[3]
+    const tag = serverReceiptTags.find((item) => item.id === tagId)
+    if (!tag) return problem(404, 'Receipt tag not found')
+    if (method === 'GET') return jsonResponse(tag)
+    if (method === 'PATCH') {
+      const body = JSON.parse(String(init.body)) as { name: string }
+      tag.name = body.name
+      tag.updated_at = '2026-08-30T13:00:00Z'
+      return jsonResponse(tag)
+    }
+    if (method === 'DELETE') {
+      serverReceiptTags = serverReceiptTags.filter((item) => item.id !== tagId)
+      serverReceipts.forEach((item) => {
+        if (item.tag_id === tagId) item.tag_id = null
+      })
+      return jsonResponse(null, 204)
+    }
+  }
   if (url.pathname === '/receipts' && method === 'GET') {
     const cursor = url.searchParams.get('cursor')
     const start = cursor ? Number(cursor.replace('receipt-cursor-', '')) : 0
     const requestedLimit = Number(url.searchParams.get('limit') || 50)
     const pageSize = requestedLimit === 200 ? 3 : requestedLimit
-    const items = serverReceipts.slice(start, start + pageSize)
+    const tagId = url.searchParams.get('tag_id')
+    const source = tagId
+      ? serverReceipts.filter((item) => item.tag_id === tagId)
+      : serverReceipts
+    const items = source.slice(start, start + pageSize)
     const next = start + items.length
     return jsonResponse({
       items,
-      next_cursor: next < serverReceipts.length ? `receipt-cursor-${next}` : null,
+      next_cursor: next < source.length ? `receipt-cursor-${next}` : null,
     })
   }
   if (url.pathname === '/receipts' && method === 'POST') {
-    const body = JSON.parse(String(init.body)) as { file_id: string; amount: string; date: string }
+    const body = JSON.parse(String(init.body)) as {
+      file_id: string
+      amount: string
+      date: string
+      tag_id: string | null
+    }
     if (!serverReceiptFiles[body.file_id] || serverReceiptFiles[body.file_id].status !== 'ready') {
       return problem(422, 'Receipt file is not ready', 'file-not-ready')
     }
@@ -332,6 +401,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       file_id: body.file_id,
       amount: body.amount,
       date: body.date,
+      tag_id: body.tag_id,
       created_at: '2026-08-30T12:00:00Z',
       updated_at: '2026-08-30T12:00:00Z',
     }
@@ -348,10 +418,12 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
         file_id?: string
         amount?: string
         date?: string
+        tag_id?: string | null
       }
       if (body.file_id !== undefined) existingReceipt.file_id = body.file_id
       if (body.amount !== undefined) existingReceipt.amount = body.amount
       if (body.date !== undefined) existingReceipt.date = body.date
+      if (body.tag_id !== undefined) existingReceipt.tag_id = body.tag_id
       existingReceipt.updated_at = '2026-08-30T13:00:00Z'
       return jsonResponse(existingReceipt)
     }
@@ -387,6 +459,8 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       deposit_required: Boolean(body.deposit_required),
       deposit_amount: body.deposit_amount === null ? null : String(body.deposit_amount),
       rental_price: String(body.rental_price),
+      comment: body.comment === null ? null : String(body.comment),
+      debt_amount: String(body.debt_amount),
       is_available: true,
       components: [],
       active_rental: null,
@@ -418,6 +492,8 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       }
       if (body.deposit_amount !== undefined) transport.deposit_amount = String(body.deposit_amount)
       if (body.rental_price !== undefined) transport.rental_price = String(body.rental_price)
+      if (body.comment !== undefined) transport.comment = body.comment as string | null
+      if (body.debt_amount !== undefined) transport.debt_amount = String(body.debt_amount)
       transport.updated_at = '2026-08-28T11:00:00Z'
       return jsonResponse(transport)
     }
@@ -606,11 +682,17 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
   }
 
   if (url.pathname === '/courier' && method === 'GET') {
+    const status = url.searchParams.get('status')
+    const filteredCouriers = status
+      ? serverCouriers.filter((item) =>
+          item.platform_accounts.some((account) => account.status === status),
+        )
+      : serverCouriers
     const start = url.searchParams.get('cursor') === 'cursor-2' ? 5 : 0
-    const items = serverCouriers.slice(start, start + 5)
+    const items = filteredCouriers.slice(start, start + 5)
     return jsonResponse({
       items,
-      next_cursor: start === 0 && serverCouriers.length > 5 ? 'cursor-2' : null,
+      next_cursor: start === 0 && filteredCouriers.length > 5 ? 'cursor-2' : null,
     })
   }
   if (url.pathname === '/courier' && method === 'POST') {
@@ -712,12 +794,13 @@ beforeEach(() => {
   serverCouriers = Array.from({ length: 6 }, (_, index) => courier(index + 1))
   serverTransports = [bike(1), bike(2)]
   serverRentals = []
+  serverReceiptTags = [receiptTag(1, 'Топливо'), receiptTag(2, 'Ремонт')]
   serverReceipts = [
-    receipt(1, '100.10', '2026-08-30', '2026-08-30T10:00:00Z'),
+    receipt(1, '100.10', '2026-08-30', '2026-08-30T10:00:00Z', serverReceiptTags[0].id),
     receipt(2, '0.20', '2026-01-15', '2026-01-15T10:00:00Z'),
-    receipt(3, '0.30', '2025-12-31', '2025-12-31T23:30:00Z'),
-    receipt(4, '40.00', '2025-06-15', '2025-06-15T10:00:00Z'),
-    receipt(5, '50.00', '2025-01-15', '2025-01-15T10:00:00Z'),
+    receipt(3, '0.30', '2025-12-31', '2025-12-31T23:30:00Z', serverReceiptTags[1].id),
+    receipt(4, '40.00', '2025-06-15', '2025-06-15T10:00:00Z', serverReceiptTags[0].id),
+    receipt(5, '50.00', '2025-01-15', '2025-01-15T10:00:00Z', serverReceiptTags[1].id),
     receipt(6, '60.00', '2024-06-15', '2024-06-15T10:00:00Z'),
   ]
   serverReceiptFiles = Object.fromEntries(
@@ -807,6 +890,23 @@ describe('Courier CRUD', () => {
     expect(payload.documents).toEqual([])
     expect(page.text()).toContain('Ирина Тестова')
     expect(page.get('[role="status"]').text()).toContain('Курьер сохранён')
+  })
+
+  it('фильтрует реестр по статусу курьера', async () => {
+    const page = await mountApp()
+
+    await page.get('[data-od-id="courier-status-filter"]').setValue('active')
+    await page.get('[data-od-id="couriers-filters"]').trigger('submit')
+    await flushPromises()
+
+    expect(page.findAll('tbody tr')).toHaveLength(1)
+    expect(
+      page.find('[data-od-id="courier-row-00000000-0000-4000-8000-000000000001"]').exists(),
+    ).toBe(true)
+    expect(page.get('[data-od-id="couriers-filters"]').text()).toContain('Статус: Активен')
+    expect(
+      requests.some((request) => request.url.includes('status=active')),
+    ).toBe(true)
   })
 
   it('читает, редактирует и удаляет профиль курьера', async () => {
@@ -1086,6 +1186,8 @@ describe('Bikes full accounting', () => {
     await page.get('#bike-serialNumber').setValue(' cargo-099 ')
     await page.get('#bike-color').setValue('Graphite')
     await page.get('#bike-rentalPrice').setValue('1500,50')
+    await page.get('#bike-debtAmount').setValue('125,75')
+    await page.get('#bike-comment').setValue('Требуется плановое обслуживание')
     await page.get('[data-od-id="bike-form-dialog"] form').trigger('submit')
     await flushPromises()
     await flushPromises()
@@ -1102,12 +1204,16 @@ describe('Bikes full accounting', () => {
       deposit_required: false,
       deposit_amount: null,
       rental_price: '1500.50',
+      comment: 'Требуется плановое обслуживание',
+      debt_amount: '125.75',
     })
     expect(page.text()).toContain('Urban Cargo')
 
     const createdId = '20000000-0000-4000-8000-000000000099'
     await page.get(`[data-od-id="open-bike-${createdId}"]`).trigger('click')
     await flushPromises()
+    expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('125.75 Kč')
+    expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Требуется плановое обслуживание')
     await buttonWithText(page, 'Добавить позицию').trigger('click')
     await page.get('#component-name').setValue('Замок')
     await page.get('#component-unitPrice').setValue('25.50')
@@ -1126,13 +1232,19 @@ describe('Bikes full accounting', () => {
 
     await buttonWithText(page, 'Редактировать').trigger('click')
     await page.get('#bike-color').setValue('Silver')
+    await page.get('#bike-debtAmount').setValue('300,25')
+    await page.get('#bike-comment').setValue('')
     await page.get('[data-od-id="bike-form-dialog"] form').trigger('submit')
     await flushPromises()
     expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Silver')
     const patchRequest = requests.find(
       (request) => request.url === `/transport/${createdId}` && request.init.method === 'PATCH',
     )
-    expect(JSON.parse(String(patchRequest?.init.body))).toEqual({ color: 'Silver' })
+    expect(JSON.parse(String(patchRequest?.init.body))).toEqual({
+      color: 'Silver',
+      comment: null,
+      debt_amount: '300.25',
+    })
 
     await buttonWithText(page, 'Удалить велосипед').trigger('click')
     await page.get('[data-od-id="confirm-action-dialog"] .btn-danger').trigger('click')
@@ -1185,10 +1297,22 @@ describe('Bikes full accounting', () => {
     expect(downloaded).toBe('https://storage.test/download/contract.pdf')
 
     await buttonWithText(page, 'Завершить аренду').trigger('click')
-    await page.get('#rental-endedAt').setValue('2026-08-21T10:00')
+    await page.get('#rental-endedAt').setValue('2026-08-19T10:00')
+    await page.get('[data-od-id="rental-form-dialog"] form').trigger('submit')
+    await flushPromises()
+    expect(page.get('[data-od-id="rental-form-dialog"] [role="alert"]').text()).toContain(
+      'Дата завершения должна быть позже начала',
+    )
+    expect(requests.some((request) => request.url.endsWith('/rental-transport-1/close'))).toBe(false)
+
+    await page.get('#rental-endedAt').setValue('2099-09-04T10:00')
     await page.get('[data-od-id="rental-form-dialog"] form').trigger('submit')
     await flushPromises()
     await flushPromises()
+    const closeRequest = requests.find((request) => request.url.endsWith('/rental-transport-1/close'))
+    expect(JSON.parse(String(closeRequest?.init.body))).toEqual({
+      ended_at: new Date('2099-09-04T10:00').toISOString(),
+    })
     expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Велосипед свободен')
 
     await buttonWithText(page, 'Удалить велосипед').trigger('click')
@@ -1201,7 +1325,7 @@ describe('Bikes full accounting', () => {
 })
 
 describe('Finance receipts', () => {
-  it('загружает все cursor-страницы и показывает статистику по годам', async () => {
+  it('загружает все cursor-страницы и показывает статистику по годам и месяцам', async () => {
     window.localStorage.setItem(
       'mfs.finance.pending-file-cleanup',
       JSON.stringify(['already-deleted-file']),
@@ -1214,6 +1338,11 @@ describe('Finance receipts', () => {
     expect(page.findAll('[data-od-id^="receipt-row-"]')).toHaveLength(5)
     expect(page.get('[data-od-id="receipt-stats-amount"]').text()).toBe('100.30 Kč')
     expect(page.get('[data-od-id="receipt-stats-count"]').text()).toBe('2')
+    expect(page.findAll('[data-od-id^="receipt-stats-month-"]')).toHaveLength(2)
+    expect(page.get('[data-od-id="receipt-stats-month-1"]').text()).toContain('0.20 Kč')
+    expect(page.get('[data-od-id="receipt-stats-month-8"]').text()).toContain('100.10 Kč')
+    expect(page.get('.finance-tag-breakdown').text()).toContain('Топливо')
+    expect(page.get('.finance-tag-breakdown').text()).toContain('Без тега')
     expect(
       requests.some(
         (request) =>
@@ -1232,11 +1361,19 @@ describe('Finance receipts', () => {
     await page.get('[data-od-id="receipt-stats-year"]').setValue('2025')
     expect(page.get('[data-od-id="receipt-stats-amount"]').text()).toBe('90.30 Kč')
     expect(page.get('[data-od-id="receipt-stats-count"]').text()).toBe('3')
+    expect(page.findAll('[data-od-id^="receipt-stats-month-"]')).toHaveLength(3)
+    expect(page.get('[data-od-id="receipt-stats-month-6"]').text()).toContain('40.00 Kč')
+    expect(page.get('[data-od-id="receipt-stats-month-12"]').text()).toContain('0.30 Kč')
 
     await page.get('[aria-label="Следующая страница чеков"]').trigger('click')
     await flushPromises()
     expect(page.findAll('[data-od-id^="receipt-row-"]')).toHaveLength(1)
     expect(page.get('.pagination-summary').text()).toBe('Страница 2 · записей 1')
+
+    await page.get('[data-od-id="receipt-tag-filter"]').setValue(serverReceiptTags[0].id)
+    await flushPromises()
+    expect(page.findAll('[data-od-id^="receipt-row-"]')).toHaveLength(2)
+    expect(requests.some((request) => request.url.includes(`tag_id=${serverReceiptTags[0].id}`))).toBe(true)
   })
 
   it('создаёт, читает, заменяет файл и удаляет чек', async () => {
@@ -1246,6 +1383,7 @@ describe('Finance receipts', () => {
     await page.get('[data-od-id="create-receipt"]').trigger('click')
     await page.get('#receipt-amount').setValue('125,50')
     await page.get('#receipt-date').setValue('2026-08-29')
+    await page.get('#receipt-tag').setValue(serverReceiptTags[0].id)
     const newReceiptFile = new File(['receipt'], 'receipt-new.pdf', {
       type: 'application/pdf',
       lastModified: 1,
@@ -1268,6 +1406,7 @@ describe('Finance receipts', () => {
       file_id: 'receipt-upload-file-1',
       amount: '125.50',
       date: '2026-08-29',
+      tag_id: serverReceiptTags[0].id,
     })
     expect(requests.some((request) => request.url === '/upload/receipt-upload-file-1')).toBe(true)
     expect(requests.some((request) => request.url.endsWith('/receipt-upload-file-1/confirm'))).toBe(true)
@@ -1301,6 +1440,7 @@ describe('Finance receipts', () => {
     await buttonWithText(page, 'Редактировать').trigger('click')
     await page.get('#receipt-amount').setValue('130.75')
     await page.get('#receipt-date').setValue('2025-12-31')
+    await page.get('#receipt-tag').setValue(serverReceiptTags[1].id)
     const replacement = new File(['replacement'], 'replacement.png', {
       type: 'image/png',
       lastModified: 2,
@@ -1322,6 +1462,7 @@ describe('Finance receipts', () => {
       file_id: 'receipt-upload-file-2',
       amount: '130.75',
       date: '2025-12-31',
+      tag_id: serverReceiptTags[1].id,
     })
     expect(
       requests.some(
@@ -1348,5 +1489,45 @@ describe('Finance receipts', () => {
     expect(fileDeleteIndex).toBeGreaterThan(receiptDeleteIndex)
     expect(page.find('[data-od-id="receipt-detail-dialog"]').exists()).toBe(false)
     expect(page.get('[role="status"]').text()).toContain('Чек удалён')
+  })
+
+  it('создаёт, переименовывает и удаляет тег расходов', async () => {
+    const page = await mountApp()
+    await openFinanceTab(page)
+
+    await page.get('[data-od-id="manage-receipt-tags"]').trigger('click')
+    let dialog = page.get('[data-od-id="receipt-tags-dialog"]')
+    await dialog.get('input[placeholder="Например, топливо"]').setValue('Парковка')
+    await dialog.get('.receipt-tag-create').trigger('submit')
+    await flushPromises()
+    await flushPromises()
+    dialog = page.get('[data-od-id="receipt-tags-dialog"]')
+
+    const createRequest = requests.find(
+      (request) => request.url === '/receipts/tags' && request.init.method === 'POST',
+    )
+    expect(new Headers(createRequest?.init.headers).get('Idempotency-Key')).toBeTruthy()
+    expect(dialog.text()).toContain('Парковка')
+
+    let row = dialog.findAll('.receipt-tag-manager-row').find((item) => item.text().includes('Парковка'))!
+    await row.findAll('button').find((button) => button.text() === 'Изменить')!.trigger('click')
+    dialog = page.get('[data-od-id="receipt-tags-dialog"]')
+    row = dialog.findAll('.receipt-tag-manager-row').find((item) => item.find('input').exists())!
+    await row.get('input').setValue('Стоянка')
+    await row.findAll('button').find((button) => button.text() === 'Сохранить')!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    dialog = page.get('[data-od-id="receipt-tags-dialog"]')
+    expect(dialog.text()).toContain('Стоянка')
+
+    row = dialog.findAll('.receipt-tag-manager-row').find((item) => item.text().includes('Стоянка'))!
+    await row.findAll('button').find((button) => button.text() === 'Удалить')!.trigger('click')
+    dialog = page.get('[data-od-id="receipt-tags-dialog"]')
+    row = dialog.findAll('.receipt-tag-manager-row').find((item) => item.text().includes('Стоянка'))!
+    await row.findAll('button').find((button) => button.text() === 'Удалить')!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    dialog = page.get('[data-od-id="receipt-tags-dialog"]')
+    expect(dialog.text()).not.toContain('Стоянка')
   })
 })

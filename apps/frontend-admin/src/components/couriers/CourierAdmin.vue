@@ -30,7 +30,9 @@ const PAGE_SIZE = 5
 
 const couriers = ref<Courier[]>([])
 const searchQuery = ref('')
+const statusFilter = ref<PlatformStatus | ''>('')
 const appliedQuery = ref('')
+const appliedStatus = ref<PlatformStatus | ''>('')
 const currentPage = ref(1)
 const cursors = ref<Array<string | null>>([null])
 const nextCursor = ref<string | null>(null)
@@ -66,11 +68,14 @@ const platformStatusLabels: Record<PlatformStatus, string> = {
   inactive: 'Неактивен',
 }
 
-const filterSummary = computed(() =>
-  appliedQuery.value
-    ? `Точное совпадение: ${appliedQuery.value}`
-    : 'Данные из Courier API',
-)
+const filterSummary = computed(() => {
+  const filters = []
+  if (appliedQuery.value) filters.push(`Точное совпадение: ${appliedQuery.value}`)
+  if (appliedStatus.value) {
+    filters.push(`Статус: ${platformStatusLabels[appliedStatus.value]}`)
+  }
+  return filters.length ? filters.join(' · ') : 'Данные из Courier API'
+})
 const paginationSummary = computed(
   () => `Страница ${currentPage.value} · записей ${couriers.value.length}`,
 )
@@ -116,6 +121,7 @@ async function loadPage(page: number) {
       cursor,
       limit: PAGE_SIZE,
       query: appliedQuery.value,
+      status: appliedStatus.value,
     })
     if (sequence !== loadSequence) return
     couriers.value = result.items
@@ -130,6 +136,7 @@ async function loadPage(page: number) {
 
 async function search() {
   appliedQuery.value = searchQuery.value.trim()
+  appliedStatus.value = statusFilter.value
   cursors.value = [null]
   nextCursor.value = null
   currentPage.value = 1
@@ -218,7 +225,9 @@ async function submitCreate(input: CourierCreateInput) {
     const created = await createCourier(input)
     createOpen.value = false
     searchQuery.value = ''
+    statusFilter.value = ''
     appliedQuery.value = ''
+    appliedStatus.value = ''
     cursors.value = [null]
     await loadPage(1)
     showToast('Курьер сохранён', `${created.fullName} добавлен в реестр.`)
@@ -409,6 +418,7 @@ onBeforeUnmount(() => {
   <main id="content">
     <CourierRegistry
       v-model:search-query="searchQuery"
+      v-model:status="statusFilter"
       :couriers="couriers"
       :filter-summary="filterSummary"
       :current-page="currentPage"

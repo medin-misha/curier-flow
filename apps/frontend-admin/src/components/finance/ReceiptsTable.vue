@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { Receipt } from '../../types/receipt'
+import { computed } from 'vue'
+import type { Receipt, ReceiptTag } from '../../types/receipt'
 import { formatReceiptDate } from './receiptDate'
 
-defineProps<{
+const props = defineProps<{
   receipts: Receipt[]
+  tags: ReceiptTag[]
 }>()
 
 defineEmits<{
@@ -17,6 +19,12 @@ function formatDate(value: string) {
     timeZone: 'Europe/Prague',
   }).format(new Date(value))
 }
+
+const tagNames = computed(() => new Map(props.tags.map((tag) => [tag.id, tag.name])))
+
+function tagName(tagId: string | null) {
+  return tagId ? (tagNames.value.get(tagId) ?? 'Неизвестный тег') : 'Без тега'
+}
 </script>
 
 <template>
@@ -27,6 +35,7 @@ function formatDate(value: string) {
           <th>Чек</th>
           <th>Сумма</th>
           <th>Дата чека</th>
+          <th>Тип расхода</th>
           <th>Создан</th>
           <th>Обновлён</th>
           <th><span class="visually-hidden">Действия</span></th>
@@ -42,6 +51,7 @@ function formatDate(value: string) {
           </td>
           <td data-label="Сумма"><strong class="num">{{ receipt.amount }} Kč</strong></td>
           <td data-label="Дата чека"><span class="num">{{ formatReceiptDate(receipt.date) }}</span></td>
+          <td data-label="Тип расхода"><span class="tag">{{ tagName(receipt.tagId) }}</span></td>
           <td data-label="Создан"><span class="num">{{ formatDate(receipt.createdAt) }}</span></td>
           <td data-label="Обновлён"><span class="num">{{ formatDate(receipt.updatedAt) }}</span></td>
           <td data-label="Действия">

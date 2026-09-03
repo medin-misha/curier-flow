@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Courier } from '../../types/courier'
+import type { Courier, PlatformStatus } from '../../types/courier'
 import CourierFilters from './CourierFilters.vue'
 import CourierPagination from './CourierPagination.vue'
 import CourierTable from './CourierTable.vue'
@@ -15,6 +15,7 @@ defineProps<{
 }>()
 
 const searchQuery = defineModel<string>('searchQuery', { required: true })
+const status = defineModel<PlatformStatus | ''>('status', { required: true })
 
 defineEmits<{
   create: [event: MouseEvent]
@@ -48,6 +49,7 @@ defineEmits<{
 
       <CourierFilters
         v-model:search-query="searchQuery"
+        v-model:status="status"
         :summary="filterSummary"
         :loading="loading"
         @search="$emit('search')"

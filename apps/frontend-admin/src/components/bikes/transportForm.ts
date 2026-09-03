@@ -15,6 +15,10 @@ export function validateTransportInput(input: TransportInput) {
   if (!input.color.trim() || input.color.trim().length > 64) errors.color = 'Укажите цвет до 64 символов.'
   if (!positiveMoney.test(input.rentalPrice.trim())) errors.rentalPrice = 'Введите положительную сумму с точностью до 2 знаков.'
   if (Number(normalizeMoney(input.rentalPrice)) <= 0) errors.rentalPrice = 'Ставка должна быть больше нуля.'
+  if (!nonNegativeMoney.test(input.debtAmount.trim())) {
+    errors.debtAmount = 'Введите задолженность с точностью до 2 знаков.'
+  }
+  if (input.comment.trim().length > 2000) errors.comment = 'Комментарий не должен превышать 2000 символов.'
   if (input.depositRequired) {
     if (!positiveMoney.test(input.depositAmount.trim()) || Number(normalizeMoney(input.depositAmount)) <= 0) {
       errors.depositAmount = 'Введите положительную сумму залога.'
@@ -31,6 +35,8 @@ export function validateTransportInput(input: TransportInput) {
           serialNumber: input.serialNumber.trim().toUpperCase(),
           color: input.color.trim(),
           rentalPrice: normalizeMoney(input.rentalPrice),
+          debtAmount: normalizeMoney(input.debtAmount),
+          comment: input.comment.trim(),
           depositAmount: input.depositRequired ? normalizeMoney(input.depositAmount) : '',
         },
   }

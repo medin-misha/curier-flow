@@ -75,6 +75,31 @@ function formatBirthDate(value: string) {
   return `${day}.${month}.${year}`
 }
 
+function calculateAge(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  if (!year || !month || !day) return null
+
+  const today = new Date()
+  let age = today.getFullYear() - year
+  const birthdayPassed =
+    today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day)
+
+  if (!birthdayPassed) age -= 1
+
+  return age >= 0 ? age : null
+}
+
+function formatAge(value: string) {
+  const age = calculateAge(value)
+  if (age === null) return null
+
+  const lastDigit = age % 10
+  const lastTwoDigits = age % 100
+  const unit = lastDigit === 1 && lastTwoDigits !== 11 ? 'год' : lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14) ? 'года' : 'лет'
+
+  return `${age} ${unit}`
+}
+
 async function writeToClipboard(value: string) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(value)
@@ -227,7 +252,12 @@ function fileFormat(document: CourierDocument) {
           @keydown="handleFieldKeydown($event, 'Дата рождения', formatBirthDate(courier.birthDate))"
         >
           <span>Дата рождения</span>
-          <strong class="num">{{ formatBirthDate(courier.birthDate) }}</strong>
+          <strong class="num birth-date-value">
+            {{ formatBirthDate(courier.birthDate) }}
+            <small v-if="formatAge(courier.birthDate)" class="age-badge">
+              {{ formatAge(courier.birthDate) }}
+            </small>
+          </strong>
         </div>
         <div
           class="detail-item detail-item-interactive"

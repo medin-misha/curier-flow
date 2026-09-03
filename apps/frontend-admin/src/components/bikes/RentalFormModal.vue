@@ -31,8 +31,8 @@ function submit() {
   fieldError.value = ''
   if (props.rental) {
     const end = iso(endedAt.value)
-    if (!end || new Date(end) > new Date() || new Date(end) <= new Date(props.rental.startedAt)) {
-      fieldError.value = 'Дата завершения должна быть позже начала и не в будущем.'
+    if (!end || new Date(end) <= new Date(props.rental.startedAt)) {
+      fieldError.value = 'Дата завершения должна быть позже начала.'
       void nextTick(() => document.getElementById('rental-endedAt')?.focus())
       return
     }

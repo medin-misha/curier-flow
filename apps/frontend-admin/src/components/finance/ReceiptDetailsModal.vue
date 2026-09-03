@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { StoredFile } from '../../types/file'
-import type { Receipt } from '../../types/receipt'
+import type { Receipt, ReceiptTag } from '../../types/receipt'
 import AppModal from '../ui/AppModal.vue'
 import { formatReceiptDate } from './receiptDate'
 
-defineProps<{
+const props = defineProps<{
   receipt: Receipt
+  tags: ReceiptTag[]
   file: StoredFile | null
   fileLoading: boolean
   fileError: string
@@ -34,6 +35,10 @@ function formatSize(size: number) {
   if (size < 1024) return `${size} Б`
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} КБ`
   return `${(size / (1024 * 1024)).toFixed(1)} МБ`
+}
+
+function tagName(tagId: string | null) {
+  return tagId ? (props.tags.find((tag) => tag.id === tagId)?.name ?? 'Неизвестный тег') : 'Без тега'
 }
 </script>
 
@@ -72,6 +77,10 @@ function formatSize(size: number) {
         <div class="detail-item">
           <span>Дата чека</span>
           <strong class="num">{{ formatReceiptDate(receipt.date) }}</strong>
+        </div>
+        <div class="detail-item">
+          <span>Тип расхода</span>
+          <strong><span class="tag">{{ tagName(receipt.tagId) }}</span></strong>
         </div>
         <div class="detail-item">
           <span>Создан</span>

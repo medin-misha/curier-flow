@@ -169,11 +169,13 @@ export async function listCouriers(options: {
   cursor?: string | null
   limit: number
   query: string
+  status?: PlatformStatus | ''
 }) {
   const params = new URLSearchParams({
     limit: String(options.limit),
     ...searchParams(options.query),
   })
+  if (options.status) params.set('status', options.status)
   if (options.cursor) params.set('cursor', options.cursor)
 
   const response = await apiRequest<CourierPageResponse>(`/courier?${params.toString()}`)

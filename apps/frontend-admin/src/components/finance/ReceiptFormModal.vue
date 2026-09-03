@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue'
-import type { Receipt, ReceiptFormInput } from '../../types/receipt'
+import type { Receipt, ReceiptFormInput, ReceiptTag } from '../../types/receipt'
 import AppModal from '../ui/AppModal.vue'
 import {
   normalizeReceiptAmount,
@@ -13,6 +13,7 @@ const props = defineProps<{
   receipt?: Receipt | null
   saving: boolean
   error: string
+  tags: ReceiptTag[]
 }>()
 
 const emit = defineEmits<{
@@ -22,6 +23,7 @@ const emit = defineEmits<{
 
 const amount = ref(props.receipt?.amount ?? '')
 const date = ref(props.receipt?.date ?? todayInPrague())
+const tagId = ref(props.receipt?.tagId ?? '')
 const file = ref<File | null>(null)
 const amountError = ref('')
 const dateError = ref('')
@@ -56,6 +58,7 @@ function submit() {
   emit('save', {
     amount: normalizeReceiptAmount(amount.value),
     date: date.value,
+    tagId: tagId.value || null,
     file: file.value,
   })
 }
@@ -93,7 +96,7 @@ function submit() {
         <div class="form-section">
           <div class="form-section-title">
             <h3>Данные чека</h3>
-            <p>Дата используется для годовой статистики, сумма сохраняется с точностью до двух знаков.</p>
+            <p>Дата используется для статистики по месяцам, сумма сохраняется с точностью до двух знаков.</p>
           </div>
           <div class="form-grid">
             <div class="field" :class="{ invalid: dateError }">
@@ -120,6 +123,13 @@ function submit() {
                 aria-describedby="receipt-amount-error"
               />
               <span id="receipt-amount-error" class="field-error" role="alert">{{ amountError }}</span>
+            </div>
+            <div class="field">
+              <label for="receipt-tag">Тип расхода</label>
+              <select id="receipt-tag" v-model="tagId" class="select" :disabled="saving">
+                <option value="">Без тега</option>
+                <option v-for="tag in tags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
+              </select>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Receipt, ReceiptYearSummary } from '../../types/receipt'
+import type { Receipt, ReceiptTag, ReceiptYearSummary } from '../../types/receipt'
 import AdminPagination from '../admins/AdminPagination.vue'
 import ReceiptYearlyStats from './ReceiptYearlyStats.vue'
 import ReceiptsTable from './ReceiptsTable.vue'
@@ -7,6 +7,9 @@ import ReceiptsTable from './ReceiptsTable.vue'
 defineProps<{
   receipts: Receipt[]
   stats: ReceiptYearSummary[]
+  tags: ReceiptTag[]
+  selectedTagId: string | null
+  tagsLoading: boolean
   currentPage: number
   paginationSummary: string
   hasNext: boolean
@@ -22,6 +25,8 @@ defineEmits<{
   page: [page: number]
   retry: []
   retryStats: []
+  filterTag: [tagId: string | null]
+  manageTags: [event: MouseEvent]
 }>()
 </script>
 
@@ -53,6 +58,24 @@ defineEmits<{
           <p class="eyebrow">Реестр</p>
           <h2>Все чеки</h2>
         </div>
+        <div class="finance-registry-actions">
+          <label class="finance-tag-filter">
+            <span>Тип расхода</span>
+            <select
+              class="select"
+              :value="selectedTagId ?? ''"
+              :disabled="loading || tagsLoading"
+              data-od-id="receipt-tag-filter"
+              @change="$emit('filterTag', ($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">Все типы</option>
+              <option v-for="tag in tags" :key="tag.id" :value="tag.id">{{ tag.name }}</option>
+            </select>
+          </label>
+          <button class="btn btn-secondary" type="button" data-od-id="manage-receipt-tags" @click="$emit('manageTags', $event)">
+            Управление тегами
+          </button>
+        </div>
       </div>
       <div class="card" data-od-id="receipts-table-card">
         <div v-if="loading && !receipts.length" class="registry-state" aria-busy="true">
@@ -66,7 +89,7 @@ defineEmits<{
           <button class="btn btn-secondary" type="button" @click="$emit('retry')">Повторить</button>
         </div>
         <template v-else>
-          <ReceiptsTable :receipts="receipts" @select="(receipt, event) => $emit('select', receipt, event)" />
+          <ReceiptsTable :receipts="receipts" :tags="tags" @select="(receipt, event) => $emit('select', receipt, event)" />
           <AdminPagination
             :current-page="currentPage"
             :summary="paginationSummary"

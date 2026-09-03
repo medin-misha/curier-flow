@@ -51,6 +51,12 @@ function courierName(id: string) {
         <div class="detail-item"><span>Доступность</span><strong>{{ transport.isAvailable ? 'Свободен' : 'Выдан' }}</strong></div>
         <div class="detail-item"><span>Ставка аренды</span><strong class="num">{{ transport.rentalPrice }} Kč</strong></div>
         <div class="detail-item"><span>Залог</span><strong class="num">{{ transport.depositRequired ? `${transport.depositAmount} Kč` : 'Не требуется' }}</strong></div>
+        <div class="detail-item"><span>Задолженность</span><strong class="num">{{ transport.debtAmount }} Kč</strong></div>
+      </div>
+
+      <div class="detail-group">
+        <h3>Комментарий</h3>
+        <p class="transport-comment">{{ transport.comment || 'Не указан' }}</p>
       </div>
 
       <div class="detail-group">

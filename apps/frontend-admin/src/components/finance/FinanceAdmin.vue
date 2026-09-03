@@ -17,6 +17,7 @@ import AppToast from '../ui/AppToast.vue'
 import ReceiptDeleteModal from './ReceiptDeleteModal.vue'
 import ReceiptDetailsModal from './ReceiptDetailsModal.vue'
 import ReceiptFormModal from './ReceiptFormModal.vue'
+import ReceiptTagsModal from './ReceiptTagsModal.vue'
 import ReceiptsRegistry from './ReceiptsRegistry.vue'
 
 interface UploadAttempt {
@@ -37,6 +38,7 @@ const selectedFile = ref<StoredFile | null>(null)
 const createOpen = ref(false)
 const editOpen = ref(false)
 const deleteOpen = ref(false)
+const tagsOpen = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
 const downloading = ref(false)
@@ -45,6 +47,8 @@ const deleteError = ref('')
 const fileError = ref('')
 const fileLoading = ref(false)
 const detailsRefreshing = ref(false)
+const tagBusy = ref(false)
+const tagError = ref('')
 const toastVisible = ref(false)
 const toastTitle = ref('')
 const toastMessage = ref('')
@@ -62,16 +66,20 @@ const paginationSummary = computed(
   () => `Страница ${registry.currentPage.value} · записей ${registry.receipts.value.length}`,
 )
 
-watch([createOpen, editOpen, deleteOpen, selectedReceipt], () => {
+watch([createOpen, editOpen, deleteOpen, tagsOpen, selectedReceipt], () => {
   document.body.classList.toggle(
     'modal-open',
-    createOpen.value || editOpen.value || deleteOpen.value || Boolean(selectedReceipt.value),
+    createOpen.value ||
+      editOpen.value ||
+      deleteOpen.value ||
+      tagsOpen.value ||
+      Boolean(selectedReceipt.value),
   )
 })
 
 watch(
-  [saving, deleting],
-  () => emit('busyChange', saving.value || deleting.value),
+  [saving, deleting, tagBusy],
+  () => emit('busyChange', saving.value || deleting.value || tagBusy.value),
   { immediate: true },
 )
 
@@ -151,13 +159,65 @@ function resetCreateCommand() {
   createIdempotencyKey = ''
 }
 
-function commandKey(fileId: string, amount: string, date: string) {
-  const signature = JSON.stringify({ fileId, amount, date })
+function commandKey(fileId: string, amount: string, date: string, tagId: string | null) {
+  const signature = JSON.stringify({ fileId, amount, date, tagId })
   if (signature !== createSignature) {
     createSignature = signature
     createIdempotencyKey = crypto.randomUUID()
   }
   return createIdempotencyKey
+}
+
+function openTags(event: MouseEvent) {
+  rememberFocus(event.currentTarget)
+  tagError.value = ''
+  tagsOpen.value = true
+}
+
+function closeTags() {
+  if (tagBusy.value) return
+  tagsOpen.value = false
+  tagError.value = ''
+  restoreFocus()
+}
+
+async function createTag(name: string) {
+  tagBusy.value = true
+  tagError.value = ''
+  try {
+    await registry.createTag(name, crypto.randomUUID())
+    showToast('Тег добавлен', `Тип расхода «${name}» доступен в форме чека.`)
+  } catch (error) {
+    tagError.value = receiptErrorMessage(error, 'Не удалось создать тег.')
+  } finally {
+    tagBusy.value = false
+  }
+}
+
+async function renameTag(tagId: string, name: string) {
+  tagBusy.value = true
+  tagError.value = ''
+  try {
+    await registry.renameTag(tagId, name)
+    showToast('Тег обновлён', `Новое название: «${name}».`)
+  } catch (error) {
+    tagError.value = receiptErrorMessage(error, 'Не удалось переименовать тег.')
+  } finally {
+    tagBusy.value = false
+  }
+}
+
+async function removeTag(tagId: string) {
+  tagBusy.value = true
+  tagError.value = ''
+  try {
+    await registry.removeTag(tagId)
+    showToast('Тег удалён', 'Связанные чеки теперь отображаются без тега.')
+  } catch (error) {
+    tagError.value = receiptErrorMessage(error, 'Не удалось удалить тег.')
+  } finally {
+    tagBusy.value = false
+  }
 }
 
 async function uploadReceiptFile(file: File) {
@@ -297,8 +357,8 @@ async function saveReceipt(input: ReceiptFormInput) {
     if (createOpen.value && input.file) {
       const fileId = await uploadReceiptFile(input.file)
       const created = await registry.create(
-        { fileId, amount: input.amount, date: input.date },
-        commandKey(fileId, input.amount, input.date),
+        { fileId, amount: input.amount, date: input.date, tagId: input.tagId },
+        commandKey(fileId, input.amount, input.date, input.tagId),
       )
       uploadAttempt = null
       createOpen.value = false
@@ -313,6 +373,7 @@ async function saveReceipt(input: ReceiptFormInput) {
     const patch: ReceiptPatchInput = {}
     if (input.amount !== current.amount) patch.amount = input.amount
     if (input.date !== current.date) patch.date = input.date
+    if (input.tagId !== current.tagId) patch.tagId = input.tagId
     if (input.file) patch.fileId = await uploadReceiptFile(input.file)
     if (!Object.keys(patch).length) {
       editOpen.value = false
@@ -387,7 +448,10 @@ async function downloadFile() {
 onMounted(() => {
   disposed = false
   void retryPendingFileCleanup()
-  void Promise.all([registry.loadPage(1), registry.loadStats()])
+  void Promise.all([
+    registry.loadPage(1),
+    registry.loadTags().then(() => registry.loadStats()),
+  ])
 })
 
 onBeforeUnmount(() => {
@@ -406,6 +470,9 @@ onBeforeUnmount(() => {
     <ReceiptsRegistry
       :receipts="registry.receipts.value"
       :stats="registry.yearlyStats.value"
+      :tags="registry.tags.value"
+      :selected-tag-id="registry.selectedTagId.value"
+      :tags-loading="registry.tagsLoading.value"
       :current-page="registry.currentPage.value"
       :pagination-summary="paginationSummary"
       :has-next="Boolean(registry.nextCursor.value)"
@@ -418,13 +485,16 @@ onBeforeUnmount(() => {
       @page="registry.pageTo"
       @retry="registry.loadPage(registry.currentPage.value)"
       @retry-stats="registry.loadStats"
+      @filter-tag="registry.setTagFilter"
+      @manage-tags="openTags"
     />
   </main>
 
-  <ReceiptFormModal v-if="createOpen" :saving="saving" :error="formError" @close="closeCreate" @save="saveReceipt" />
+  <ReceiptFormModal v-if="createOpen" :tags="registry.tags.value" :saving="saving" :error="formError" @close="closeCreate" @save="saveReceipt" />
   <ReceiptDetailsModal
     v-if="selectedReceipt && !editOpen && !deleteOpen"
     :receipt="selectedReceipt"
+    :tags="registry.tags.value"
     :file="selectedFile"
     :file-loading="fileLoading"
     :file-error="fileError"
@@ -440,6 +510,7 @@ onBeforeUnmount(() => {
   <ReceiptFormModal
     v-if="selectedReceipt && editOpen"
     :receipt="selectedReceipt"
+    :tags="registry.tags.value"
     :saving="saving"
     :error="formError"
     @close="closeEdit"
@@ -452,6 +523,16 @@ onBeforeUnmount(() => {
     :error="deleteError"
     @close="closeDelete"
     @confirm="confirmDelete"
+  />
+  <ReceiptTagsModal
+    v-if="tagsOpen"
+    :tags="registry.tags.value"
+    :busy="tagBusy"
+    :error="tagError || registry.tagsError.value"
+    @close="closeTags"
+    @create="createTag"
+    @rename="renameTag"
+    @remove="removeTag"
   />
   <AppToast v-if="toastVisible" :title="toastTitle" :message="toastMessage" />
 </template>
