@@ -153,8 +153,9 @@ async def list_couriers(
     email: str | None = None,
     phone: str | None = None,
     full_name: str | None = None,
+    status: PlatformAccountStatus | None = None,
 ) -> Page[Courier]:
-    """Вернуть keyset-страницу полных aggregates с точными фильтрами."""
+    """Вернуть keyset-страницу aggregates с точными scalar/status-фильтрами."""
     where = []
     if email is not None:
         where.append(Courier.email == normalize_email(email))
@@ -162,6 +163,8 @@ async def list_couriers(
         where.append(Courier.phone == normalize_phone(phone))
     if full_name is not None:
         where.append(Courier.full_name == full_name)
+    if status is not None:
+        where.append(Courier.platform_accounts.any(CourierPlatformAccount.status == status))
 
     statement = (
         select(Courier)

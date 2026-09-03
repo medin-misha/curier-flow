@@ -16,6 +16,7 @@ from app.kernel.db import session as db_session
 from app.kernel.db.session import get_ro_session, get_uow
 from app.kernel.pagination import Page, PageParams
 from app.kernel.security.authentication import authenticated
+from app.modules.courier_module.models import PlatformAccountStatus
 from app.modules.courier_module.schemas.requests import (
     CourierAggregateCreate,
     CourierDocumentCreate,
@@ -107,9 +108,11 @@ async def create(
 async def list_page(
     page: PageQuery,
     session: RoSession,
+    *,
     email: Annotated[str | None, Query(max_length=320)] = None,
     phone: Annotated[str | None, Query(max_length=32)] = None,
     full_name: Annotated[str | None, Query(max_length=255)] = None,
+    status: Annotated[PlatformAccountStatus | None, Query()] = None,
 ) -> Page[CourierAggregateResponse]:
     """Отдать keyset-страницу полных aggregates с точными фильтрами."""
     found = await list_couriers(
@@ -118,6 +121,7 @@ async def list_page(
         email=email,
         phone=phone,
         full_name=full_name,
+        status=status,
     )
     return Page[CourierAggregateResponse](
         items=[CourierAggregateResponse.model_validate(item) for item in found.items],

@@ -2,7 +2,8 @@
 
 Префикс `/courier`. Полные aggregates возвращают только POST корня, GET item и
 GET list; отдельных nested GET нет. Список — keyset по
-`(created_at DESC, id DESC)` и точные фильтры email/phone/full_name.
+`(created_at DESC, id DESC)` и точные фильтры email/phone/full_name/status;
+`status` выбирает Courier с хотя бы одной platform-регистрацией в этом статусе.
 
 `POST /courier` публичен для формы регистрации. Каждый другой endpoint router
 помечен `@authenticated` и требует Admin access JWT; защита не распространяется

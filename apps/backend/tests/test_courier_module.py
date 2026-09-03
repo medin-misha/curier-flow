@@ -555,6 +555,14 @@ async def test_get_list_keyset_and_deleting_filter(client: AsyncClient) -> None:
     filtered = await client.get("/courier", params={"email": " SECOND@EXAMPLE.COM "})
     assert [row["id"] for row in filtered.json()["items"]] == [second["id"]]
 
+    activated = await client.patch(
+        f"/courier/{first['id']}/platform-accounts/{first['platform_accounts'][0]['id']}",
+        json={"status": "active"},
+    )
+    assert activated.status_code == HTTPStatus.OK
+    status_filtered = await client.get("/courier", params={"status": "active"})
+    assert [row["id"] for row in status_filtered.json()["items"]] == [first["id"]]
+
 
 async def test_eager_query_count_does_not_grow_with_page_size(
     client: AsyncClient,
