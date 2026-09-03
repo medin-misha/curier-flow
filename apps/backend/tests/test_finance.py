@@ -16,7 +16,7 @@ from app.kernel.errors import Conflict
 from app.kernel.idempotency import is_idempotent
 from app.kernel.security.authentication import is_authenticated
 from app.kernel.security.tokens import issue_tokens, jwt_settings
-from app.modules.finance.models import Receipt
+from app.modules.finance.models import Receipt, ReceiptTag
 from app.modules.finance.module import finance_module
 from app.modules.storage.services import mark_for_deletion
 from app.platform.files import File, FileStatus
@@ -32,11 +32,13 @@ async def finance_database(clean_db: None) -> AsyncIterator[None]:  # noqa: ARG0
     """Убирать собственную таблицу до очистки общего File следующими тестами."""
     async with session_module.session_factory() as session, session.begin():
         await session.execute(delete(Receipt))
+        await session.execute(delete(ReceiptTag))
     try:
         yield
     finally:
         async with session_module.session_factory() as session, session.begin():
             await session.execute(delete(Receipt))
+            await session.execute(delete(ReceiptTag))
 
 
 @pytest.fixture
@@ -82,14 +84,32 @@ async def create_receipt(
     file_id: UUID | None = None,
     amount: str = "1250.50",
     receipt_date: str = RECEIPT_DATE,
+    tag_id: UUID | None = None,
     key: str | None = None,
 ) -> dict[str, Any]:
     """Создать чек через публичный HTTP-контракт."""
     attached_file = file_id or await create_file()
     response = await client.post(
         "/receipts",
-        json={"file_id": str(attached_file), "amount": amount, "date": receipt_date},
+        json={
+            "file_id": str(attached_file),
+            "amount": amount,
+            "date": receipt_date,
+            "tag_id": str(tag_id) if tag_id else None,
+        },
         headers=idempotency_headers(key),
+    )
+    assert response.status_code == HTTPStatus.CREATED, response.text
+    payload: dict[str, Any] = response.json()
+    return payload
+
+
+async def create_tag(client: AsyncClient, name: str = "Топливо") -> dict[str, Any]:
+    """Создать тег расхода через публичный HTTP-контракт."""
+    response = await client.post(
+        "/receipts/tags",
+        json={"name": name},
+        headers=idempotency_headers(),
     )
     assert response.status_code == HTTPStatus.CREATED, response.text
     payload: dict[str, Any] = response.json()
@@ -102,6 +122,11 @@ async def test_every_finance_endpoint_requires_admin_jwt(client: AsyncClient) ->
     requests = (
         ("POST", "/receipts"),
         ("GET", "/receipts"),
+        ("POST", "/receipts/tags"),
+        ("GET", "/receipts/tags"),
+        ("GET", f"/receipts/tags/{receipt_id}"),
+        ("PATCH", f"/receipts/tags/{receipt_id}"),
+        ("DELETE", f"/receipts/tags/{receipt_id}"),
         ("GET", f"/receipts/{receipt_id}"),
         ("PATCH", f"/receipts/{receipt_id}"),
         ("DELETE", f"/receipts/{receipt_id}"),
@@ -139,6 +164,7 @@ async def test_receipt_create_retrieve_replay_and_validation(client: AsyncClient
     assert created["file_id"] == str(file_id)
     assert created["amount"] == "1250.50"
     assert created["date"] == RECEIPT_DATE
+    assert created["tag_id"] is None
     assert created["created_at"] == created["updated_at"]
 
     unknown_field = await client.post(
@@ -178,6 +204,71 @@ async def test_receipt_create_retrieve_replay_and_validation(client: AsyncClient
     assert missing_date.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert invalid_date.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert null_date.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+async def test_receipt_tag_crud_uniqueness_and_replay(client: AsyncClient) -> None:
+    response = await client.post(
+        "/receipts/tags",
+        json={"name": "  Топливо  "},
+        headers=idempotency_headers("tag-replay"),
+    )
+    replay = await client.post(
+        "/receipts/tags",
+        json={"name": "  Топливо  "},
+        headers=idempotency_headers("tag-replay"),
+    )
+    tag = response.json()
+    listed = await client.get("/receipts/tags")
+    retrieved = await client.get(f"/receipts/tags/{tag['id']}")
+    renamed = await client.patch(f"/receipts/tags/{tag['id']}", json={"name": "Ремонт"})
+    duplicate = await client.post(
+        "/receipts/tags",
+        json={"name": "ремонт"},
+        headers=idempotency_headers(),
+    )
+
+    assert response.status_code == HTTPStatus.CREATED
+    assert tag["name"] == "Топливо"
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    assert replay.content == response.content
+    assert listed.json()["items"] == [tag]
+    assert retrieved.json() == tag
+    assert renamed.json()["name"] == "Ремонт"
+    assert duplicate.status_code == HTTPStatus.CONFLICT
+    assert duplicate.json()["reason"] == "receipt-tag-name-in-use"
+    assert (await client.delete(f"/receipts/tags/{tag['id']}")).status_code == HTTPStatus.NO_CONTENT
+    assert (await client.get(f"/receipts/tags/{tag['id']}")).status_code == HTTPStatus.NOT_FOUND
+
+
+async def test_receipt_assigns_filters_clears_and_loses_deleted_tag(client: AsyncClient) -> None:
+    fuel = await create_tag(client, "Топливо")
+    repairs = await create_tag(client, "Ремонт")
+    tagged = await create_receipt(client, tag_id=UUID(fuel["id"]))
+    await create_receipt(client)
+
+    filtered = await client.get("/receipts", params={"tag_id": fuel["id"]})
+    changed = await client.patch(
+        f"/receipts/{tagged['id']}",
+        json={"tag_id": repairs["id"]},
+    )
+    cleared = await client.patch(f"/receipts/{tagged['id']}", json={"tag_id": None})
+    restored = await client.patch(
+        f"/receipts/{tagged['id']}",
+        json={"tag_id": fuel["id"]},
+    )
+    deleted = await client.delete(f"/receipts/tags/{fuel['id']}")
+    after_delete = await client.get(f"/receipts/{tagged['id']}")
+    unknown = await client.patch(f"/receipts/{tagged['id']}", json={"tag_id": str(uuid4())})
+
+    assert [item["id"] for item in filtered.json()["items"]] == [tagged["id"]]
+    assert changed.json()["tag_id"] == repairs["id"]
+    assert cleared.json()["tag_id"] is None
+    assert restored.json()["tag_id"] == fuel["id"]
+    assert deleted.status_code == HTTPStatus.NO_CONTENT
+    assert after_delete.json()["tag_id"] is None
+    assert after_delete.json()["updated_at"] != restored.json()["updated_at"]
+    assert unknown.status_code == HTTPStatus.NOT_FOUND
+    assert unknown.json()["resource"] == "ReceiptTag"
 
 
 async def test_receipt_requires_a_ready_unused_file(client: AsyncClient) -> None:
@@ -299,10 +390,31 @@ async def test_postgresql_constraints_triggers_and_index(finance_database: None)
                 )
             )
         ).one()
+        tag_column = (
+            await session.execute(
+                text(
+                    "SELECT data_type, is_nullable FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'receipts' "
+                    "AND column_name = 'tag_id'"
+                )
+            )
+        ).one()
+        tag_indexes = set(
+            (
+                await session.scalars(
+                    text(
+                        "SELECT indexname FROM pg_indexes WHERE indexname IN "
+                        "('ix_receipts_tag_keyset', 'ix_receipt_tags_keyset', "
+                        "'uq_receipt_tags_name_ci')"
+                    )
+                )
+            ).all()
+        )
 
     assert {
         "ck_receipts_amount_positive",
         "fk_receipts_file_id_files",
+        "fk_receipts_tag_id_receipt_tags",
         "uq_receipts_file_id",
     } <= constraints
     assert {
@@ -312,6 +424,12 @@ async def test_postgresql_constraints_triggers_and_index(finance_database: None)
     assert index_definition is not None
     assert "created_at DESC, id DESC" in index_definition
     assert tuple(date_column) == ("date", "NO")
+    assert tuple(tag_column) == ("uuid", "YES")
+    assert tag_indexes == {
+        "ix_receipts_tag_keyset",
+        "ix_receipt_tags_keyset",
+        "uq_receipt_tags_name_ci",
+    }
 
 
 def test_manifest_route_markers_and_openapi_contract() -> None:
@@ -331,9 +449,9 @@ def test_manifest_route_markers_and_openapi_contract() -> None:
             if is_idempotent(route.endpoint):
                 idempotency.add(key)
 
-    assert len(auth) == 5
+    assert len(auth) == 10
     assert all(auth.values())
-    assert idempotency == {("POST", "/receipts")}
+    assert idempotency == {("POST", "/receipts"), ("POST", "/receipts/tags")}
     openapi = app.openapi()
     assert "/receipts" in openapi["paths"]
     assert set(openapi["components"]["schemas"]["ReceiptCreate"]["required"]) == {
@@ -341,6 +459,11 @@ def test_manifest_route_markers_and_openapi_contract() -> None:
         "amount",
         "date",
     }
+    assert "tag_id" not in openapi["components"]["schemas"]["ReceiptCreate"]["required"]
+    assert openapi["components"]["schemas"]["ReceiptResponse"]["properties"]["tag_id"]["anyOf"] == [
+        {"type": "string", "format": "uuid"},
+        {"type": "null"},
+    ]
     assert openapi["components"]["schemas"]["ReceiptResponse"]["properties"]["date"] == {
         "type": "string",
         "format": "date",

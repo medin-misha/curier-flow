@@ -14,6 +14,7 @@ class ReceiptResponse(BaseResponse):
 
     id: UUID
     file_id: UUID
+    tag_id: UUID | None
     amount: Decimal
     date: dt.date
     created_at: dt.datetime
@@ -23,3 +24,12 @@ class ReceiptResponse(BaseResponse):
     def _serialize_amount(self, value: Decimal) -> str:
         """Сериализовать деньги без потери точности через float."""
         return format(value, ".2f")
+
+
+class ReceiptTagResponse(BaseResponse):
+    """Тег типа расхода."""
+
+    id: UUID
+    name: str
+    created_at: dt.datetime
+    updated_at: dt.datetime

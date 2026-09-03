@@ -160,8 +160,8 @@ Courier endpoints с `@authenticated`:
 комплектации, чтение истории аренды, создание/завершение аренды и прикрепление
 договора. Создающие и командные POST дополнительно требуют `Idempotency-Key`.
 
-Все CRUD endpoints `/receipts` используют `@authenticated`; создание чека
-дополнительно требует `Idempotency-Key`.
+Все CRUD endpoints `/receipts` и `/receipts/tags` используют `@authenticated`;
+создание чека и тега дополнительно требует `Idempotency-Key`.
 
 Endpoints с `CurrentAdmin`:
 
