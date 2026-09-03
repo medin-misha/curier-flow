@@ -15,6 +15,10 @@ TransportType = Annotated[
 ]
 Trimmed128 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 Trimmed64 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+TransportComment = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=2000),
+]
 SerialNumber = Annotated[
     str,
     StringConstraints(strip_whitespace=True, to_upper=True, min_length=1, max_length=64),
@@ -33,6 +37,8 @@ class TransportCreate(BaseRequest):
     deposit_required: bool = False
     deposit_amount: PositiveMoney | None = None
     rental_price: PositiveMoney
+    comment: TransportComment | None = None
+    debt_amount: NonNegativeMoney = Decimal("0.00")
 
     @model_validator(mode="after")
     def _validate_deposit(self) -> Self:
@@ -51,10 +57,16 @@ class TransportPatch(BaseRequest):
     deposit_required: bool | None = None
     deposit_amount: PositiveMoney | None = None
     rental_price: PositiveMoney | None = None
+    comment: TransportComment | None = None
+    debt_amount: NonNegativeMoney | None = None
 
     @model_validator(mode="after")
     def _forbid_explicit_nulls(self) -> Self:
-        nulled = sorted(name for name in self.model_fields_set if getattr(self, name) is None)
+        nulled = sorted(
+            name
+            for name in self.model_fields_set
+            if name != "comment" and getattr(self, name) is None
+        )
         if nulled:
             raise ValueError(f"Fields must not be null: {', '.join(nulled)}")
         if {
@@ -107,15 +119,9 @@ class CourierTransportCreate(BaseRequest):
 
 
 class CourierTransportClose(BaseRequest):
-    """Момент завершения активной аренды."""
+    """Фактическая дата завершения; команда закрывает аренду сразу."""
 
     ended_at: AwareDatetime
-
-    @model_validator(mode="after")
-    def _forbid_future(self) -> Self:
-        if self.ended_at > datetime.now(tz=UTC):
-            raise ValueError("ended_at must not be in the future")
-        return self
 
 
 class CourierTransportContractAttach(BaseRequest):

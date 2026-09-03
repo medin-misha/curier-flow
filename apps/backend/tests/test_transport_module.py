@@ -215,6 +215,8 @@ async def test_transport_crud_normalization_decimal_and_validation(client: Async
     )
     assert created["rental_price"] == "1250.00"
     assert created["deposit_amount"] is None
+    assert created["comment"] is None
+    assert created["debt_amount"] == "0.00"
     assert created["components"] == []
     assert created["active_rental"] is None
 
@@ -228,6 +230,10 @@ async def test_transport_crud_normalization_decimal_and_validation(client: Async
         json={**BASE_TRANSPORT, "serial_number": "scale", "rental_price": "1.234"},
         headers=idempotency_headers(),
     )
+    negative_debt = await client.patch(
+        f"/transport/{created['id']}",
+        json={"debt_amount": "-0.01"},
+    )
     explicit_null = await client.patch(
         f"/transport/{created['id']}",
         json={"color": None},
@@ -238,7 +244,16 @@ async def test_transport_crud_normalization_decimal_and_validation(client: Async
     )
     patched = await client.patch(
         f"/transport/{created['id']}",
-        json={"deposit_required": True, "deposit_amount": "500.00"},
+        json={
+            "deposit_required": True,
+            "deposit_amount": "500.00",
+            "comment": " Needs service ",
+            "debt_amount": "350.50",
+        },
+    )
+    cleared_comment = await client.patch(
+        f"/transport/{created['id']}",
+        json={"comment": None},
     )
     cleared = await client.patch(
         f"/transport/{created['id']}",
@@ -252,9 +267,13 @@ async def test_transport_crud_normalization_decimal_and_validation(client: Async
 
     assert unknown.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert bad_scale.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert negative_debt.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert explicit_null.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert missing_deposit.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert patched.json()["deposit_amount"] == "500.00"
+    assert patched.json()["comment"] == "Needs service"
+    assert patched.json()["debt_amount"] == "350.50"
+    assert cleared_comment.json()["comment"] is None
     assert cleared.json()["deposit_amount"] is None
     assert duplicate.status_code == HTTPStatus.CONFLICT
     assert duplicate.json()["reason"] == "duplicate-serial-number"
@@ -290,6 +309,8 @@ async def test_transport_keyset_filters_and_identical_timestamps(client: AsyncCl
     assert len(ids) == len(set(ids)) == 3
     assert rest["next_cursor"] is None
     assert [item["id"] for item in exact["items"]] == [transports[0]["id"]]
+    assert "comment" not in first["items"][0]
+    assert "debt_amount" not in first["items"][0]
 
 
 async def test_component_crud_totals_pagination_and_parent_isolation(client: AsyncClient) -> None:
@@ -423,6 +444,73 @@ async def test_rental_history_overlap_close_filters_and_replay(client: AsyncClie
     assert first_transport["id"] in {item["id"] for item in available}
     assert by_current_courier == []
     assert len(history) == 2
+
+
+async def test_close_rental_accepts_future_end_and_closes_immediately(
+    client: AsyncClient,
+) -> None:
+    transport = await create_transport(client, serial_number="future-close")
+    courier_id = await create_courier(suffix="future-close")
+    started = datetime.now(tz=UTC) - timedelta(days=1)
+    rental = (await create_rental(client, transport["id"], courier_id, started_at=started)).json()
+    close_url = f"/transport/{transport['id']}/rentals/{rental['id']}/close"
+
+    equal = await client.post(
+        close_url,
+        json={"ended_at": started.isoformat()},
+        headers=idempotency_headers(),
+    )
+    before = await client.post(
+        close_url,
+        json={"ended_at": (started - timedelta(seconds=1)).isoformat()},
+        headers=idempotency_headers(),
+    )
+    naive = await client.post(
+        close_url,
+        json={"ended_at": started.replace(tzinfo=None).isoformat()},
+        headers=idempotency_headers(),
+    )
+
+    assert equal.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert equal.json()["reason"] == "invalid-rental-period"
+    assert before.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert before.json()["reason"] == "invalid-rental-period"
+    assert naive.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    close_key = "future-close-replay"
+    future_end = datetime.now(tz=UTC) + timedelta(days=1)
+    close_body = {"ended_at": future_end.isoformat()}
+    closed = await client.post(
+        close_url,
+        json=close_body,
+        headers=idempotency_headers(close_key),
+    )
+    replay = await client.post(
+        close_url,
+        json=close_body,
+        headers=idempotency_headers(close_key),
+    )
+    repeated = await client.post(
+        close_url,
+        json=close_body,
+        headers=idempotency_headers(),
+    )
+
+    assert closed.status_code == HTTPStatus.OK, closed.text
+    assert closed.json()["is_active"] is False
+    assert datetime.fromisoformat(closed.json()["ended_at"]) == future_end
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    assert replay.content == closed.content
+    assert repeated.status_code == HTTPStatus.CONFLICT
+    assert repeated.json()["reason"] == "rental-already-closed"
+
+    rental_detail = (await client.get(close_url.removesuffix("/close"))).json()
+    transport_detail = (await client.get(f"/transport/{transport['id']}")).json()
+    available = (await client.get("/transport", params={"is_available": True})).json()["items"]
+    assert rental_detail["is_active"] is False
+    assert transport_detail["is_available"] is True
+    assert transport_detail["active_rental"] is None
+    assert transport["id"] in {item["id"] for item in available}
 
 
 async def test_concurrent_conflicting_rentals_have_one_winner(client: AsyncClient) -> None:
@@ -568,6 +656,15 @@ async def test_postgresql_constraints_triggers_and_indexes(transport_database: N
             )
         )
         constraints = {str(row.conname): str(row.contype) for row in constraint_rows}
+        transport_constraints = set(
+            (
+                await session.scalars(
+                    text(
+                        "SELECT conname FROM pg_constraint WHERE conrelid = 'transports'::regclass"
+                    )
+                )
+            ).all()
+        )
         triggers = set(
             (
                 await session.scalars(
@@ -591,6 +688,10 @@ async def test_postgresql_constraints_triggers_and_indexes(transport_database: N
     assert extension == "btree_gist"
     assert constraints["excl_courier_transports_transport_period"] == "x"
     assert constraints["excl_courier_transports_courier_period"] == "x"
+    assert {
+        "ck_transports_comment_normalized",
+        "ck_transports_debt_amount_non_negative",
+    } <= transport_constraints
     assert {
         "transport_require_ready_contract_file",
         "transport_protect_signed_rental",
@@ -634,3 +735,7 @@ def test_manifest_route_markers_and_openapi_contract() -> None:
         ("POST", "/transport/{transport_id}/rentals/{rental_id}/contract"),
     }
     assert "/transport/{transport_id}/rentals/{rental_id}/contract" in app.openapi()["paths"]
+    schemas = app.openapi()["components"]["schemas"]
+    assert {"comment", "debt_amount"} <= schemas["TransportDetailResponse"]["properties"].keys()
+    assert "comment" not in schemas["TransportListItemResponse"]["properties"]
+    assert "debt_amount" not in schemas["TransportListItemResponse"]["properties"]

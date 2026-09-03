@@ -32,7 +32,7 @@ async def create_rental(
 ) -> CourierTransport:
     """Создать активную или завершённую аренду под DB-защитой пересечений."""
     await lock_transport(transport_id, session=session)
-    _validate_period(request.started_at, request.ended_at)
+    _validate_creation_period(request.started_at, request.ended_at)
     if request.file_id is not None:
         await _require_ready_file(request.file_id, session=session)
     try:
@@ -65,7 +65,7 @@ async def close_rental(
     *,
     session: AsyncSession,
 ) -> CourierTransport:
-    """Завершить только активную аренду один раз."""
+    """Сразу завершить активную аренду фактической датой, в том числе будущей."""
     rental = await get_rental(
         transport_id,
         rental_id,
@@ -74,7 +74,7 @@ async def close_rental(
     )
     if rental.ended_at is not None:
         raise Conflict("Rental is already closed", reason="rental-already-closed")
-    _validate_period(rental.started_at, request.ended_at)
+    _validate_close_period(rental.started_at, request.ended_at)
     rental.ended_at = request.ended_at
     await session.flush()
     return await get_rental(transport_id, rental_id, session=session)
@@ -115,8 +115,8 @@ async def _require_ready_file(file_id: UUID, *, session: AsyncSession) -> File:
     return file
 
 
-def _validate_period(started_at: datetime, ended_at: datetime | None) -> None:
-    """Повторить временные правила на сервисной границе."""
+def _validate_creation_period(started_at: datetime, ended_at: datetime | None) -> None:
+    """Повторить временные правила создания на сервисной границе."""
     now = datetime.now(tz=UTC)
     if started_at.tzinfo is None or (ended_at is not None and ended_at.tzinfo is None):
         raise ValidationFailed("Rental dates must be timezone-aware", reason="naive-rental-date")
@@ -125,6 +125,16 @@ def _validate_period(started_at: datetime, ended_at: datetime | None) -> None:
             "Rental dates must not be in the future", reason="future-rental-date"
         )
     if ended_at is not None and ended_at <= started_at:
+        raise ValidationFailed(
+            "ended_at must be later than started_at", reason="invalid-rental-period"
+        )
+
+
+def _validate_close_period(started_at: datetime, ended_at: datetime) -> None:
+    """Проверить завершение без ограничения фактической даты текущим временем."""
+    if started_at.tzinfo is None or ended_at.tzinfo is None:
+        raise ValidationFailed("Rental dates must be timezone-aware", reason="naive-rental-date")
+    if ended_at <= started_at:
         raise ValidationFailed(
             "ended_at must be later than started_at", reason="invalid-rental-period"
         )

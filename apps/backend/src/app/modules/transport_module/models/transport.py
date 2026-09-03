@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, Index, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.kernel.db.base import Base
@@ -27,6 +27,8 @@ class Transport(UUIDPkMixin, TimestampMixin, Base):
             "deposit_required",
             "deposit_amount",
             "rental_price",
+            "comment",
+            "debt_amount",
         }
     )
     __table_args__ = (
@@ -45,6 +47,12 @@ class Transport(UUIDPkMixin, TimestampMixin, Base):
             "char_length(btrim(color)) > 0 AND color = btrim(color)", name="color_trimmed"
         ),
         CheckConstraint("rental_price > 0", name="rental_price_positive"),
+        CheckConstraint("debt_amount >= 0", name="debt_amount_non_negative"),
+        CheckConstraint(
+            "comment IS NULL OR (char_length(comment) <= 2000 AND "
+            "char_length(btrim(comment)) > 0 AND comment = btrim(comment))",
+            name="comment_normalized",
+        ),
         CheckConstraint(
             "(deposit_required IS FALSE AND deposit_amount IS NULL) OR "
             "(deposit_required IS TRUE AND deposit_amount > 0)",
@@ -59,6 +67,8 @@ class Transport(UUIDPkMixin, TimestampMixin, Base):
     deposit_required: Mapped[bool] = mapped_column(Boolean, default=False)
     deposit_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), default=None)
     rental_price: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    comment: Mapped[str | None] = mapped_column(Text, default=None)
+    debt_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.00"))
 
     components: Mapped[list["TransportComponent"]] = relationship(
         back_populates="transport",

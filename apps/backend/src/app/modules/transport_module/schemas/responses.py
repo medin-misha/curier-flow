@@ -77,3 +77,9 @@ class TransportDetailResponse(TransportListItemResponse):
 
     components: list[TransportComponentResponse]
     active_rental: CourierTransportResponse | None
+    comment: str | None
+    debt_amount: Decimal
+
+    @field_serializer("debt_amount")
+    def _serialize_debt(self, value: Decimal) -> str:
+        return format(value, ".2f")
