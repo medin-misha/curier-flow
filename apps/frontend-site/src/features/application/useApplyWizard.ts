@@ -78,6 +78,12 @@ export function useApplyWizard(
   const inFlight = useRef(false)
 
   const setField = useCallback<ApplyWizard['setField']>((key, value) => {
+    if (key === 'citizenship' && form.citizenship !== String(value)) {
+      // При смене гражданства загруженные документы меняют смысл, поэтому
+      // не оставляем паспорт и ВНЖ под подписями сторон ID-карты и наоборот.
+      setFiles(emptyFiles)
+    }
+
     setForm((current) => {
       const normalized = normalize(key, value)
 
@@ -102,7 +108,7 @@ export function useApplyWizard(
       return { ...current, [key]: normalized }
     })
     setError('')
-  }, [])
+  }, [form.citizenship])
 
   const setFile = useCallback<ApplyWizard['setFile']>((key, file) => {
     setFiles((current) => ({ ...current, [key]: file }))

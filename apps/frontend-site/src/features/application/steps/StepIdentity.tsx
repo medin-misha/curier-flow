@@ -25,6 +25,8 @@ export function StepIdentity({
         <p className={styles.lead}>{copy.lead}</p>
       </div>
 
+      <p className={styles.paymentInfo}>{copy.paymentInfo}</p>
+
       <div className={styles.fields}>
         <Field label={copy.fullName}>
           <TextInput

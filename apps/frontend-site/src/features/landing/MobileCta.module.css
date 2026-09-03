@@ -1,7 +1,7 @@
 .root {
   position: fixed;
   left: 50%;
-  bottom: 34px;
+  bottom: 76px;
   z-index: var(--z-cta);
   opacity: 0;
   transform: translateX(-50%) translateY(14px);

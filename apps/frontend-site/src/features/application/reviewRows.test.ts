@@ -73,6 +73,15 @@ describe('reviewRows', () => {
       'passport + visa / residence permit',
     )
     expect(czech.find((row) => row.label === 'Občanství')?.value).toBe('Ukrajina')
+
+    const czechCitizen = reviewRows(
+      { ...filled, citizenship: 'Чехия' },
+      { passport: scan('front.png'), visa: scan('back.png') },
+      'cs',
+    )
+    expect(czechCitizen.find((row) => row.label === 'Skeny')?.value).toBe(
+      'občanský průkaz: přední + zadní strana',
+    )
   })
 
   it('считает загруженные сканы', () => {

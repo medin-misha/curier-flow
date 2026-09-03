@@ -36,9 +36,9 @@ Keep route files thin. Business rules and derived values belong in pure function
 ## Landing Invariants
 
 - `src/content/scenes.ts` is the source of scene order. Navigation targets, scene numbers, active labels, dots, and scroll height must stay derived from the scene array.
-- Adding a bike must remain a data-only operation: add media under `public/bikes/<slug>/` and an object to `src/content/bikes.ts`. See `docs/adding-a-bike.md`.
+- The landing has one shared transport scene: keep its media under `public/transport/` and localized content in `src/content/scenes.ts`. See `docs/adding-a-bike.md`.
 - `useActiveScene` is the single source of the active scene index. Do not introduce a second competing scroll state.
-- Preserve the discriminated scene union and the two-item bike specs tuple unless the layout is intentionally redesigned.
+- Preserve the discriminated scene union and the shared transport scene shape unless the layout is intentionally redesigned.
 - Do not store viewport width in React state. Use the existing CSS breakpoint for responsive behavior.
 - Raw `<img>` and `<video>` elements are intentional because the media is pixel art. Do not replace them with `next/image` without validating rendering fidelity.
 - Hidden scene content must not remain interactive or exposed incorrectly to assistive technology. Preserve `inert`, reduced-motion behavior, and keyboard access.

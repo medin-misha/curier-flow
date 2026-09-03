@@ -31,6 +31,18 @@
   text-wrap: pretty;
 }
 
+.paymentInfo {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgb(var(--mfs-green-rgb) / 0.4);
+  background: rgb(var(--mfs-green-rgb) / 0.16);
+  clip-path: var(--mfs-clip-3);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: var(--mfs-green);
+}
+
 .fields {
   display: flex;
   flex-direction: column;

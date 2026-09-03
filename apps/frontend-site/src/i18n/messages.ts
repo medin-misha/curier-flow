@@ -5,7 +5,7 @@ const ru = {
     landing: {
       title: 'May Fleet Solutions — работа курьером Bolt Food в Чехии',
       description:
-        'Подключение к Bolt Food, аренда электровелосипеда и термосумка — одной заявкой. Комиссия флотилии 10%.',
+        'Подключение к Bolt Food, аренда электровелосипеда и термосумка — одной заявкой. Маленькая комиссия.',
     },
     apply: {
       title: 'Заявка — May Fleet Solutions',
@@ -17,13 +17,13 @@ const ru = {
     names: { ru: 'Русский', en: 'English', cs: 'Čeština' },
   },
   landing: {
-    nav: { home: 'Главная', transport: 'Транспорт', gear: 'Сумки' },
+    nav: { home: 'Главная', transport: 'Транспорт' },
     applyCta: 'Оставить заявку',
     scrollHint: 'листай ↓',
     contactsEyebrow: 'КОНТАКТЫ',
     rental: 'Аренда',
     footer: {
-      details: 'РЕКВИЗИТЫ',
+      details: 'КОНТАКТНЫЕ ДАННЫЕ',
       contact: 'СВЯЗЬ',
       privacy: 'Zásady zpracování osobních údajů',
     },
@@ -38,8 +38,9 @@ const ru = {
     submit: 'Отправить заявку',
     fileUpload: 'Нажми, чтобы загрузить',
     identity: {
-      title: 'Кто ты',
-      lead: 'Пиши как в паспорте — по этим данным оформим тебя во флоте.',
+      title: 'Кто ты?',
+      lead: 'Пиши как в паспорте — по этим данным оформим тебя во флотилии.',
+      paymentInfo: 'BoltFood выплаты раз в неделю, комиссия 10%',
       fullName: 'Имя и фамилия',
       birthDate: 'Дата рождения',
       city: 'Город',
@@ -60,6 +61,8 @@ const ru = {
       title: 'Документы и счёт',
       lead:
         'Паспорт и визу или ВНЖ запрашиваем только для оформления во флоте. Счёт — чтобы платить тебе за смены.',
+      czechLead:
+        'Чешское удостоверение личности запрашиваем только для оформления во флоте. Счёт — чтобы платить тебе за смены.',
       bankAccount: 'Счёт в чешском банке',
       bankHint: 'IBAN или номер счёта с кодом банка',
       citizenship: 'Гражданство',
@@ -67,6 +70,8 @@ const ru = {
       required: 'Документы — обязательно',
       passport: 'Скан паспорта',
       visa: 'Скан визы / ВНЖ',
+      identityCardFront: 'Občanský průkaz – front side',
+      identityCardBack: 'Občanský průkaz – back side',
       fileHint: 'Фото или PDF, до 10 МБ. Главное — чтобы читались все данные.',
     },
     review: {
@@ -92,6 +97,7 @@ const ru = {
         scans: 'Сканы',
         oneOfTwo: '1 из 2',
         bothScans: 'паспорт + виза / ВНЖ',
+        identityCardScans: 'удостоверение личности: обе стороны',
       },
     },
     success: {
@@ -130,6 +136,8 @@ const ru = {
       citizenshipRequired: 'Выбери гражданство.',
       passportRequired: 'Загрузи скан паспорта.',
       visaRequired: 'Загрузи скан визы или ВНЖ.',
+      identityCardFrontRequired: 'Загрузи лицевую сторону удостоверения личности.',
+      identityCardBackRequired: 'Загрузи оборотную сторону удостоверения личности.',
       fileEmpty: (name: string) => `Файл «${name}» пуст. Выбери документ ещё раз.`,
       fileType: (name: string) =>
         `Формат файла «${name}» не поддерживается. Нужен PNG, JPEG, WebP или PDF.`,
@@ -163,7 +171,7 @@ const en = {
     landing: {
       title: 'May Fleet Solutions — Bolt Food courier jobs in Czechia',
       description:
-        'Join Bolt Food, rent an e-bike and get a thermal delivery bag with one application. Fleet commission is 10%.',
+        'Join Bolt Food, rent an e-bike and get a thermal delivery bag with one application. Small commission.',
     },
     apply: {
       title: 'Application — May Fleet Solutions',
@@ -175,7 +183,7 @@ const en = {
     names: { ru: 'Русский', en: 'English', cs: 'Čeština' },
   },
   landing: {
-    nav: { home: 'Home', transport: 'Transport', gear: 'Bags' },
+    nav: { home: 'Home', transport: 'Transport' },
     applyCta: 'Apply now',
     scrollHint: 'scroll ↓',
     contactsEyebrow: 'CONTACTS',
@@ -198,6 +206,7 @@ const en = {
     identity: {
       title: 'About you',
       lead: 'Enter your details exactly as they appear in your passport so we can register you with the fleet.',
+      paymentInfo: 'Bolt Food payouts every week, 10% commission',
       fullName: 'First and last name',
       birthDate: 'Date of birth',
       city: 'City',
@@ -218,6 +227,8 @@ const en = {
       title: 'Documents and bank account',
       lead:
         'We only request your passport and visa or residence permit to register you with the fleet. Your bank account is needed to pay you for your shifts.',
+      czechLead:
+        'We only request both sides of your Czech identity card to register you with the fleet. Your bank account is needed to pay you for your shifts.',
       bankAccount: 'Czech bank account',
       bankHint: 'IBAN or account number with bank code',
       citizenship: 'Citizenship',
@@ -225,6 +236,8 @@ const en = {
       required: 'Required documents',
       passport: 'Passport scan',
       visa: 'Visa / residence permit scan',
+      identityCardFront: 'Občanský průkaz – front side',
+      identityCardBack: 'Občanský průkaz – back side',
       fileHint: 'Photo or PDF, up to 10 MB. Make sure all details are readable.',
     },
     review: {
@@ -250,6 +263,7 @@ const en = {
         scans: 'Scans',
         oneOfTwo: '1 of 2',
         bothScans: 'passport + visa / residence permit',
+        identityCardScans: 'identity card: front + back',
       },
     },
     success: {
@@ -288,6 +302,8 @@ const en = {
       citizenshipRequired: 'Select your citizenship.',
       passportRequired: 'Upload a passport scan.',
       visaRequired: 'Upload a visa or residence permit scan.',
+      identityCardFrontRequired: 'Upload the front side of your identity card.',
+      identityCardBackRequired: 'Upload the back side of your identity card.',
       fileEmpty: (name: string) => `“${name}” is empty. Select the document again.`,
       fileType: (name: string) =>
         `“${name}” is not supported. Upload a PNG, JPEG, WebP or PDF file.`,
@@ -313,7 +329,7 @@ const cs = {
     landing: {
       title: 'May Fleet Solutions — práce kurýra pro Bolt Food v Česku',
       description:
-        'Registrace u Bolt Food, pronájem elektrokola a termotaška v jedné žádosti. Provize flotily je 10 %.',
+        'Registrace u Bolt Food, pronájem elektrokola a termotaška v jedné žádosti. Malá provize.',
     },
     apply: {
       title: 'Žádost — May Fleet Solutions',
@@ -325,7 +341,7 @@ const cs = {
     names: { ru: 'Русский', en: 'English', cs: 'Čeština' },
   },
   landing: {
-    nav: { home: 'Úvod', transport: 'Doprava', gear: 'Tašky' },
+    nav: { home: 'Úvod', transport: 'Doprava' },
     applyCta: 'Podat žádost',
     scrollHint: 'posuň ↓',
     contactsEyebrow: 'KONTAKTY',
@@ -348,6 +364,7 @@ const cs = {
     identity: {
       title: 'Kdo jsi',
       lead: 'Údaje vyplň přesně podle pasu, abychom tě mohli zaregistrovat do flotily.',
+      paymentInfo: 'Bolt Food vyplácí každý týden, provize 10 %',
       fullName: 'Jméno a příjmení',
       birthDate: 'Datum narození',
       city: 'Město',
@@ -368,6 +385,8 @@ const cs = {
       title: 'Dokumenty a bankovní účet',
       lead:
         'Pas a vízum nebo povolení k pobytu potřebujeme pouze pro registraci do flotily. Účet potřebujeme pro výplatu za směny.',
+      czechLead:
+        'Občanský průkaz potřebujeme pouze pro registraci do flotily. Účet potřebujeme pro výplatu za směny.',
       bankAccount: 'Účet v české bance',
       bankHint: 'IBAN nebo číslo účtu s kódem banky',
       citizenship: 'Státní občanství',
@@ -375,6 +394,8 @@ const cs = {
       required: 'Povinné dokumenty',
       passport: 'Sken pasu',
       visa: 'Sken víza / povolení k pobytu',
+      identityCardFront: 'Občanský průkaz – front side',
+      identityCardBack: 'Občanský průkaz – back side',
       fileHint: 'Fotografie nebo PDF do 10 MB. Všechny údaje musí být čitelné.',
     },
     review: {
@@ -400,6 +421,7 @@ const cs = {
         scans: 'Skeny',
         oneOfTwo: '1 ze 2',
         bothScans: 'pas + vízum / povolení k pobytu',
+        identityCardScans: 'občanský průkaz: přední + zadní strana',
       },
     },
     success: {
@@ -438,6 +460,8 @@ const cs = {
       citizenshipRequired: 'Vyber státní občanství.',
       passportRequired: 'Nahraj sken pasu.',
       visaRequired: 'Nahraj sken víza nebo povolení k pobytu.',
+      identityCardFrontRequired: 'Nahraj přední stranu občanského průkazu.',
+      identityCardBackRequired: 'Nahraj zadní stranu občanského průkazu.',
       fileEmpty: (name: string) => `Soubor „${name}“ je prázdný. Vyber dokument znovu.`,
       fileType: (name: string) =>
         `Formát souboru „${name}“ není podporován. Nahraj PNG, JPEG, WebP nebo PDF.`,

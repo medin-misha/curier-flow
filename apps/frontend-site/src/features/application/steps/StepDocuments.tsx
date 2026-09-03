@@ -1,4 +1,4 @@
-import { getCountryOptions } from '@/content/application'
+import { CZECH_CITIZENSHIP, getCountryOptions } from '@/content/application'
 import { getMessages } from '@/i18n/messages'
 import type { Locale } from '@/i18n/locales'
 import { Field, SelectInput, TextInput } from '../Field'
@@ -17,12 +17,13 @@ export function StepDocuments({
   const { form, files, setField, setFile } = wizard
   const copy = getMessages(locale).application.documents
   const countries = getCountryOptions(locale)
+  const isCzechCitizen = form.citizenship === CZECH_CITIZENSHIP
 
   return (
     <section className={styles.section}>
       <div className={styles.head}>
         <h1 className={styles.title}>{copy.title}</h1>
-        <p className={styles.lead}>{copy.lead}</p>
+        <p className={styles.lead}>{isCzechCitizen ? copy.czechLead : copy.lead}</p>
       </div>
 
       <div className={styles.fields}>
@@ -30,7 +31,7 @@ export function StepDocuments({
           <TextInput
             value={form.bankAccount}
             onChange={(event) => setField('bankAccount', event.target.value)}
-            placeholder="CZ00 0000 0000 0000 0000 0000"
+            placeholder="0000000/0000"
             maxLength={64}
           />
         </Field>
@@ -52,14 +53,14 @@ export function StepDocuments({
         <div className={styles.group}>
           <span className={styles.groupTitle}>{copy.required}</span>
           <FileField
-            title={copy.passport}
+            title={isCzechCitizen ? copy.identityCardFront : copy.passport}
             order="1"
             file={files.passport}
             onSelect={(file) => setFile('passport', file)}
             locale={locale}
           />
           <FileField
-            title={copy.visa}
+            title={isCzechCitizen ? copy.identityCardBack : copy.visa}
             order="2"
             file={files.visa}
             onSelect={(file) => setFile('visa', file)}

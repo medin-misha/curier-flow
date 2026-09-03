@@ -41,40 +41,12 @@
   width: auto;
 }
 
-.brandName {
-  max-width: 78px;
-  font-size: 8px;
-  line-height: 1.35;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: rgb(var(--mfs-fg-rgb) / 0.5);
-}
-
 .topControls {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
   min-width: 0;
-}
-
-.bikeName {
-  overflow: hidden;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: var(--mfs-accent);
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
-}
-
-.bikeName[data-visible='true'] {
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .nav {
@@ -126,9 +98,5 @@
 
   .topControls {
     gap: 16px;
-  }
-
-  .bikeName {
-    font-size: 33px;
   }
 }

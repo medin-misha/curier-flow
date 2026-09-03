@@ -1,3 +1,4 @@
+import { CZECH_CITIZENSHIP } from '@/content/application'
 import { getMessages } from '@/i18n/messages'
 import type { Locale } from '@/i18n/locales'
 import type { ApplicationFiles, ApplicationForm, StepNumber } from './form.types'
@@ -82,8 +83,14 @@ function validateDocuments(
     return copy.bankRequired
   }
   if (!form.citizenship) return copy.citizenshipRequired
-  if (!files.passport) return copy.passportRequired
-  if (!files.visa) return copy.visaRequired
+
+  const isCzechCitizen = form.citizenship === CZECH_CITIZENSHIP
+  if (!files.passport) {
+    return isCzechCitizen ? copy.identityCardFrontRequired : copy.passportRequired
+  }
+  if (!files.visa) {
+    return isCzechCitizen ? copy.identityCardBackRequired : copy.visaRequired
+  }
 
   const fileError =
     validateDocumentFile(files.passport, locale) || validateDocumentFile(files.visa, locale)

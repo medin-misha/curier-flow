@@ -51,7 +51,7 @@
 }
 
 .content[data-align='spread'] {
-  justify-content: space-between;
+  justify-content: flex-start;
 }
 
 .eyebrow {
@@ -112,7 +112,7 @@
 }
 
 .ctaRow {
-  margin-top: auto;
+  margin-top: 0;
 }
 
 /* Появление первой сцены при загрузке страницы. */
@@ -135,6 +135,12 @@
 .content[data-first='true'] .ctaRow {
   opacity: 0;
   animation: mfsRise 0.9s var(--mfs-ease-out) 0.85s both;
+}
+
+@media (max-width: 767px) {
+  .content[data-first='true'] .ctaRow {
+    margin-top: auto;
+  }
 }
 
 @media (min-width: 768px) {

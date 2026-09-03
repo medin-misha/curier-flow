@@ -20,7 +20,7 @@ describe('StepIdentity', () => {
   it('рисует заголовок и все поля шага', () => {
     setup()
 
-    expect(screen.getByRole('heading', { name: 'Кто ты' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Кто ты?' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Имя и фамилия/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Дата рождения/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Адрес проживания/)).toBeInTheDocument()

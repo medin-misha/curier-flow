@@ -54,6 +54,13 @@ describe('toCourierPayload', () => {
       ],
     })
   })
+
+  it('отправляет два документа identity card для гражданина Чехии', () => {
+    expect(toCourierPayload({ ...payload.form, citizenship: 'Чехия' }).documents).toEqual([
+      { type: 'identity_card', purpose: 'platform_onboarding' },
+      { type: 'identity_card', purpose: 'platform_onboarding' },
+    ])
+  })
 })
 
 describe('toFormData', () => {

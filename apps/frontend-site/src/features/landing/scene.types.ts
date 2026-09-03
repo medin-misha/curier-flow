@@ -3,7 +3,7 @@
  *
  * Лендинг — упорядоченный массив сцен. Вид сцены задан размеченным
  * объединением, чтобы компилятор требовал поля, обязательные именно
- * для этого вида: у велосипеда — характеристики и цену, у вводной
+ * для этого вида: у транспорта — медиа, заголовок и описание, у вводной
  * сцены — фон и текстовый блок.
  */
 
@@ -22,28 +22,6 @@ export type SceneBody =
   | { kind: 'bullets'; items: Bullet[] }
   | { kind: 'paragraphs'; items: TextSegment[][] }
 
-export interface Spec {
-  label: string
-  value: string
-  note: string
-}
-
-export interface Bike {
-  slug: string
-  /** Выводится в шапке, пока активна сцена этого велосипеда. */
-  name: string
-  media: {
-    poster: string
-    video?: string
-    /** `object-position` по горизонтали, например `58%`. */
-    focus: string
-  }
-  /** Ровно две: левый и правый блок у краёв экрана. */
-  specs: [Spec, Spec]
-  description: string[]
-  price: { amount: string; period: string }
-}
-
 export interface IntroScene {
   kind: 'intro'
   id: string
@@ -61,22 +39,18 @@ export interface IntroScene {
   cta?: { label: string; href: string }
 }
 
-export interface BikeScene {
-  kind: 'bike'
-  id: string
-  eyebrow?: string
-  bike: Bike
-}
-
-export interface GearScene {
-  kind: 'gear'
+export interface TransportScene {
+  kind: 'transport'
   id: string
   eyebrow: string
   title: string
-  image: { src: string; focus: string }
-  price: string
-  badge?: string
-  backLabel: string
+  media: {
+    poster: string
+    video?: string
+    /** `object-position` по горизонтали, например `58%`. */
+    focus: string
+  }
+  description: string[]
 }
 
-export type Scene = IntroScene | BikeScene | GearScene
+export type Scene = IntroScene | TransportScene

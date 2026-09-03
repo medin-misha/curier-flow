@@ -50,9 +50,31 @@ describe('ApplyWizard', () => {
   it('открывается на первом шаге и показывает его номер', () => {
     render(<ApplyWizard />)
 
-    expect(screen.getByRole('heading', { name: 'Кто ты' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Кто ты?' })).toBeInTheDocument()
     expect(screen.getByTestId('step-counter')).toHaveTextContent('01')
     expect(screen.getByText('Личные данные')).toBeInTheDocument()
+  })
+
+  it('для гражданина Чехии показывает загрузку обеих сторон удостоверения', async () => {
+    const user = userEvent.setup()
+    render(<ApplyWizard />)
+
+    await user.type(screen.getByLabelText(/Имя и фамилия/), 'Ivan Ivanov')
+    await user.type(screen.getByLabelText(/Дата рождения/), '1998-03-10')
+    await user.click(screen.getByRole('button', { name: 'Praha' }))
+    await user.type(screen.getByLabelText(/Адрес проживания/), 'Karlova 1')
+    await user.click(screen.getByRole('button', { name: 'Далее' }))
+
+    await user.type(screen.getByLabelText(/Чешский номер телефона/), '777123456')
+    await user.type(screen.getByLabelText(/Почта/), 'ivan@email.com')
+    await user.click(screen.getByRole('button', { name: 'Далее' }))
+
+    await user.selectOptions(screen.getByLabelText(/Гражданство/), 'Чехия')
+
+    expect(screen.getByLabelText('Občanský průkaz – front side')).toBeInTheDocument()
+    expect(screen.getByLabelText('Občanský průkaz – back side')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Скан паспорта')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Скан визы / ВНЖ')).not.toBeInTheDocument()
   })
 
   it('показывает английскую версию и локализованные языковые ссылки', async () => {
@@ -81,7 +103,7 @@ describe('ApplyWizard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Далее' }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Впиши имя и фамилию.')
-    expect(screen.getByRole('heading', { name: 'Кто ты' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Кто ты?' })).toBeInTheDocument()
   })
 
   it('прячет кнопку «назад» на первом шаге', () => {
@@ -141,7 +163,7 @@ describe('ApplyWizard', () => {
 
     // Прыжок через два шага назад: строка «Имя» правится на первом.
     await user.click(screen.getByRole('button', { name: 'Изменить: Имя' }))
-    expect(screen.getByRole('heading', { name: 'Кто ты' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Кто ты?' })).toBeInTheDocument()
     expect(screen.getByLabelText(/Имя и фамилия/)).toHaveValue('Ivan Ivanov')
 
     // И строка «Счёт» — на третьем.

@@ -188,6 +188,25 @@ describe('validateStep, шаг 3', () => {
     ).toBe('Загрузи скан визы или ВНЖ.')
   })
 
+  it('для гражданина Чехии требует обе стороны удостоверения личности', () => {
+    const czechDocuments = { ...validDocuments, citizenship: 'Чехия' }
+
+    expect(validateStep(3, form(czechDocuments), emptyFiles, TODAY)).toBe(
+      'Загрузи лицевую сторону удостоверения личности.',
+    )
+    expect(
+      validateStep(3, form(czechDocuments), files({ passport: scan('front.png') }), TODAY),
+    ).toBe('Загрузи оборотную сторону удостоверения личности.')
+    expect(
+      validateStep(
+        3,
+        form(czechDocuments),
+        files({ passport: scan('front.png'), visa: scan('back.png') }),
+        TODAY,
+      ),
+    ).toBe('')
+  })
+
   it('проверяет MIME документов', () => {
     const unsupported = new File(['x'], 'passport.gif', { type: 'image/gif' })
 

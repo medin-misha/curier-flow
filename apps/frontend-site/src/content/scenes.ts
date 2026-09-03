@@ -1,12 +1,10 @@
-import type { Bike, BikeScene, GearScene, IntroScene, Scene } from '@/features/landing/scene.types'
+import type { IntroScene, Scene, TransportScene } from '@/features/landing/scene.types'
 import { localePath } from '@/i18n/locales'
 import type { Locale } from '@/i18n/locales'
-import { bikes, getBikes } from './bikes'
 
 type IntroVisual = Pick<IntroScene, 'id' | 'background' | 'align'>
 type IntroCopy = Pick<IntroScene, 'eyebrow' | 'title' | 'body'> & { ctaLabel?: string }
-type GearCopy = Pick<GearScene, 'eyebrow' | 'title' | 'price' | 'badge' | 'backLabel'>
-
+type TransportCopy = Pick<TransportScene, 'eyebrow' | 'title' | 'description'>
 const introVisuals: IntroVisual[] = [
   {
     id: 'intro-offer',
@@ -41,12 +39,12 @@ const introCopy: Record<Locale, IntroCopy[]> = {
           {
             marker: '—',
             markerKind: 'dash',
-            text: ['Комиссия флотилии — всего ', { em: '10%' }],
+            text: ['Маленькая комиссия'],
           },
           {
             marker: '—',
             markerKind: 'dash',
-            text: ['Термо-сумка — ', { em: 'от 350 CZK' }],
+            text: ['Мы можем предоставить термосумку'],
           },
         ],
       },
@@ -92,12 +90,12 @@ const introCopy: Record<Locale, IntroCopy[]> = {
           {
             marker: '—',
             markerKind: 'dash',
-            text: ['Fleet commission — only ', { em: '10%' }],
+            text: ['Small commission'],
           },
           {
             marker: '—',
             markerKind: 'dash',
-            text: ['Thermal delivery bag — ', { em: 'from 350 CZK' }],
+            text: ['We can provide a thermal delivery bag'],
           },
         ],
       },
@@ -143,12 +141,12 @@ const introCopy: Record<Locale, IntroCopy[]> = {
           {
             marker: '—',
             markerKind: 'dash',
-            text: ['Provize flotily — pouze ', { em: '10 %' }],
+            text: ['Malá provize'],
           },
           {
             marker: '—',
             markerKind: 'dash',
-            text: ['Termotaška — ', { em: 'od 350 CZK' }],
+            text: ['Můžeme poskytnout termotašku'],
           },
         ],
       },
@@ -181,33 +179,26 @@ const introCopy: Record<Locale, IntroCopy[]> = {
   ],
 }
 
-const gearVisual = {
-  kind: 'gear' as const,
-  id: 'gear-bag',
-  image: { src: '/gear/courier-bag.png', focus: '62%' },
+const transportVisual: Pick<TransportScene, 'id' | 'media'> = {
+  id: 'transport',
+  media: { poster: '/transport/poster.png', video: '/transport/loop.mp4', focus: '58%' },
 }
 
-const gearCopy: Record<Locale, GearCopy> = {
+const transportCopy: Record<Locale, TransportCopy> = {
   ru: {
-    eyebrow: 'ЭКИПИРОВКА',
-    title: 'Термосумка‑рюкзак',
-    price: '750 CZK',
-    badge: 'можно в счёт зарплаты',
-    backLabel: '↑ Назад к велосипеду',
+    eyebrow: 'ЭЛЕКТРОТРАНСПОРТ',
+    title: 'Электро-транспорт от 1500 CZK',
+    description: ['Электротранспорт для работы курьером — выбирай подходящий вариант.'],
   },
   en: {
-    eyebrow: 'EQUIPMENT',
-    title: 'Thermal delivery backpack',
-    price: '750 CZK',
-    badge: 'can be deducted from your pay',
-    backLabel: '↑ Back to the bike',
+    eyebrow: 'ELECTRIC TRANSPORT',
+    title: 'Electric transport from 1,500 CZK',
+    description: ['Electric transport for courier work — choose the option that suits you.'],
   },
   cs: {
-    eyebrow: 'VYBAVENÍ',
-    title: 'Termobatoh',
-    price: '750 CZK',
-    badge: 'lze odečíst ze mzdy',
-    backLabel: '↑ Zpět ke kolu',
+    eyebrow: 'ELEKTRODOPRAVA',
+    title: 'Elektrovozidla od 1 500 CZK',
+    description: ['Elektrodoprava pro práci kurýra — vyber si variantu, která ti vyhovuje.'],
   },
 }
 
@@ -223,28 +214,19 @@ function localizedIntroScenes(locale: Locale): IntroScene[] {
   })
 }
 
-function localizedGearScene(locale: Locale): GearScene {
-  return { ...gearVisual, ...gearCopy[locale] }
+function localizedTransportScene(locale: Locale): TransportScene {
+  return { kind: 'transport', ...transportVisual, ...transportCopy[locale] }
 }
 
-/** Строит сцену велосипеда из записи каталога. */
-export function toBikeScene(bike: Bike): BikeScene {
-  return { kind: 'bike', id: `bike-${bike.slug}`, bike }
-}
-
-/** Собирает порядок сцен из локализованного контента и списка велосипедов. */
-export function composeScenes(list: Bike[], locale: Locale = 'ru'): Scene[] {
-  return [
-    ...localizedIntroScenes(locale),
-    ...list.map(toBikeScene),
-    localizedGearScene(locale),
-  ]
+/** Собирает единый порядок сцен лендинга. */
+export function composeScenes(locale: Locale = 'ru'): Scene[] {
+  return [...localizedIntroScenes(locale), localizedTransportScene(locale)]
 }
 
 /** Готовит полный массив сцен выбранного языка. */
 export function getScenes(locale: Locale): Scene[] {
-  return composeScenes(getBikes(locale), locale)
+  return composeScenes(locale)
 }
 
 /** Русский порядок оставлен экспортом по умолчанию для существующих потребителей. */
-export const scenes: Scene[] = composeScenes(bikes)
+export const scenes: Scene[] = composeScenes()

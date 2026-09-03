@@ -1,4 +1,4 @@
-import { getCountryOptions } from '@/content/application'
+import { CZECH_CITIZENSHIP, getCountryOptions } from '@/content/application'
 import { getMessages } from '@/i18n/messages'
 import type { Locale } from '@/i18n/locales'
 import type { ApplicationFiles, ApplicationForm, StepNumber } from './form.types'
@@ -18,9 +18,11 @@ function row(label: string, value: string, step: StepNumber): ReviewRow {
   return { label, value: filled ? value : '—', step, filled }
 }
 
-function scansValue(files: ApplicationFiles, locale: Locale): string {
+function scansValue(form: ApplicationForm, files: ApplicationFiles, locale: Locale): string {
   const copy = getMessages(locale).application.review.rows
-  if (files.passport && files.visa) return copy.bothScans
+  if (files.passport && files.visa) {
+    return form.citizenship === CZECH_CITIZENSHIP ? copy.identityCardScans : copy.bothScans
+  }
   if (files.passport || files.visa) return copy.oneOfTwo
   return ''
 }
@@ -47,6 +49,6 @@ export function reviewRows(
     row(form.messenger, form.messengerContact, 2),
     row(copy.bankAccount, form.bankAccount, 3),
     row(copy.citizenship, citizenship, 3),
-    row(copy.scans, scansValue(files, locale), 3),
+    row(copy.scans, scansValue(form, files, locale), 3),
   ]
 }

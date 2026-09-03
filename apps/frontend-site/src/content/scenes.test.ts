@@ -1,38 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import type { Bike } from '@/features/landing/scene.types'
-import { activeNavKey, lastBikeIndex, navTargets } from '@/features/landing/sceneNavigation'
-import { sceneEyebrow } from '@/features/landing/sceneEyebrow'
-import { bikes } from './bikes'
+import { activeNavKey, navTargets } from '@/features/landing/sceneNavigation'
 import { composeScenes, getScenes, scenes } from './scenes'
 
-const secondBike: Bike = {
-  slug: 'cargo-x2',
-  name: 'MFS Cargo X2',
-  media: { poster: '/bikes/cargo-x2/poster.png', focus: '55%' },
-  specs: [
-    { label: 'АКБ', value: '48V · 30Ah', note: 'зарядка 6 часов' },
-    { label: 'ЗАПАС ХОДА', value: 'до 90 км', note: 'на одном заряде' },
-  ],
-  description: ['Грузовой электровелосипед для крупных заказов.'],
-  price: { amount: 'от 2400 CZK', period: 'в неделю' },
-}
-
 describe('порядок сцен', () => {
-  it('идёт от вводных к велосипедам и заканчивается экипировкой', () => {
+  it('идёт от трёх вводных сцен к единой сцене транспорта', () => {
     expect(scenes.map((scene) => scene.kind)).toEqual([
       'intro',
       'intro',
       'intro',
-      ...bikes.map(() => 'bike' as const),
-      'gear',
+      'transport',
     ])
   })
 
-  it('нумерует подписи по позиции: экипировка идёт последней', () => {
-    const gearIndex = scenes.findIndex((scene) => scene.kind === 'gear')
+  it('показывает новую информацию о комиссии и термосумке', () => {
+    const offer = scenes[0]
 
-    expect(gearIndex).toBe(scenes.length - 1)
-    expect(sceneEyebrow(gearIndex, 'ЭКИПИРОВКА')).toContain(`${scenes.length} / `)
+    expect(offer.kind).toBe('intro')
+    if (offer.kind !== 'intro' || offer.body.kind !== 'bullets') return
+
+    expect(offer.body.items[1].text).toEqual(['Маленькая комиссия'])
+    expect(offer.body.items[2].text).toEqual(['Мы можем предоставить термосумку'])
+  })
+
+  it('содержит общее предложение без данных конкретной модели', () => {
+    const transport = scenes[3]
+
+    expect(transport.kind).toBe('transport')
+    if (transport.kind !== 'transport') return
+
+    expect(transport.title).toBe('Электро-транспорт от 1500 CZK')
   })
 })
 
@@ -60,43 +56,28 @@ describe('локализация сцен', () => {
     )
     expect(czech.kind === 'intro' ? czech.cta?.href : '').toBe('/cs/apply')
   })
+
+  it('локализует единую сцену транспорта', () => {
+    const english = getScenes('en')[3]
+    const czech = getScenes('cs')[3]
+
+    expect(english.kind === 'transport' ? english.title : '').toBe(
+      'Electric transport from 1,500 CZK',
+    )
+    expect(czech.kind === 'transport' ? czech.title : '').toBe('Elektrovozidla od 1 500 CZK')
+  })
 })
 
-describe('добавление велосипеда', () => {
-  const withExtra = composeScenes([...bikes, secondBike])
-
-  it('реальный порядок сцен строится из всего списка велосипедов', () => {
-    expect(scenes.filter((scene) => scene.kind === 'bike')).toHaveLength(bikes.length)
+describe('навигация', () => {
+  it('ведёт на единую сцену транспорта', () => {
+    expect(navTargets(scenes)).toEqual([
+      { key: 'home', label: 'Главная', index: 0 },
+      { key: 'transport', label: 'Транспорт', index: 3 },
+    ])
+    expect(activeNavKey(scenes, 3)).toBe('transport')
   })
 
-  it('даёт ровно на одну сцену больше', () => {
-    expect(withExtra).toHaveLength(scenes.length + 1)
-  })
-
-  it('сдвигает экипировку в конец и её номер вместе с ней', () => {
-    const gearIndex = withExtra.findIndex((scene) => scene.kind === 'gear')
-
-    expect(gearIndex).toBe(withExtra.length - 1)
-    expect(sceneEyebrow(gearIndex, 'ЭКИПИРОВКА')).toBe(
-      `${String(withExtra.length).padStart(2, '0')} / ЭКИПИРОВКА`,
-    )
-    expect(navTargets(withExtra).find((target) => target.key === 'gear')?.index).toBe(gearIndex)
-  })
-
-  it('оставляет «Транспорт» на первом велосипеде и подсвечивает его на всех', () => {
-    const firstBike = withExtra.findIndex((scene) => scene.kind === 'bike')
-    const lastBike = withExtra.findLastIndex((scene) => scene.kind === 'bike')
-
-    expect(navTargets(withExtra).find((target) => target.key === 'transport')?.index).toBe(firstBike)
-    for (let index = firstBike; index <= lastBike; index += 1) {
-      expect(activeNavKey(withExtra, index)).toBe('transport')
-    }
-  })
-
-  it('ведёт «Назад к велосипеду» на последний велосипед', () => {
-    expect(lastBikeIndex(withExtra)).toBe(withExtra.findLastIndex((s) => s.kind === 'bike'))
-    expect(lastBikeIndex(withExtra)).toBeGreaterThan(
-      withExtra.findIndex((s) => s.kind === 'bike'),
-    )
+  it('сохраняет единый порядок при смене языка', () => {
+    expect(composeScenes('en').map((scene) => scene.kind)).toEqual(scenes.map((scene) => scene.kind))
   })
 })

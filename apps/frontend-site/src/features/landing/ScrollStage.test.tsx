@@ -1,22 +1,7 @@
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { act, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Bike, Scene } from './scene.types'
+import type { Scene, TransportScene } from './scene.types'
 import { ScrollStage } from './ScrollStage'
-
-function bike(slug: string, name: string): Bike {
-  return {
-    slug,
-    name,
-    media: { poster: `/bikes/${slug}/poster.png`, focus: '50%' },
-    specs: [
-      { label: 'АКБ', value: '48V', note: 'заряд' },
-      { label: 'ХОД', value: '65 км', note: 'запас' },
-    ],
-    description: ['текст'],
-    price: { amount: 'от 1750 CZK', period: 'в неделю' },
-  }
-}
 
 const intro: Scene = {
   kind: 'intro',
@@ -27,22 +12,16 @@ const intro: Scene = {
   body: { kind: 'paragraphs', items: [['текст']] },
 }
 
-const gear: Scene = {
-  kind: 'gear',
-  id: 'g1',
-  eyebrow: 'ЭКИПИРОВКА',
-  title: 'Сумка',
-  image: { src: '/gear/bag.png', focus: '62%' },
-  price: '750 CZK',
-  backLabel: '↑ Назад к велосипеду',
+const transport: TransportScene = {
+  kind: 'transport',
+  id: 'transport',
+  eyebrow: 'ЭЛЕКТРОТРАНСПОРТ',
+  title: 'Электро-транспорт от 1500 CZK',
+  media: { poster: '/transport/poster.png', focus: '50%' },
+  description: ['Электротранспорт для работы курьером.'],
 }
 
-const twoBikes: Scene[] = [
-  intro,
-  { kind: 'bike', id: 'b1', bike: bike('urban-e1', 'MFS Urban E1') },
-  { kind: 'bike', id: 'b2', bike: bike('cargo-x2', 'MFS Cargo X2') },
-  gear,
-]
+const scenes: Scene[] = [intro, { ...intro, id: 'i2' }, { ...intro, id: 'i3' }, transport]
 
 beforeEach(() => {
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
@@ -55,76 +34,58 @@ beforeEach(() => {
 })
 
 describe('ScrollStage', () => {
-  it('заводит по точке на каждую сцену, сколько бы их ни было', () => {
-    const oneBike: Scene[] = [
-      intro,
-      { kind: 'bike', id: 'b1', bike: bike('urban-e1', 'MFS Urban E1') },
-      gear,
-    ]
+  it('рисует одну сцену электро-транспорта после вводных сцен', () => {
+    render(<ScrollStage scenes={scenes} />)
 
-    const { unmount } = render(<ScrollStage scenes={oneBike} />)
-    expect(screen.getByTestId('scene-dots').children).toHaveLength(3)
-    unmount()
+    expect(screen.getByTestId('transport-layer-transport')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Электро-транспорт от 1500 CZK' })).toBeInTheDocument()
+    expect(screen.queryByText('MFS Urban E1')).not.toBeInTheDocument()
+  })
 
-    render(<ScrollStage scenes={twoBikes} />)
+  it('прячет подсказку только после достижения контактов', () => {
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ bottom: 3200 } as DOMRect)
+
+    render(<ScrollStage scenes={scenes} />)
+    const hint = screen.getByText('листай ↓')
+    expect(hint).toHaveAttribute('data-hidden', 'false')
+
+    getBoundingClientRect.mockReturnValue({ bottom: 800 } as DOMRect)
+    act(() => {
+      window.dispatchEvent(new Event('scroll'))
+    })
+
+    expect(hint).toHaveAttribute('data-hidden', 'true')
+    getBoundingClientRect.mockRestore()
+  })
+
+  it('заводит по точке на каждую сцену', () => {
+    render(<ScrollStage scenes={scenes} />)
+
     expect(screen.getByTestId('scene-dots').children).toHaveLength(4)
   })
 
-  it('продолжает нумерацию сцен подписью футера, сколько бы сцен ни было', () => {
-    const oneBike: Scene[] = [
-      intro,
-      { kind: 'bike', id: 'b1', bike: bike('urban-e1', 'MFS Urban E1') },
-      gear,
-    ]
+  it('продолжает нумерацию сцен подписью футера', () => {
+    render(<ScrollStage scenes={scenes} />)
 
-    const { unmount } = render(<ScrollStage scenes={oneBike} />)
-    expect(screen.getByRole('contentinfo')).toHaveTextContent('04 / КОНТАКТЫ')
-    unmount()
-
-    render(<ScrollStage scenes={twoBikes} />)
     expect(screen.getByRole('contentinfo')).toHaveTextContent('05 / КОНТАКТЫ')
   })
 
   it('задаёт высоту трека по числу сцен', () => {
-    render(<ScrollStage scenes={twoBikes} />)
+    render(<ScrollStage scenes={scenes} />)
 
     // Проверяем data-атрибут: jsdom не разбирает единицу dvh в inline-стиле.
     expect(screen.getByTestId('scroll-track')).toHaveAttribute('data-scene-count', '4')
   })
 
-  it('рисует оба велосипеда', () => {
-    render(<ScrollStage scenes={twoBikes} />)
-
-    expect(screen.getByTestId('bike-layer-b1')).toBeInTheDocument()
-    expect(screen.getByTestId('bike-layer-b2')).toBeInTheDocument()
-  })
-
-  it('выносит экипировку за пределы sticky-вьюпорта', () => {
-    render(<ScrollStage scenes={twoBikes} />)
-
-    const viewport = screen.getByTestId('scroll-viewport')
-    expect(viewport).not.toContainElement(screen.getByTestId('gear-wrap-g1'))
-  })
-
   it('на первой сцене прячет CTA и рисует футер', () => {
-    render(<ScrollStage scenes={twoBikes} />)
+    render(<ScrollStage scenes={scenes} />)
 
     expect(screen.getAllByRole('link', { name: 'Оставить заявку' })[0]).toHaveAttribute(
       'data-visible',
       'false',
     )
     expect(screen.getByRole('contentinfo')).toBeInTheDocument()
-  })
-
-  it('возврат из экипировки ведёт на последний велосипед', async () => {
-    const scrollTo = vi.fn()
-    vi.stubGlobal('scrollTo', scrollTo)
-
-    render(<ScrollStage scenes={twoBikes} />)
-
-    await userEvent.click(screen.getByRole('button', { name: '↑ Назад к велосипеду' }))
-
-    // Последний велосипед — индекс 2 в twoBikes, высота окна застаблена в 800.
-    expect(scrollTo).toHaveBeenCalledWith({ top: 1600, behavior: 'smooth' })
   })
 })

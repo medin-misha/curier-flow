@@ -1,3 +1,4 @@
+import { CZECH_CITIZENSHIP } from '@/content/application'
 import { getMessages } from '@/i18n/messages'
 import type { Locale } from '@/i18n/locales'
 import type { ApplicationFiles, ApplicationForm } from './form.types'
@@ -10,7 +11,7 @@ export interface ApplicationPayload {
 
 type DeliveryPlatform = 'bolt_food'
 type DocumentPurpose = 'platform_onboarding'
-type DocumentType = 'passport' | 'residence_permit'
+type DocumentType = 'passport' | 'identity_card' | 'residence_permit'
 
 interface CourierDocumentCreate {
   type: DocumentType
@@ -68,6 +69,8 @@ function formatFullName(value: string): string {
 
 /** Переводит UI-модель в неизменяемый backend-контракт. */
 export function toCourierPayload(form: ApplicationForm): CourierCreatePayload {
+  const isCzechCitizen = form.citizenship === CZECH_CITIZENSHIP
+
   return {
     full_name: formatFullName(form.fullName),
     email: form.email.trim(),
@@ -82,10 +85,15 @@ export function toCourierPayload(form: ApplicationForm): CourierCreatePayload {
     source: 'mfs_landing',
     consent_to_processing: form.consent,
     platform_accounts: [{ platform: 'bolt_food' }],
-    documents: [
-      { type: 'passport', purpose: 'platform_onboarding' },
-      { type: 'residence_permit', purpose: 'platform_onboarding' },
-    ],
+    documents: isCzechCitizen
+      ? [
+          { type: 'identity_card', purpose: 'platform_onboarding' },
+          { type: 'identity_card', purpose: 'platform_onboarding' },
+        ]
+      : [
+          { type: 'passport', purpose: 'platform_onboarding' },
+          { type: 'residence_permit', purpose: 'platform_onboarding' },
+        ],
   }
 }
 
