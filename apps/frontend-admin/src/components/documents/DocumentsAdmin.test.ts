@@ -18,6 +18,17 @@ const filesApi = vi.hoisted(() => ({
   remove: vi.fn(),
 }))
 
+const courierApi = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+}))
+
+const transportApi = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+  listRentals: vi.fn(),
+}))
+
 vi.mock('../../api/documents', () => ({
   listDocumentTemplates: documentApi.list,
   getDocumentTemplate: documentApi.get,
@@ -32,6 +43,17 @@ vi.mock('../../api/files', () => ({
   putFile: filesApi.put,
   confirmFileUpload: filesApi.confirm,
   deleteFile: filesApi.remove,
+}))
+
+vi.mock('../../api/couriers', () => ({
+  listCouriers: courierApi.list,
+  getCourier: courierApi.get,
+}))
+
+vi.mock('../../api/transports', () => ({
+  listTransports: transportApi.list,
+  getTransport: transportApi.get,
+  listTransportRentals: transportApi.listRentals,
 }))
 
 const docxContentType =
@@ -93,6 +115,11 @@ beforeEach(() => {
   filesApi.put.mockReset().mockResolvedValue('template-etag')
   filesApi.confirm.mockReset().mockResolvedValue(undefined)
   filesApi.remove.mockReset().mockResolvedValue(undefined)
+  courierApi.list.mockReset().mockResolvedValue({ items: [], nextCursor: null })
+  courierApi.get.mockReset()
+  transportApi.list.mockReset().mockResolvedValue({ items: [], nextCursor: null })
+  transportApi.get.mockReset()
+  transportApi.listRentals.mockReset().mockResolvedValue({ items: [], nextCursor: null })
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:generated-document')
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
 })

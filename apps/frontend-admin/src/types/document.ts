@@ -1,5 +1,7 @@
 export type DocumentTemplateFields = Record<string, string[]>
 export type DocumentRenderValues = Record<string, Record<string, string>>
+export type DocumentModelGroup = 'courier' | 'transport' | 'transport_courier'
+export type DocumentValueSource = 'empty' | 'model' | 'manual'
 
 export interface DocumentTemplate {
   id: string

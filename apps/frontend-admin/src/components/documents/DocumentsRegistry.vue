@@ -52,7 +52,7 @@ function fieldCount(template: DocumentTemplate) {
           <span>Синтаксис поля</span>
           <strong class="num">{courier.full_name}</strong>
         </div>
-        <p>Используйте строчные латинские буквы, цифры и _. Готовые документы скачиваются сразу и не сохраняются в файловом каталоге.</p>
+        <p>Группы courier, transport и transport_courier заполняются из реестров. Остальные поля доступны для ручного ввода; готовые документы не сохраняются.</p>
       </div>
 
       <div class="card" data-od-id="document-templates-table-card">

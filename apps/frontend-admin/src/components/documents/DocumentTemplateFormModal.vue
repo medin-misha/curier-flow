@@ -103,7 +103,7 @@ function submit() {
         <div class="form-section">
           <div class="form-section-title">
             <h3>Исходный файл</h3>
-            <p>Формат поля: {courier.full_name}. Только строчные латинские буквы, цифры и _; обе части начинаются с буквы.</p>
+            <p>Формат поля: {courier.full_name}. Используйте строчные латинские буквы, цифры и _. Группы courier, transport и transport_courier можно заполнить из реестров.</p>
           </div>
           <div class="file-control" :class="{ invalid: fileError }">
             <div class="file-copy">
