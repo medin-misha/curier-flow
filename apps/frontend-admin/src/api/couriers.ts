@@ -1,6 +1,8 @@
 import type {
   Courier,
   CourierCreateInput,
+  CourierDocument,
+  CourierDocumentCreateInput,
   CourierPlatform,
   CourierUpdateInput,
   DeliveryPlatform,
@@ -113,6 +115,28 @@ function documentSummary(documents: CourierDocumentResponse[]) {
   return 'Проверены'
 }
 
+function mapCourierDocument(document: CourierDocumentResponse): CourierDocument {
+  return {
+    id: document.id,
+    type: document.type,
+    typeLabel: documentTypeLabels[document.type],
+    purpose: document.purpose,
+    purposeLabel: documentPurposeLabels[document.purpose],
+    reviewStatus: documentReviewStatus(document.file.status),
+    file: {
+      id: document.file.id,
+      originalName: document.file.original_name,
+      contentType: document.file.content_type,
+      size: document.file.size,
+      status: document.file.status,
+      ownerId: document.file.owner_id,
+      createdAt: document.file.created_at,
+    },
+    createdAt: document.created_at,
+    updatedAt: document.updated_at,
+  }
+}
+
 export function mapCourier(response: CourierResponse): Courier {
   return {
     id: response.id,
@@ -131,25 +155,7 @@ export function mapCourier(response: CourierResponse): Courier {
     consentAt: response.consent_at,
     platforms: response.platform_accounts.map(mapPlatformAccount),
     documents: response.documents.length,
-    documentFiles: response.documents.map((document) => ({
-      id: document.id,
-      type: document.type,
-      typeLabel: documentTypeLabels[document.type],
-      purpose: document.purpose,
-      purposeLabel: documentPurposeLabels[document.purpose],
-      reviewStatus: documentReviewStatus(document.file.status),
-      file: {
-        id: document.file.id,
-        originalName: document.file.original_name,
-        contentType: document.file.content_type,
-        size: document.file.size,
-        status: document.file.status,
-        ownerId: document.file.owner_id,
-        createdAt: document.file.created_at,
-      },
-      createdAt: document.created_at,
-      updatedAt: document.updated_at,
-    })),
+    documentFiles: response.documents.map(mapCourierDocument),
     documentStatus: documentSummary(response.documents),
     createdAt: response.created_at,
     updatedAt: response.updated_at,
@@ -233,6 +239,22 @@ export async function updateCourier(courierId: string, input: CourierUpdateInput
     await apiRequest<CourierResponse>(`/courier/${courierId}`, {
       method: 'PATCH',
       ...jsonBody(scalarPayload(input)),
+    }),
+  )
+}
+
+export async function addCourierDocument(
+  courierId: string,
+  input: CourierDocumentCreateInput,
+) {
+  const data = new FormData()
+  data.append('payload', JSON.stringify({ type: input.type, purpose: input.purpose }))
+  data.append('file', input.file)
+
+  return mapCourierDocument(
+    await apiRequest<CourierDocumentResponse>(`/courier/${courierId}/documents`, {
+      method: 'POST',
+      body: data,
     }),
   )
 }

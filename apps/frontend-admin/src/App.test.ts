@@ -16,6 +16,7 @@ let serverReceiptFiles: Record<string, TestStoredFile>
 let receiptUploadIndex: number
 let hasRefreshSession: boolean
 let failNextCourierRequest: boolean
+let failNextDocumentUpload: boolean
 let requests: Array<{ url: string; init: RequestInit }>
 
 const currentAdminId = '10000000-0000-4000-8000-000000000001'
@@ -712,6 +713,41 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
   const courierId = pathParts[2]
   const existing = serverCouriers.find((item) => item.id === courierId)
   if (!existing) return problem(404, 'Courier not found')
+  if (pathParts[3] === 'documents' && method === 'POST') {
+    if (failNextDocumentUpload) {
+      failNextDocumentUpload = false
+      return problem(503, 'Document storage unavailable')
+    }
+    const formData = init.body as FormData
+    const payload = JSON.parse(String(formData.get('payload'))) as {
+      type: CourierResponse['documents'][number]['type']
+      purpose: CourierResponse['documents'][number]['purpose']
+    }
+    const file = formData.get('file') as File
+    const suffix = existing.documents.length + 1
+    const createdDocument: CourierResponse['documents'][number] = {
+      id: `document-added-${suffix}`,
+      courier_id: courierId,
+      file_id: `file-added-${suffix}`,
+      type: payload.type,
+      purpose: payload.purpose,
+      legal_hold_until: null,
+      file: {
+        id: `file-added-${suffix}`,
+        original_name: file.name,
+        content_type: file.type,
+        size: file.size,
+        status: 'ready',
+        etag: 'added-etag',
+        owner_id: courierId,
+        created_at: '2026-09-04T09:00:00Z',
+      },
+      created_at: '2026-09-04T09:00:00Z',
+      updated_at: '2026-09-04T09:00:00Z',
+    }
+    existing.documents.push(createdDocument)
+    return jsonResponse(createdDocument, 201)
+  }
   if (pathParts[3] === 'platform-accounts' && method === 'PATCH') {
     const account = existing.platform_accounts.find((item) => item.id === pathParts[4])
     if (!account) return problem(404, 'CourierPlatformAccount not found')
@@ -809,6 +845,7 @@ beforeEach(() => {
   receiptUploadIndex = 0
   hasRefreshSession = true
   failNextCourierRequest = false
+  failNextDocumentUpload = false
   requests = []
   vi.stubGlobal('fetch', fetchMock)
   fetchMock.mockClear()
@@ -907,6 +944,62 @@ describe('Courier CRUD', () => {
     expect(
       requests.some((request) => request.url.includes('status=active')),
     ).toBe(true)
+  })
+
+  it('добавляет документ из карточки курьера multipart-запросом', async () => {
+    const page = await mountApp()
+
+    await page.get('[data-od-id="courier-row-00000000-0000-4000-8000-000000000001"]').trigger('click')
+    await flushPromises()
+    await page.get('[data-od-id="add-courier-document"]').trigger('click')
+
+    const fileInput = page.get('[data-od-id="courier-document-file"]')
+    const invalidFile = new File(['text'], 'notes.txt', { type: 'text/plain' })
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [invalidFile],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+    expect(page.get('[data-od-id="courier-document-form"] [role="alert"]').text()).toContain(
+      'Выберите PDF, JPG или PNG',
+    )
+
+    const documentFile = new File(['license'], 'driving-license.pdf', {
+      type: 'application/pdf',
+    })
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [documentFile],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+    await page.get('#detailDocumentType').setValue('driving_license')
+    await page.get('#detailDocumentPurpose').setValue('employment_compliance')
+    failNextDocumentUpload = true
+    await page.get('[data-od-id="courier-document-form"]').trigger('submit')
+    await flushPromises()
+    expect(page.get('[data-od-id="courier-document-form"] [role="alert"]').text()).toContain(
+      'Сервис временно недоступен',
+    )
+
+    await page.get('[data-od-id="courier-document-form"]').trigger('submit')
+    await flushPromises()
+    await flushPromises()
+
+    const request = requests.filter(
+      (item) => item.url.endsWith('/documents') && item.init.method === 'POST',
+    ).at(-1)
+    const formData = request?.init.body as FormData
+    expect(JSON.parse(String(formData.get('payload')))).toEqual({
+      type: 'driving_license',
+      purpose: 'employment_compliance',
+    })
+    expect((formData.get('file') as File).name).toBe('driving-license.pdf')
+    expect(page.findAll('[data-od-id^="document-card-"]')).toHaveLength(2)
+    expect(page.get('[data-od-id="courier-detail-dialog"]').text()).toContain(
+      'driving-license.pdf',
+    )
+    expect(page.find('[data-od-id="courier-document-form"]').exists()).toBe(false)
+    expect(page.get('[role="status"]').text()).toContain('Документ добавлен')
   })
 
   it('читает, редактирует и удаляет профиль курьера', async () => {

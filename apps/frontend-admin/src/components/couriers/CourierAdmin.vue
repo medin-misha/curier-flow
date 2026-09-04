@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
+  addCourierDocument,
   createCourier,
   deleteCourier,
   getCourier,
@@ -13,6 +14,8 @@ import { getFileDownloadUrl, getFilePreviewUrl } from '../../api/files'
 import type {
   Courier,
   CourierCreateInput,
+  CourierDocument,
+  CourierDocumentCreateInput,
   CourierFile,
   CourierFormValues,
   CourierPlatform,
@@ -49,6 +52,8 @@ const deleting = ref(false)
 const createError = ref('')
 const editError = ref('')
 const deleteError = ref('')
+const addingDocument = ref(false)
+const documentError = ref('')
 const downloadingFileIds = ref<string[]>([])
 const updatingPlatformIds = ref<string[]>([])
 const previewUrls = ref<Record<string, string>>({})
@@ -261,9 +266,46 @@ async function openDetails(courier: Courier, event: Event) {
 }
 
 function closeDetails() {
+  if (addingDocument.value) return
   selectedCourier.value = null
   resetDocumentPreviews()
   restoreFocus()
+}
+
+function withAddedDocument(courier: Courier, document: CourierDocument): Courier {
+  const documentFiles = [...courier.documentFiles, document]
+  const pending = documentFiles.filter((item) => item.reviewStatus === 'processing').length
+  return {
+    ...courier,
+    documents: documentFiles.length,
+    documentFiles,
+    documentStatus: pending ? `${pending} на проверке` : 'Проверены',
+  }
+}
+
+async function submitDocument(input: CourierDocumentCreateInput) {
+  const courierId = selectedCourier.value?.id
+  if (!courierId || addingDocument.value) return
+
+  addingDocument.value = true
+  documentError.value = ''
+  try {
+    const document = await addCourierDocument(courierId, input)
+    if (selectedCourier.value?.id !== courierId) return
+
+    const updated = withAddedDocument(selectedCourier.value, document)
+    selectedCourier.value = updated
+    const index = couriers.value.findIndex((courier) => courier.id === courierId)
+    if (index >= 0) couriers.value[index] = withAddedDocument(couriers.value[index], document)
+
+    resetDocumentPreviews()
+    void loadDocumentPreviews(updated)
+    showToast('Документ добавлен', `${document.file.originalName} добавлен в профиль.`)
+  } catch (error) {
+    documentError.value = apiErrorMessage(error, 'Не удалось добавить документ.')
+  } finally {
+    addingDocument.value = false
+  }
 }
 
 async function downloadFile(file: CourierFile) {
@@ -341,6 +383,7 @@ async function updatePlatformStatus(platform: CourierPlatform, status: PlatformS
 }
 
 function openEdit(field?: keyof CourierFormValues) {
+  if (addingDocument.value) return
   editError.value = ''
   editField.value = field ?? null
   editOpen.value = true
@@ -372,6 +415,7 @@ async function submitEdit(input: CourierUpdateInput) {
 }
 
 function openDelete() {
+  if (addingDocument.value) return
   deleteError.value = ''
   deleteOpen.value = true
 }
@@ -449,8 +493,12 @@ onBeforeUnmount(() => {
     :preview-urls="previewUrls"
     :preview-loading-file-ids="previewLoadingFileIds"
     :preview-error-file-ids="previewErrorFileIds"
+    :adding-document="addingDocument"
+    :document-error="documentError"
     @close="closeDetails"
     @download="downloadFile"
+    @add-document="submitDocument"
+    @clear-document-error="documentError = ''"
     @edit="openEdit"
     @copied="showToast('Скопировано', `${$event} скопировано в буфер обмена.`)"
     @copy-error="showToast('Не удалось скопировать', `Поле «${$event}» не скопировано.`)"

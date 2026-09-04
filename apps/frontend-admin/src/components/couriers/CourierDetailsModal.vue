@@ -3,12 +3,18 @@ import { ref, watch } from 'vue'
 import type {
   Courier,
   CourierDocument,
+  CourierDocumentCreateInput,
   CourierFile,
   CourierFormValues,
   CourierPlatform,
+  DocumentPurpose,
+  DocumentType,
   PlatformStatus,
 } from '../../types/courier'
 import AppModal from '../ui/AppModal.vue'
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+const ALLOWED_FILE_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png'])
 
 const props = defineProps<{
   courier: Courier
@@ -17,6 +23,8 @@ const props = defineProps<{
   previewUrls: Record<string, string>
   previewLoadingFileIds: string[]
   previewErrorFileIds: string[]
+  addingDocument: boolean
+  documentError: string
 }>()
 
 const emit = defineEmits<{
@@ -27,6 +35,8 @@ const emit = defineEmits<{
   copyError: [label: string]
   download: [file: CourierFile]
   updatePlatform: [platform: CourierPlatform, status: PlatformStatus]
+  addDocument: [input: CourierDocumentCreateInput]
+  clearDocumentError: []
 }>()
 
 const statusLabels: Record<PlatformStatus, string> = {
@@ -42,6 +52,12 @@ const documentStatusLabels = {
 } as const
 
 const platformStatusDrafts = ref<Record<string, PlatformStatus>>({})
+const documentFormOpen = ref(false)
+const documentType = ref<DocumentType>('other')
+const documentPurpose = ref<DocumentPurpose>('platform_onboarding')
+const selectedFile = ref<File | null>(null)
+const fileError = ref('')
+const fileInput = ref<HTMLInputElement | null>(null)
 
 watch(
   () => props.courier.platforms,
@@ -55,6 +71,69 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  () => props.addingDocument,
+  (addingDocument, wasAddingDocument) => {
+    if (wasAddingDocument && !addingDocument && !props.documentError) closeDocumentForm()
+  },
+)
+
+function resetDocumentForm() {
+  documentType.value = 'other'
+  documentPurpose.value = 'platform_onboarding'
+  selectedFile.value = null
+  fileError.value = ''
+  if (fileInput.value) fileInput.value.value = ''
+}
+
+function openDocumentForm() {
+  emit('clearDocumentError')
+  documentFormOpen.value = true
+}
+
+function closeDocumentForm() {
+  if (props.addingDocument) return
+  documentFormOpen.value = false
+  resetDocumentForm()
+  emit('clearDocumentError')
+}
+
+function onDocumentFileChange(event: Event) {
+  const input = event.currentTarget as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  fileError.value = ''
+  emit('clearDocumentError')
+
+  if (file && !ALLOWED_FILE_TYPES.has(file.type)) {
+    fileError.value = 'Выберите PDF, JPG или PNG.'
+    input.value = ''
+    selectedFile.value = null
+    return
+  }
+  if (file && file.size > MAX_FILE_SIZE) {
+    fileError.value = 'Размер файла не должен превышать 10 МБ.'
+    input.value = ''
+    selectedFile.value = null
+    return
+  }
+  selectedFile.value = file
+}
+
+function submitDocument() {
+  if (!selectedFile.value) {
+    fileError.value = 'Выберите файл документа.'
+    fileInput.value?.focus()
+    return
+  }
+  if (fileError.value) return
+
+  emit('addDocument', {
+    file: selectedFile.value,
+    type: documentType.value,
+    purpose: documentPurpose.value,
+  })
+}
 
 function isUpdatingPlatform(platformId: string) {
   return props.updatingPlatformIds.includes(platformId)
@@ -200,6 +279,7 @@ function fileFormat(document: CourierDocument) {
           class="btn btn-ghost btn-icon"
           type="button"
           aria-label="Закрыть"
+          :disabled="addingDocument"
           @click="$emit('close')"
         >
           <svg
@@ -412,8 +492,94 @@ function fileFormat(document: CourierDocument) {
       <div class="detail-group">
         <div class="row-between">
           <h3>Документы</h3>
-          <span class="meta">{{ courier.documentFiles.length }}</span>
+          <div class="document-section-actions">
+            <span class="meta">{{ courier.documentFiles.length }}</span>
+            <button
+              v-if="!documentFormOpen"
+              class="btn btn-secondary document-add-button"
+              type="button"
+              data-od-id="add-courier-document"
+              @click="openDocumentForm"
+            >
+              Добавить документ
+            </button>
+          </div>
         </div>
+        <form
+          v-if="documentFormOpen"
+          class="document-add-form"
+          data-od-id="courier-document-form"
+          novalidate
+          @submit.prevent="submitDocument"
+        >
+          <div class="form-grid document-fields">
+            <div class="field">
+              <label for="detailDocumentType">Тип документа</label>
+              <select
+                id="detailDocumentType"
+                v-model="documentType"
+                class="select"
+                :disabled="addingDocument"
+              >
+                <option value="passport">Паспорт</option>
+                <option value="identity_card">Удостоверение личности</option>
+                <option value="residence_permit">Вид на жительство</option>
+                <option value="work_permit">Разрешение на работу</option>
+                <option value="driving_license">Водительское удостоверение</option>
+                <option value="other">Другой документ</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="detailDocumentPurpose">Цель хранения</label>
+              <select
+                id="detailDocumentPurpose"
+                v-model="documentPurpose"
+                class="select"
+                :disabled="addingDocument"
+              >
+                <option value="platform_onboarding">Регистрация на платформе</option>
+                <option value="employment_compliance">Трудовые требования</option>
+                <option value="other">Другая цель</option>
+              </select>
+            </div>
+          </div>
+          <div class="file-control" :class="{ invalid: fileError }">
+            <div class="file-copy">
+              <strong>{{ selectedFile?.name || 'Документ курьера' }}</strong>
+              <span>PDF, JPG или PNG · до 10 МБ</span>
+              <span v-if="fileError" class="file-error" role="alert">{{ fileError }}</span>
+            </div>
+            <input
+              ref="fileInput"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              :disabled="addingDocument"
+              data-od-id="courier-document-file"
+              @change="onDocumentFileChange"
+            />
+          </div>
+          <p v-if="documentError" class="form-api-error" role="alert">
+            {{ documentError }}
+          </p>
+          <div class="document-add-actions">
+            <button
+              class="btn btn-secondary"
+              type="button"
+              :disabled="addingDocument"
+              @click="closeDocumentForm"
+            >
+              Отмена
+            </button>
+            <button
+              class="btn btn-primary"
+              type="submit"
+              data-od-id="submit-courier-document"
+              :disabled="addingDocument"
+            >
+              {{ addingDocument ? 'Загружаем…' : 'Добавить' }}
+            </button>
+          </div>
+        </form>
         <div v-if="courier.documentFiles.length" class="document-list">
           <article
             v-for="document in courier.documentFiles"
@@ -556,14 +722,14 @@ function fileFormat(document: CourierDocument) {
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-danger btn-danger-ghost" type="button" @click="$emit('delete')">
+      <button class="btn btn-danger btn-danger-ghost" type="button" :disabled="addingDocument" @click="$emit('delete')">
         Удалить
       </button>
       <span class="modal-footer-spacer"></span>
-      <button class="btn btn-secondary" type="button" @click="$emit('close')">
+      <button class="btn btn-secondary" type="button" :disabled="addingDocument" @click="$emit('close')">
         Закрыть
       </button>
-      <button class="btn btn-primary" type="button" @click="$emit('edit')">
+      <button class="btn btn-primary" type="button" :disabled="addingDocument" @click="$emit('edit')">
         Редактировать
       </button>
     </div>

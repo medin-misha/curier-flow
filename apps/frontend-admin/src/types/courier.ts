@@ -89,11 +89,13 @@ export interface CourierFormErrors {
 export interface CourierCreateInput {
   courier: CourierFormValues
   platform: DeliveryPlatform
-  document?: {
-    file: File
-    type: DocumentType
-    purpose: DocumentPurpose
-  }
+  document?: CourierDocumentCreateInput
+}
+
+export interface CourierDocumentCreateInput {
+  file: File
+  type: DocumentType
+  purpose: DocumentPurpose
 }
 
 export type CourierUpdateInput = CourierFormValues
