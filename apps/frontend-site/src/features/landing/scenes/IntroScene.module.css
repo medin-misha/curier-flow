@@ -93,7 +93,8 @@
 }
 
 .bulletText {
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1.45;
   color: rgb(var(--mfs-fg-rgb) / 0.78);
 }
