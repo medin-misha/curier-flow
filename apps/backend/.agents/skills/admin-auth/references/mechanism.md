@@ -147,6 +147,8 @@ Reset password увеличивает `auth_version` и отзывает все 
 Courier endpoints с `@authenticated`:
 
 - `GET /courier`;
+- `POST /courier/bulk-delete`;
+- `PATCH /courier/bulk-status`;
 - `GET /courier/{courier_id}`;
 - `PATCH /courier/{courier_id}`;
 - `DELETE /courier/{courier_id}`;
@@ -155,6 +157,9 @@ Courier endpoints с `@authenticated`:
 - `POST /courier/{courier_id}/documents`;
 - `PATCH /courier/{courier_id}/documents/{document_id}`;
 - `DELETE /courier/{courier_id}/documents/{document_id}`.
+
+Обе массовые операции Courier дополнительно требуют `Idempotency-Key`;
+JWT проверяется и при воспроизведении сохранённого ответа.
 
 Все endpoints `/transport` используют `@authenticated`: CRUD транспорта и
 комплектации, чтение истории аренды, создание/завершение аренды и прикрепление

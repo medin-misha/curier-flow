@@ -14,11 +14,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.kernel.db import session as db_session
 from app.kernel.db.session import get_ro_session, get_uow
+from app.kernel.idempotency import idempotent
 from app.kernel.pagination import Page, PageParams
 from app.kernel.security.authentication import authenticated
 from app.modules.courier_module.models import PlatformAccountStatus
 from app.modules.courier_module.schemas.requests import (
     CourierAggregateCreate,
+    CourierBulkRequest,
+    CourierBulkStatusPatch,
     CourierDocumentCreate,
     CourierDocumentPatch,
     CourierPatch,
@@ -27,11 +30,15 @@ from app.modules.courier_module.schemas.requests import (
 )
 from app.modules.courier_module.schemas.responses import (
     CourierAggregateResponse,
+    CourierBulkDeleteResponse,
+    CourierBulkStatusResponse,
     CourierDocumentWithFileResponse,
     PlatformAccountResponse,
 )
 from app.modules.courier_module.services import (
     DocumentUpload,
+    bulk_delete_couriers,
+    bulk_patch_platform_status,
     courier_module_settings,
     create_courier_aggregate,
     create_courier_document,
@@ -126,6 +133,40 @@ async def list_page(
     return Page[CourierAggregateResponse](
         items=[CourierAggregateResponse.model_validate(item) for item in found.items],
         next_cursor=found.next_cursor,
+    )
+
+
+@router.post("/bulk-delete", summary="Атомарно удалить выбранных курьеров")
+@authenticated
+@idempotent
+async def remove_couriers(body: CourierBulkRequest, uow: Uow) -> CourierBulkDeleteResponse:
+    """Удалить 1-100 курьеров целиком либо откатить всю пачку при 404/409.
+
+    Файлы документов переходят в deleting; физическая очистка S3 асинхронна.
+    Подписанный договор запрещает удаление. Повтор с тем же Idempotency-Key
+    и телом возвращает сохранённый результат.
+    """
+    return CourierBulkDeleteResponse(
+        deleted_count=await bulk_delete_couriers(body.courier_ids, session=uow)
+    )
+
+
+@router.patch("/bulk-status", summary="Атомарно сменить статус выбранной платформы")
+@authenticated
+@idempotent
+async def update_couriers_status(
+    body: CourierBulkStatusPatch, uow: Uow
+) -> CourierBulkStatusResponse:
+    """Сменить статус 1-100 регистраций только указанной платформы.
+
+    Отсутствующий курьер даёт 404, отсутствие регистрации платформы даёт 409;
+    вся пачка откатывается. Уже установленный статус учитывается в unchanged_count.
+    Повтор с тем же Idempotency-Key и телом возвращает исходные счётчики.
+    """
+    updated_count = await bulk_patch_platform_status(body, session=uow)
+    return CourierBulkStatusResponse(
+        updated_count=updated_count,
+        unchanged_count=len(body.courier_ids) - updated_count,
     )
 
 

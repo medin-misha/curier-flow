@@ -3,6 +3,7 @@
 from app.modules.courier_module.services.common import normalize_email, normalize_phone
 from app.modules.courier_module.services.couriers import (
     AggregateCreateResult,
+    bulk_delete_couriers,
     create_courier_aggregate,
     delete_courier,
     get_courier,
@@ -15,6 +16,7 @@ from app.modules.courier_module.services.documents import (
     patch_courier_document,
 )
 from app.modules.courier_module.services.platform_accounts import (
+    bulk_patch_platform_status,
     create_platform_account,
     patch_platform_account,
 )
@@ -29,6 +31,8 @@ __all__ = (
     "AggregateCreateResult",
     "CourierModuleSettings",
     "DocumentUpload",
+    "bulk_delete_couriers",
+    "bulk_patch_platform_status",
     "courier_module_settings",
     "create_courier_aggregate",
     "create_courier_document",

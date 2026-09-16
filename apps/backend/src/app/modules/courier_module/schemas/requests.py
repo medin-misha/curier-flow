@@ -2,6 +2,7 @@
 
 from datetime import UTC, date, datetime
 from typing import Self
+from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
@@ -107,6 +108,26 @@ class CourierPatch(BaseRequest):
         if nulled:
             raise ValueError(f"Fields must not be null: {', '.join(nulled)}")
         return self
+
+
+class CourierBulkRequest(BaseRequest):
+    """Явная ограниченная выборка курьеров для атомарной операции."""
+
+    courier_ids: list[UUID] = Field(min_length=1, max_length=100)
+
+    @field_validator("courier_ids")
+    @classmethod
+    def _unique_ids(cls, value: list[UUID]) -> list[UUID]:
+        if len(value) != len(set(value)):
+            raise ValueError("courier_ids must contain unique IDs")
+        return value
+
+
+class CourierBulkStatusPatch(CourierBulkRequest):
+    """Единый статус регистраций выбранной платформы."""
+
+    platform: DeliveryPlatform
+    status: PlatformAccountStatus
 
 
 class PlatformAccountPatch(BaseRequest):

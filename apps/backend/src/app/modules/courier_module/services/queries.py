@@ -1,5 +1,6 @@
 """Общие запросы courier aggregate и вложенных ресурсов."""
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import or_, select
@@ -131,3 +132,25 @@ async def lock_courier(courier_id: UUID, *, session: AsyncSession) -> None:
     )
     if found is None:
         raise NotFound("Courier not found", resource=Courier.__name__, pk=str(courier_id))
+
+
+async def lock_couriers(courier_ids: Sequence[UUID], *, session: AsyncSession) -> list[UUID]:
+    """Заблокировать полную пачку в одном порядке до изменения дочерних строк."""
+    found = list(
+        (
+            await session.scalars(
+                select(Courier.id)
+                .where(Courier.id.in_(courier_ids))
+                .order_by(Courier.id)
+                .with_for_update()
+            )
+        ).all()
+    )
+    missing = sorted(set(courier_ids) - set(found))
+    if missing:
+        raise NotFound(
+            "Couriers not found",
+            resource=Courier.__name__,
+            courier_ids=[str(courier_id) for courier_id in missing],
+        )
+    return found

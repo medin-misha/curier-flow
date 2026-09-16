@@ -5,6 +5,11 @@ DELETE Courier и DELETE Document в своей DB-транзакции снач
 вызывается. Универсальная storage-задача удаляет object, потом File; физический
 DELETE File также каскадно удаляет ещё существующий Document.
 
+`POST /courier/bulk-delete` применяет ту же логику ко всей выбранной пачке
+в одной UoW. Подписанный договор хотя бы одного курьера запрещает всю операцию:
+откатываются уже удалённые строки и маркировка всех Files. Правила ручного
+удаления не меняются; ограничения legal hold ниже относятся к retention.
+
 Retention eligibility: `created_at <= now - days(purpose)` и legal hold
 отсутствует либо истёк. Defaults: onboarding 90, compliance 1825, other 365.
 Задача выбирает ограниченный batch через `FOR UPDATE SKIP LOCKED`, ставит File

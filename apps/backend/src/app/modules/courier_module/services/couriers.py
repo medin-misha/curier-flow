@@ -37,6 +37,7 @@ from app.modules.courier_module.services.queries import (
     aggregate_options,
     find_by_identity,
     load_courier_by_identity,
+    lock_couriers,
 )
 from app.modules.courier_module.services.settings import CourierModuleSettings
 from app.modules.courier_module.services.uploads import (
@@ -237,6 +238,18 @@ async def delete_courier(courier_id: UUID, *, session: AsyncSession) -> None:
         await session.flush()
     except IntegrityError as error:
         raise_known_integrity(error)
+
+
+async def bulk_delete_couriers(courier_ids: Sequence[UUID], *, session: AsyncSession) -> int:
+    """Удалить всю пачку с прежним файловым lifecycle и защитой договоров."""
+    locked_ids = await lock_couriers(courier_ids, session=session)
+    for courier_id in locked_ids:
+        try:
+            await delete_courier(courier_id, session=session)
+        except Conflict as error:
+            error.extra["courier_id"] = str(courier_id)
+            raise
+    return len(locked_ids)
 
 
 def _validate_upload_count(

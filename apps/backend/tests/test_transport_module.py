@@ -13,10 +13,18 @@ from httpx import AsyncClient
 from sqlalchemy import delete, func, select, text, update
 
 from app.kernel.db import session as session_module
-from app.kernel.idempotency import is_idempotent
+from app.kernel.idempotency import IdempotencyKey, is_idempotent
 from app.kernel.security.authentication import is_authenticated
 from app.kernel.security.tokens import issue_tokens, jwt_settings
-from app.modules.courier_module.models import Courier
+from app.modules.courier_module.models import (
+    Courier,
+    CourierDocument,
+    CourierPlatformAccount,
+    DeliveryPlatform,
+    DocumentPurpose,
+    DocumentType,
+    PlatformAccountStatus,
+)
 from app.modules.courier_module.module import courier_module
 from app.modules.storage.module import storage_module
 from app.modules.transport_module.models import CourierTransport, Transport, TransportComponent
@@ -608,6 +616,118 @@ async def test_contract_ready_immutability_reuse_and_delete_protection(client: A
     assert file is not None and file.status is FileStatus.READY
     assert courier is not None
     assert stored_rental is not None and stored_rental.file_id == ready_file
+
+
+async def test_bulk_delete_couriers_signed_contract_rolls_back_all_changes(
+    client: AsyncClient,
+) -> None:
+    # Обычный курьер удаляется первым по UUID, даже при обратном порядке входных ID.
+    courier_ids = sorted([await create_courier(), await create_courier()])
+    ordinary_courier, protected_courier = courier_ids
+    document_files = [await create_file() for _ in courier_ids]
+    documents = [
+        CourierDocument(
+            id=uuid4(),
+            courier_id=courier_id,
+            file_id=file_id,
+            type=DocumentType.PASSPORT,
+            purpose=DocumentPurpose.EMPLOYMENT_COMPLIANCE,
+        )
+        for courier_id, file_id in zip(courier_ids, document_files, strict=True)
+    ]
+    accounts = [
+        CourierPlatformAccount(
+            id=uuid4(),
+            courier_id=courier_id,
+            platform=DeliveryPlatform.WOLT,
+            status=PlatformAccountStatus.ACTIVE,
+        )
+        for courier_id in courier_ids
+    ]
+    async with session_module.session_factory() as session, session.begin():
+        session.add_all([*documents, *accounts])
+
+    transport = await create_transport(client, serial_number="bulk-delete-protected")
+    contract_file = await create_file()
+    rental = await create_rental(
+        client,
+        transport["id"],
+        protected_courier,
+        started_at=datetime.now(tz=UTC) - timedelta(days=1),
+        file_id=contract_file,
+    )
+    assert rental.status_code == HTTPStatus.CREATED, rental.text
+    key = "bulk-delete-signed-contract"
+
+    response = await client.post(
+        "/courier/bulk-delete",
+        json={"courier_ids": [str(protected_courier), str(ordinary_courier)]},
+        headers=idempotency_headers(key),
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT, response.text
+    assert response.headers["content-type"] == PROBLEM_JSON
+    assert response.json()["reason"] == "signed-contract-protects-rental"
+    assert response.json()["courier_id"] == str(protected_courier)
+    async with session_module.session_factory() as session:
+        for courier_id in courier_ids:
+            assert await session.get(Courier, courier_id) is not None
+        for document in documents:
+            stored_document = await session.get(CourierDocument, document.id)
+            assert stored_document is not None
+            assert stored_document.courier_id == document.courier_id
+            assert stored_document.file_id == document.file_id
+        for account in accounts:
+            stored_account = await session.get(CourierPlatformAccount, account.id)
+            assert stored_account is not None
+            assert stored_account.courier_id == account.courier_id
+            assert stored_account.status is PlatformAccountStatus.ACTIVE
+        for file_id in [*document_files, contract_file]:
+            file = await session.get(File, file_id)
+            assert file is not None and file.status is FileStatus.READY
+        stored_rental = await session.get(CourierTransport, UUID(rental.json()["id"]))
+        assert stored_rental is not None
+        assert stored_rental.courier_id == protected_courier
+        assert stored_rental.transport_id == UUID(transport["id"])
+        assert stored_rental.file_id == contract_file
+        assert await session.get(Transport, UUID(transport["id"])) is not None
+        assert await session.get(IdempotencyKey, key) is None
+
+
+async def test_bulk_delete_couriers_cascades_unsigned_rentals_preserving_transports(
+    client: AsyncClient,
+) -> None:
+    courier_ids = [await create_courier(), await create_courier()]
+    transports = [
+        await create_transport(client, serial_number=f"bulk-delete-unsigned-{number}")
+        for number in range(2)
+    ]
+    rental_ids = []
+    for courier_id, transport in zip(courier_ids, transports, strict=True):
+        rental = await create_rental(
+            client,
+            transport["id"],
+            courier_id,
+            started_at=datetime.now(tz=UTC) - timedelta(days=1),
+        )
+        assert rental.status_code == HTTPStatus.CREATED, rental.text
+        rental_ids.append(UUID(rental.json()["id"]))
+
+    response = await client.post(
+        "/courier/bulk-delete",
+        json={"courier_ids": [str(courier_id) for courier_id in courier_ids]},
+        headers=idempotency_headers(),
+    )
+
+    assert response.status_code == HTTPStatus.OK, response.text
+    assert response.json() == {"deleted_count": 2}
+    async with session_module.session_factory() as session:
+        for courier_id in courier_ids:
+            assert await session.get(Courier, courier_id) is None
+        for rental_id in rental_ids:
+            assert await session.get(CourierTransport, rental_id) is None
+        for transport in transports:
+            assert await session.get(Transport, UUID(transport["id"])) is not None
 
 
 async def test_unsigned_history_cascades_with_transport_and_courier(client: AsyncClient) -> None:

@@ -13,6 +13,19 @@ from app.modules.courier_module.models import (
 from app.platform.files import FileStatus
 
 
+class CourierBulkDeleteResponse(BaseResponse):
+    """Число удалённых курьеров; очистка S3 выполняется отдельно."""
+
+    deleted_count: int
+
+
+class CourierBulkStatusResponse(BaseResponse):
+    """Число изменённых регистраций и регистраций с уже нужным статусом."""
+
+    updated_count: int
+    unchanged_count: int
+
+
 class FileResponse(BaseResponse):
     """Безопасная наружная часть общей File metadata."""
 

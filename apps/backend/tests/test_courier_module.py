@@ -22,8 +22,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
 from app.kernel.config import settings
+from app.kernel.context import request_id
 from app.kernel.db import session as session_module
 from app.kernel.events.models import OutboxMessage
+from app.kernel.idempotency import IdempotencyKey, is_idempotent
 from app.kernel.security.authentication import is_authenticated
 from app.kernel.security.tokens import issue_tokens, jwt_settings
 from app.modules.courier_module import handlers as courier_handlers
@@ -31,8 +33,10 @@ from app.modules.courier_module.models import (
     Courier,
     CourierDocument,
     CourierPlatformAccount,
+    DeliveryPlatform,
     DocumentPurpose,
     DocumentType,
+    PlatformAccountStatus,
 )
 from app.modules.courier_module.module import courier_lifespan, courier_module
 from app.modules.courier_module.schemas.requests import CourierAggregateCreate
@@ -84,17 +88,25 @@ BASE_COURIER: Final[dict[str, Any]] = {
         }
     ],
 }
+BULK_OPERATIONS: Final[tuple[tuple[str, str, dict[str, str]], ...]] = (
+    ("POST", "/courier/bulk-delete", {}),
+    ("PATCH", "/courier/bulk-status", {"platform": "wolt", "status": "active"}),
+)
 
 
 @dataclass
 class TransactionWatch:
-    """Все синхронные Session, открывавшие транзакцию в текущем тесте."""
+    """Синхронные Session и запросы, открывавшие их транзакции."""
 
-    sessions: list[Session] = field(default_factory=list)
+    sessions: dict[Session, str] = field(default_factory=dict)
 
     def open_now(self) -> list[Session]:
-        """Вернуть сессии с открытой транзакцией прямо сейчас."""
-        return [session for session in self.sessions if session.in_transaction()]
+        """Проверять свой запрос, не транзакции соседних HTTP-запросов."""
+        return [
+            session
+            for session, owner in self.sessions.items()
+            if owner == request_id.get() and session.in_transaction()
+        ]
 
 
 def guarded(method: Any, name: str, watch: TransactionWatch) -> Any:
@@ -115,7 +127,7 @@ def guard_transactions(monkeypatch: pytest.MonkeyPatch) -> Iterator[TransactionW
     watch = TransactionWatch()
 
     def track(session: Session, _transaction: Any, _connection: Any) -> None:
-        watch.sessions.append(session)
+        watch.sessions[session] = request_id.get()
 
     event.listen(Session, "after_begin", track)
     for name in (
@@ -216,6 +228,22 @@ async def test_create_is_public_and_every_other_route_requires_bearer(
             ("GET", f"/courier/{courier['id']}", {}),
             ("PATCH", f"/courier/{courier['id']}", {"json": {}}),
             ("DELETE", f"/courier/{courier['id']}", {}),
+            (
+                "POST",
+                "/courier/bulk-delete",
+                {"json": {"courier_ids": [courier["id"]]}},
+            ),
+            (
+                "PATCH",
+                "/courier/bulk-status",
+                {
+                    "json": {
+                        "courier_ids": [courier["id"]],
+                        "platform": "wolt",
+                        "status": "active",
+                    }
+                },
+            ),
             (
                 "POST",
                 f"/courier/{courier['id']}/platform-accounts",
@@ -714,6 +742,335 @@ async def test_delete_courier_cascades_children_and_marks_files(client: AsyncCli
     assert (await client.delete(f"/courier/{created['id']}")).status_code == HTTPStatus.NOT_FOUND
 
 
+async def seed_bulk_couriers(count: int = 2) -> list[Courier]:
+    """Создать пачку без S3 с pending-регистрациями на всех платформах."""
+    couriers = [
+        Courier(
+            id=uuid4(),
+            full_name=f"Bulk Courier {index}",
+            email=f"bulk-{index}@example.com",
+            phone=f"+420700{index:06d}",
+            date_of_birth=datetime(1990, 1, 1, tzinfo=UTC).date(),
+            platform_accounts=[
+                CourierPlatformAccount(platform=platform, status=PlatformAccountStatus.PENDING)
+                for platform in DeliveryPlatform
+            ],
+        )
+        for index in range(count)
+    ]
+    async with session_module.session_factory() as session, session.begin():
+        session.add_all(couriers)
+    return sorted(couriers, key=lambda courier: courier.id)
+
+
+async def test_bulk_delete_cascades_files_and_replays(client: AsyncClient) -> None:
+    couriers = [
+        (await post_courier(client)).json(),
+        (
+            await post_courier(
+                client,
+                {**BASE_COURIER, "email": "second@example.com", "phone": "+420700000002"},
+            )
+        ).json(),
+    ]
+    unselected = (await seed_bulk_couriers(1))[0]
+    body = {"courier_ids": [courier["id"] for courier in couriers]}
+    headers = {"Idempotency-Key": "bulk-delete"}
+    response = await client.post("/courier/bulk-delete", json=body, headers=headers)
+
+    assert response.status_code == HTTPStatus.OK, response.text
+    assert response.json() == {"deleted_count": 2}
+    assert await counts() == (1, 3, 0, 2, 0)
+    for courier in couriers:
+        file = await stored_file(UUID(courier["documents"][0]["file_id"]))
+        assert file.status is FileStatus.DELETING
+    assert (await client.get(f"/courier/{unselected.id}")).status_code == HTTPStatus.OK
+
+    replay = await client.post("/courier/bulk-delete", json=body, headers=headers)
+    assert replay.status_code == HTTPStatus.OK
+    assert replay.json() == response.json()
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    retry = await client.post(
+        "/courier/bulk-delete", json=body, headers={"Idempotency-Key": "new-delete"}
+    )
+    assert retry.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.parametrize("platform", list(DeliveryPlatform))
+@pytest.mark.parametrize("status", list(PlatformAccountStatus))
+async def test_bulk_status_platform_scope_counts_and_replay(
+    client: AsyncClient, platform: DeliveryPlatform, status: PlatformAccountStatus
+) -> None:
+    first, second, unselected = await seed_bulk_couriers(3)
+    async with session_module.session_factory() as session, session.begin():
+        await session.execute(
+            update(CourierPlatformAccount)
+            .where(
+                CourierPlatformAccount.courier_id == first.id,
+                CourierPlatformAccount.platform == platform,
+            )
+            .values(status=status)
+        )
+        if status is PlatformAccountStatus.PENDING:
+            await session.execute(
+                update(CourierPlatformAccount)
+                .where(
+                    CourierPlatformAccount.courier_id == second.id,
+                    CourierPlatformAccount.platform == platform,
+                )
+                .values(status=PlatformAccountStatus.INACTIVE)
+            )
+    before = (await client.get(f"/courier/{first.id}")).json()
+    body = {"courier_ids": [str(first.id), str(second.id)], "platform": platform, "status": status}
+    headers = {"Idempotency-Key": "bulk-status"}
+    response = await client.patch("/courier/bulk-status", json=body, headers=headers)
+
+    assert response.status_code == HTTPStatus.OK, response.text
+    assert response.json() == {"updated_count": 1, "unchanged_count": 1}
+    assert (await client.get(f"/courier/{first.id}")).json() == before
+    async with session_module.session_factory() as session:
+        accounts = (await session.scalars(select(CourierPlatformAccount))).all()
+    for account in accounts:
+        expected = (
+            status
+            if account.courier_id != unselected.id and account.platform == platform
+            else PlatformAccountStatus.PENDING
+        )
+        assert account.status is expected
+    assert await registration_payloads() == []
+
+    replay = await client.patch("/courier/bulk-status", json=body, headers=headers)
+    assert replay.json() == response.json()
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    noop = await client.patch(
+        "/courier/bulk-status", json=body, headers={"Idempotency-Key": "new-status"}
+    )
+    assert noop.json() == {"updated_count": 0, "unchanged_count": 2}
+
+
+@pytest.mark.parametrize(("method", "path", "extra"), BULK_OPERATIONS)
+@pytest.mark.parametrize("size", [1, 100])
+async def test_bulk_size_boundaries(
+    client: AsyncClient, method: str, path: str, extra: dict[str, str], size: int
+) -> None:
+    couriers = await seed_bulk_couriers(size)
+    response = await client.request(
+        method,
+        path,
+        json={"courier_ids": [str(courier.id) for courier in couriers], **extra},
+        headers={"Idempotency-Key": "bulk-boundary"},
+    )
+
+    assert response.status_code == HTTPStatus.OK, response.text
+    expected = (
+        {"deleted_count": size}
+        if method == "POST"
+        else {"updated_count": size, "unchanged_count": 0}
+    )
+    assert response.json() == expected
+
+
+@pytest.mark.parametrize(("method", "path", "extra"), BULK_OPERATIONS)
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"courier_ids": []},
+        {"courier_ids": [str(UUID(int=index)) for index in range(101)]},
+        {"courier_ids": [str(UUID(int=1)), str(UUID(int=1))]},
+        {"courier_ids": ["not-a-uuid"]},
+        {"courier_ids": None},
+        {"courier_ids": str(UUID(int=1))},
+        {"unexpected": True},
+    ],
+)
+async def test_bulk_invalid_selection_does_not_write(
+    client: AsyncClient,
+    method: str,
+    path: str,
+    extra: dict[str, str],
+    invalid: dict[str, Any],
+) -> None:
+    created = (await post_courier(client)).json()
+    response = await client.request(
+        method,
+        path,
+        json={"courier_ids": [created["id"]], **extra, **invalid},
+        headers={"Idempotency-Key": "invalid-selection"},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
+    assert response.headers["content-type"] == PROBLEM_JSON
+    assert (await client.get(f"/courier/{created['id']}")).json() == created
+    async with session_module.session_factory() as session:
+        assert await session.get(IdempotencyKey, "invalid-selection") is None
+
+
+@pytest.mark.parametrize("field", ["platform", "status"])
+@pytest.mark.parametrize("value", [None, "invalid", ""])
+async def test_bulk_status_requires_valid_platform_and_status(
+    client: AsyncClient, field: str, value: str | None
+) -> None:
+    created = (await post_courier(client)).json()
+    body = {"courier_ids": [created["id"]], "platform": "wolt", "status": "active"}
+    invalid = {**body, field: value}
+    for payload in (invalid, {key: item for key, item in body.items() if key != field}):
+        response = await client.patch(
+            "/courier/bulk-status",
+            json=payload,
+            headers={"Idempotency-Key": "invalid-status"},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
+    assert (await client.get(f"/courier/{created['id']}")).json() == created
+
+
+@pytest.mark.parametrize(("method", "path", "extra"), BULK_OPERATIONS)
+async def test_bulk_missing_courier_preserves_aggregate_and_releases_key(
+    client: AsyncClient, method: str, path: str, extra: dict[str, str]
+) -> None:
+    created = (await post_courier(client)).json()
+    missing = str(uuid4())
+    response = await client.request(
+        method,
+        path,
+        json={"courier_ids": [created["id"], missing], **extra},
+        headers={"Idempotency-Key": "missing-courier"},
+    )
+
+    assert response.status_code == HTTPStatus.NOT_FOUND, response.text
+    assert response.headers["content-type"] == PROBLEM_JSON
+    assert response.json()["courier_ids"] == [missing]
+    assert (await client.get(f"/courier/{created['id']}")).json() == created
+    async with session_module.session_factory() as session:
+        assert await session.get(IdempotencyKey, "missing-courier") is None
+    retry = await client.request(
+        method,
+        path,
+        json={"courier_ids": [created["id"]], **extra},
+        headers={"Idempotency-Key": "missing-courier"},
+    )
+    assert retry.status_code == HTTPStatus.OK, retry.text
+
+
+async def test_bulk_missing_platform_is_atomic_and_does_not_create_account(
+    client: AsyncClient,
+) -> None:
+    first, second = await seed_bulk_couriers()
+    async with session_module.session_factory() as session, session.begin():
+        await session.execute(
+            delete(CourierPlatformAccount).where(
+                CourierPlatformAccount.courier_id == second.id,
+                CourierPlatformAccount.platform == DeliveryPlatform.WOLT,
+            )
+        )
+    body = {"courier_ids": [str(first.id), str(second.id)], "platform": "wolt", "status": "active"}
+    response = await client.patch(
+        "/courier/bulk-status", json=body, headers={"Idempotency-Key": "missing-platform"}
+    )
+
+    assert response.status_code == HTTPStatus.CONFLICT, response.text
+    assert response.json()["reason"] == "platform-account-missing"
+    assert response.json()["platform"] == "wolt"
+    assert response.json()["courier_ids"] == [str(second.id)]
+    async with session_module.session_factory() as session:
+        accounts = (await session.scalars(select(CourierPlatformAccount))).all()
+        assert len(accounts) == 5
+        assert all(account.status is PlatformAccountStatus.PENDING for account in accounts)
+        assert await session.get(IdempotencyKey, "missing-platform") is None
+
+
+@pytest.mark.parametrize(("method", "path", "extra"), BULK_OPERATIONS)
+async def test_bulk_key_is_required_and_cannot_be_reused_for_different_payload(
+    client: AsyncClient, method: str, path: str, extra: dict[str, str]
+) -> None:
+    first, second = await seed_bulk_couriers()
+    body = {"courier_ids": [str(first.id)], **extra}
+    missing_key = await client.request(method, path, json=body)
+    assert missing_key.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert missing_key.json()["header"] == "Idempotency-Key"
+    assert (await client.get(f"/courier/{first.id}")).json()["platform_accounts"][0]["status"] == (
+        "pending"
+    )
+
+    headers = {"Idempotency-Key": "bulk-key"}
+    response = await client.request(method, path, json=body, headers=headers)
+    assert response.status_code == HTTPStatus.OK, response.text
+    mismatch = await client.request(
+        method, path, json={"courier_ids": [str(second.id)], **extra}, headers=headers
+    )
+    assert mismatch.status_code == HTTPStatus.CONFLICT
+    assert mismatch.json()["reason"] == "payload-mismatch"
+    assert (await client.get(f"/courier/{second.id}")).json()["platform_accounts"][0]["status"] == (
+        "pending"
+    )
+
+    unauthorized = await client.request(
+        method, path, json=body, headers={**headers, "authorization": ""}
+    )
+    assert unauthorized.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.parametrize(("method", "path", "extra"), BULK_OPERATIONS)
+async def test_bulk_flush_failure_rolls_back_rows_and_key(
+    client: AsyncClient, method: str, path: str, extra: dict[str, str]
+) -> None:
+    couriers = await seed_bulk_couriers()
+    body = {"courier_ids": [str(courier.id) for courier in couriers], **extra}
+    headers = {"Idempotency-Key": "bulk-failure"}
+    with failing_final_transaction():
+        response = await client.request(method, path, json=body, headers=headers)
+
+    assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR, response.text
+    async with session_module.session_factory() as session:
+        assert await session.scalar(select(func.count()).select_from(Courier)) == 2
+        accounts = (await session.scalars(select(CourierPlatformAccount))).all()
+        assert len(accounts) == 6
+        assert all(account.status is PlatformAccountStatus.PENDING for account in accounts)
+        assert await session.get(IdempotencyKey, "bulk-failure") is None
+    retry = await client.request(method, path, json=body, headers=headers)
+    assert retry.status_code == HTTPStatus.OK, retry.text
+
+
+@pytest.mark.parametrize(("method", "path", "extra"), BULK_OPERATIONS)
+async def test_concurrent_bulk_requests_with_reversed_ids_are_atomic(
+    client: AsyncClient, method: str, path: str, extra: dict[str, str]
+) -> None:
+    couriers = await seed_bulk_couriers(3)
+    ids = [str(courier.id) for courier in couriers]
+    async with asyncio.timeout(10):
+        responses = await asyncio.gather(
+            client.request(
+                method,
+                path,
+                json={"courier_ids": ids, **extra},
+                headers={"Idempotency-Key": "bulk-concurrent-first"},
+            ),
+            client.request(
+                method,
+                path,
+                json={"courier_ids": ids[::-1], **extra},
+                headers={"Idempotency-Key": "bulk-concurrent-second"},
+            ),
+        )
+
+    if method == "POST":
+        assert sorted(response.status_code for response in responses) == [200, 404]
+        assert (await counts())[:3] == (0, 0, 0)
+    else:
+        assert [response.status_code for response in responses] == [200, 200]
+        assert sorted(response.json()["updated_count"] for response in responses) == [0, 3]
+        assert sorted(response.json()["unchanged_count"] for response in responses) == [0, 3]
+        async with session_module.session_factory() as session:
+            accounts = (await session.scalars(select(CourierPlatformAccount))).all()
+        assert len(accounts) == 9
+        for account in accounts:
+            expected = (
+                PlatformAccountStatus.ACTIVE
+                if account.platform is DeliveryPlatform.WOLT
+                else PlatformAccountStatus.PENDING
+            )
+            assert account.status is expected
+
+
 async def test_physical_file_delete_cascades_document(client: AsyncClient) -> None:
     created = (await post_courier(client)).json()
     file_id = UUID(created["documents"][0]["file_id"])
@@ -902,6 +1259,8 @@ def test_manifest_openapi_and_task_contract() -> None:
     assert route_auth == {
         ("POST", "/courier"): False,
         ("GET", "/courier"): True,
+        ("POST", "/courier/bulk-delete"): True,
+        ("PATCH", "/courier/bulk-status"): True,
         ("GET", "/courier/{courier_id}"): True,
         ("PATCH", "/courier/{courier_id}"): True,
         ("DELETE", "/courier/{courier_id}"): True,
@@ -912,6 +1271,25 @@ def test_manifest_openapi_and_task_contract() -> None:
         ("DELETE", "/courier/{courier_id}/documents/{document_id}"): True,
     }
     assert "200" in paths["/courier"]["post"]["responses"]
+    idempotent_routes = {
+        (method, f"{courier_module.url_prefix}{route.path}")
+        for route in courier_module.router.routes
+        if isinstance(route, APIRoute) and is_idempotent(route.endpoint)
+        for method in route.methods or ()
+    }
+    assert idempotent_routes == {
+        ("POST", "/courier/bulk-delete"),
+        ("PATCH", "/courier/bulk-status"),
+    }
+    for method, path, _extra in BULK_OPERATIONS:
+        operation = paths[path][method.lower()]
+        assert "200" in operation["responses"]
+        assert any(
+            parameter["name"] == "Idempotency-Key"
+            and parameter["in"] == "header"
+            and parameter["required"]
+            for parameter in operation["parameters"]
+        )
     assert "/courier/{courier_id}/documents" not in {
         path for path, methods in paths.items() if "get" in methods
     }
