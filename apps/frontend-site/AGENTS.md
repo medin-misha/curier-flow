@@ -7,8 +7,7 @@ Next.js 15 frontend for May Fleet Solutions. The application has two routes:
 
 The interface and user-facing validation messages are in Russian.
 
-Перед работой прочитай [общие правила](../../AGENTS.md): OpenCode применяет
-этот ближайший файл без автоматического объединения с root.
+Применяются [общие правила](../../AGENTS.md); прочитай их, если ещё не загружены.
 
 ## Stack And Commands
 
