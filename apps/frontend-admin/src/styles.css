@@ -4,7 +4,7 @@
   --fg: oklch(22% 0.02 240);
   --muted: oklch(50% 0.018 240);
   --border: oklch(90% 0.008 240);
-  --accent: oklch(58% 0.16 145);
+  --accent: #dc2626;
   --accent-soft: color-mix(in oklch, var(--accent) 12%, transparent);
   --fg-soft: color-mix(in oklch, var(--fg) 5%, transparent);
   --backdrop: color-mix(in oklch, var(--fg) 30%, transparent);
@@ -170,6 +170,7 @@ p {
 }
 
 .tabs {
+  min-width: 0;
   height: 64px;
   display: flex;
   align-items: stretch;
@@ -182,6 +183,7 @@ p {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 0 18px;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -189,10 +191,19 @@ p {
   color: var(--muted);
   font-size: 14px;
   font-weight: 650;
+  white-space: nowrap;
 }
 
-.tab:hover {
-  color: var(--fg);
+.tab-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.tab:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .tab:disabled {
@@ -201,8 +212,9 @@ p {
 }
 
 .tab[aria-current='page'] {
-  border-bottom-color: var(--fg);
-  color: var(--fg);
+  border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .account {
@@ -1085,7 +1097,7 @@ h3 {
   height: 26px;
   display: block;
   border: 2px solid var(--border);
-  border-top-color: var(--fg);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 700ms linear infinite;
 }
@@ -1137,8 +1149,9 @@ h3 {
 }
 
 .page-button.active {
-  border-color: var(--fg);
-  color: var(--fg);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .pagination-actions {
@@ -2053,13 +2066,39 @@ h3 {
   color: var(--muted);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1280px) {
   .topnav-inner {
     grid-template-columns: 200px 1fr 50px;
   }
 
   .account-copy {
     display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .topnav-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px 24px;
+    padding-top: 12px;
+  }
+
+  .tabs {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    height: 44px;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    padding-inline: 12px;
+  }
+
+  .account {
+    grid-row: 1;
+    grid-column: 2;
   }
 
   .col-contact {
@@ -2083,28 +2122,6 @@ h3 {
 @media (max-width: 920px) {
   :root {
     --gutter: 20px;
-  }
-
-  .topnav-inner {
-    grid-template-columns: 1fr auto;
-  }
-
-  .tabs {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    height: 44px;
-    justify-content: flex-start;
-  }
-
-  .tab {
-    min-height: 44px;
-    justify-content: flex-start;
-    padding-inline: 12px;
-  }
-
-  .account {
-    grid-row: 1;
-    grid-column: 2;
   }
 
   .page-heading {
