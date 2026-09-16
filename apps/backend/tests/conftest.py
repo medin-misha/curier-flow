@@ -270,7 +270,7 @@ async def broker(rabbitmq_dsn: str) -> AsyncIterator[AbstractRobustConnection]:
 @pytest.fixture(scope="session")
 def minio_endpoint() -> Iterator[str]:
     """Адрес одноразового MinIO на весь прогон."""
-    with MinioContainer() as container:
+    with MinioContainer("quay.io/minio/minio:RELEASE.2022-12-02T19-19-22Z") as container:
         yield f"http://{container.get_config()['endpoint']}"
 
 
