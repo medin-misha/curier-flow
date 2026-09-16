@@ -3,9 +3,8 @@
 	admin 127.0.0.1:2019
 }
 
-https://localhost {
-	tls internal
-
+# Caddy сам выбирает локальный CA для localhost и публичный ACME для DNS-имён.
+https://{$PUBLIC_DOMAIN:localhost} {
 	request_body {
 		max_size 104857600
 	}
@@ -13,9 +12,7 @@ https://localhost {
 	reverse_proxy frontend-site:3000
 }
 
-https://admin.localhost {
-	tls internal
-
+https://admin.{$PUBLIC_DOMAIN:localhost} {
 	request_body {
 		max_size 104857600
 	}
@@ -23,8 +20,13 @@ https://admin.localhost {
 	reverse_proxy frontend-admin:8080
 }
 
-https://backend.localhost {
-	tls internal
+https://backend.{$PUBLIC_DOMAIN:localhost} {
+	# В публичном режиме диагностика доступна только напрямую внутри Compose.
+	@private {
+		not host backend.localhost
+		path /health/ready* /health/info* /docs* /redoc* /openapi.json*
+	}
+	respond @private 404
 
 	request_body {
 		max_size 104857600
@@ -33,13 +35,23 @@ https://backend.localhost {
 	reverse_proxy api:8000
 }
 
-https://grafana.localhost {
-	tls internal
+https://grafana.{$PUBLIC_DOMAIN:localhost} {
+	@private {
+		not host grafana.localhost
+		path /metrics*
+	}
+	respond @private 404
 	reverse_proxy grafana:3000
 }
 
-https://minio.localhost {
-	tls internal
+https://minio.{$PUBLIC_DOMAIN:localhost} {
+	# Наружу нужны S3-запросы и liveness, но не служебные API MinIO.
+	@private {
+		not host minio.localhost
+		path /minio /minio/*
+		not path /minio/health/live
+	}
+	respond @private 404
 
 	request_body {
 		max_size 104857600

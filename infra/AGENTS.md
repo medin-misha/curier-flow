@@ -38,8 +38,11 @@
 - Healthcheck приложения проверяет `/health/live`, не `/health/ready`.
 - Caddy — единственный публичный HTTP ingress: внешние URL используют HTTPS, а
   upstream-адреса внутри Compose остаются HTTP.
-- Локальный Caddy CA хранится в volume и сохраняется при `down`/`reboot`;
-  `delete-logging` удаляет его и требует заново установить доверенный root.
+- `PUBLIC_DOMAIN` задаёт базовый домен Caddy, Grafana и браузерные origins MinIO;
+  по умолчанию `localhost`. Публичный HTTPS и проверки описаны в [README](README.md).
+- Локальный Caddy CA и ACME-сертификаты хранятся в volume при `down`/`reboot`;
+  `delete-logging` удаляет их: локальный root придётся установить заново, а
+  публичные сертификаты — перевыпустить с учётом лимитов CA.
 
 После изменения используй skill `infra-check`. Для backend-кода начни
 отдельную сессию с рабочим каталогом `apps/backend/`.

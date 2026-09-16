@@ -17,9 +17,11 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      # /data хранит локальный CA: обычный down/reboot не должен менять root.
+      # /data хранит локальный CA и ACME-сертификаты с ключами для продления.
       - caddy-data:/data
       - caddy-config:/config
     networks:
@@ -41,8 +43,8 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_METRICS_ENABLED: "true"
-      GF_SERVER_DOMAIN: grafana.localhost
-      GF_SERVER_ROOT_URL: https://grafana.localhost/
+      GF_SERVER_DOMAIN: grafana.${PUBLIC_DOMAIN:-localhost}
+      GF_SERVER_ROOT_URL: https://grafana.${PUBLIC_DOMAIN:-localhost}/
       # Production image фиксирован по версии; фоновые загрузки bundled-плагинов
       # не должны менять его содержимое или создавать лишние error-записи.
       GF_PLUGINS_PREINSTALL_DISABLED: "true"

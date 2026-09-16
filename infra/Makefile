@@ -28,7 +28,10 @@ check: caddy-validate ## Проверить compose-файлы, Caddyfile и к�
 	../scripts/check-agent-context.sh
 
 caddy-validate: ## Проверить синтаксис и семантику Caddyfile
-	docker run --rm \
+	@set -eu; \
+	environment="$$($(LOGGING) config --environment)"; \
+	domain="$$(printf '%s\n' "$$environment" | awk -F= '$$1 == "PUBLIC_DOMAIN" {print $$2}')"; \
+	docker run --rm --env "PUBLIC_DOMAIN=$${domain:-localhost}" \
 		--volume "$(abspath $(HERE)/caddy/Caddyfile):/etc/caddy/Caddyfile:ro" \
 		$(CADDY_IMAGE) caddy validate --config /etc/caddy/Caddyfile
 
@@ -38,13 +41,33 @@ caddy-ca: ## Экспортировать локальный root CA запущ�
 	@chmod 600 "$(CADDY_CA)"
 	@printf '%s\n' 'Root CA экспортирован в $(CADDY_CA)'
 
-smoke-caddy: caddy-ca ## Проверить все публичные HTTPS-маршруты Caddy
-	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://localhost/ >/dev/null
-	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://admin.localhost/ >/dev/null
-	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://backend.localhost/health/live >/dev/null
-	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://grafana.localhost/api/health >/dev/null
-	curl --fail --silent --show-error --cacert "$(CADDY_CA)" https://minio.localhost/minio/health/live >/dev/null
-	@printf '%s\n' 'Все HTTPS-маршруты Caddy отвечают успешно'
+smoke-caddy: ## Проверить HTTPS, редиректы и закрытую диагностику текущего домена
+	@set -eu; \
+	environment="$$($(LOGGING) config --environment)"; \
+	domain="$$(printf '%s\n' "$$environment" | awk -F= '$$1 == "PUBLIC_DOMAIN" {print $$2}')"; \
+	domain="$${domain:-localhost}"; \
+	set -- --silent --show-error --connect-timeout 5 --max-time 20; \
+	case "$$domain" in localhost|*.localhost|*.local|*.internal|*.home.arpa) \
+		$(MAKE) caddy-ca; set -- "$$@" --cacert "$(CADDY_CA)" ;; \
+	esac; \
+	for route in "$$domain/" "admin.$$domain/" "backend.$$domain/health/live" \
+		"grafana.$$domain/api/health" "minio.$$domain/minio/health/live"; do \
+		status="$$(curl "$$@" --output /dev/null --write-out '%{http_code}' "https://$$route")"; \
+		test "$$status" = 200 || { printf 'Маршрут недоступен: %s (%s)\n' "$$route" "$$status"; exit 1; }; \
+		redirect="$$(curl "$$@" --output /dev/null --write-out '%{http_code} %{redirect_url}' "http://$$route")"; \
+		test "$$redirect" = "308 https://$$route" || { printf 'Неверный редирект: %s\n' "$$route"; exit 1; }; \
+		printf 'HTTPS и редирект OK: %s\n' "$$route"; \
+	done; \
+	if test "$$domain" != localhost; then \
+		for route in "backend.$$domain/health/ready" "backend.$$domain/health/info" \
+			"backend.$$domain/health/info/" "backend.$$domain/docs" "backend.$$domain/redoc" \
+			"backend.$$domain/openapi.json" "grafana.$$domain/metrics" \
+			"minio.$$domain/minio/health/ready" "minio.$$domain/minio/admin/v3/info"; do \
+			status="$$(curl "$$@" --output /dev/null --write-out '%{http_code}' "https://$$route")"; \
+			test "$$status" = 404 || { printf 'Диагностика не закрыта: %s (%s)\n' "$$route" "$$status"; exit 1; }; \
+		done; \
+	fi; \
+	printf '%s\n' 'Все HTTPS-маршруты, редиректы и ограничения диагностики проверены'
 
 ps: ## Показать состояние инфраструктуры, logging и приложений
 	$(INFRA) ps

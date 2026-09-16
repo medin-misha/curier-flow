@@ -30,7 +30,7 @@ services:
       # и индексы расходятся с продовыми.
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -48,8 +48,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
       # Файл явно включает штатный endpoint метрик на внутреннем порту 15692.
@@ -76,7 +76,7 @@ services:
     # но не являются источником истины, поэтому хватает RDB без AOF.
     command: ["redis-server", "--save", "60", "1", "--appendonly", "no"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -95,7 +95,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       # MinIO настраивает CORS глобально и не реализует bucket PutBucketCors.
-      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+      MINIO_API_CORS_ALLOW_ORIGIN: https://${PUBLIC_DOMAIN:-localhost},https://admin.${PUBLIC_DOMAIN:-localhost}
     volumes:
       - minio-data:/data
     healthcheck:
