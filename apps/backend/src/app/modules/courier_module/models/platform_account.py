@@ -28,6 +28,7 @@ class PlatformAccountStatus(StrEnum):
     PENDING = "pending"
     ACTIVE = "active"
     INACTIVE = "inactive"
+    PROBLEM = "problem"
 
 
 def _enum_values(enum: type[StrEnum]) -> list[str]:

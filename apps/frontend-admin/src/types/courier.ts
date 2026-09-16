@@ -1,5 +1,5 @@
 export type DeliveryPlatform = 'bolt_food' | 'foodora' | 'wolt'
-export type PlatformStatus = 'pending' | 'active' | 'inactive'
+export type PlatformStatus = 'pending' | 'active' | 'inactive' | 'problem'
 export const COURIER_BULK_LIMIT = 100
 export type CourierBulkAction = 'delete' | 'status'
 

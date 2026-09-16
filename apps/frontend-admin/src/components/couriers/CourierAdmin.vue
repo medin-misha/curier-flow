@@ -82,6 +82,7 @@ const platformStatusLabels: Record<PlatformStatus, string> = {
   active: 'Активен',
   pending: 'Ожидает',
   inactive: 'Неактивен',
+  problem: 'Проблема',
 }
 
 const filterSummary = computed(() => {

@@ -116,6 +116,7 @@ function submit() {
                 <option value="pending">Ожидает</option>
                 <option value="active">Активен</option>
                 <option value="inactive">Неактивен</option>
+                <option value="problem">Проблема</option>
               </select>
             </div>
           </div>

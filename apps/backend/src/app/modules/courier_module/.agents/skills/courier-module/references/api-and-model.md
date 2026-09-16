@@ -27,7 +27,7 @@ POST Document также многофазный и не использует т�
 
 `POST /courier/bulk-delete` принимает `{"courier_ids": ["UUID", ...]}`.
 `PATCH /courier/bulk-status` принимает тот же список и обязательные `platform`
-(`bolt_food`, `foodora`, `wolt`) и `status` (`pending`, `active`, `inactive`).
+(`bolt_food`, `foodora`, `wolt`) и `status` (`pending`, `active`, `inactive`, `problem`).
 Статус принадлежит platform account, не самому Courier; остальные платформы
 не меняются, отсутствующие регистрации автоматически не создаются.
 

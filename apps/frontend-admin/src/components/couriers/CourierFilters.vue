@@ -20,6 +20,7 @@ const statusOptions: Array<{ value: PlatformStatus; label: string }> = [
   { value: 'active', label: 'Активен' },
   { value: 'pending', label: 'Ожидает' },
   { value: 'inactive', label: 'Неактивен' },
+  { value: 'problem', label: 'Проблема' },
 ]
 
 function clear() {

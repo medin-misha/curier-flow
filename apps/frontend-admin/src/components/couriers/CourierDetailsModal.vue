@@ -43,6 +43,7 @@ const statusLabels: Record<PlatformStatus, string> = {
   active: 'Активен',
   pending: 'Ожидает',
   inactive: 'Неактивен',
+  problem: 'Проблема',
 }
 
 const documentStatusLabels = {
@@ -466,6 +467,7 @@ function fileFormat(document: CourierDocument) {
                   <option value="pending">Ожидает</option>
                   <option value="active">Активен</option>
                   <option value="inactive">Неактивен</option>
+                  <option value="problem">Проблема</option>
                 </select>
                 <button
                   class="btn btn-secondary platform-status-button"
