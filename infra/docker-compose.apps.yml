@@ -127,12 +127,6 @@ services:
     logging: *default-logging
     build:
       context: ../apps/frontend-site
-      args:
-        # Next.js сохраняет rewrite в routes-manifest во время сборки.
-        BACKEND_API_URL: http://api:8000
-    environment:
-      # То же значение остаётся в рантайме для единого контракта конфигурации.
-      BACKEND_API_URL: http://api:8000
     depends_on:
       api:
         condition: service_healthy
@@ -140,9 +134,10 @@ services:
       test:
         [
           "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:3000/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+          "wget",
+          "--quiet",
+          "--output-document=/dev/null",
+          "http://127.0.0.1:3000/health/live",
         ]
       interval: 10s
       timeout: 5s

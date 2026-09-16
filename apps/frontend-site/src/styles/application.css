@@ -1,0 +1,19 @@
+/* Дополнения для доступных Vue-компонентов; исходные токены сохранены. */
+:is(#features, #how, #vehicles, #cta) { scroll-margin-top: 88px; }
+[data-theme="dark"] { color-scheme: dark; }
+.check-big { background: var(--accent); }
+.drop-zone-hint, .field-hint { color: var(--text-2); }
+.form-header h1 { font-family: var(--font-alt); font-weight: 800; font-size: clamp(22px, 2.6vw, 28px); line-height: 1.1; margin: 0; color: var(--text); letter-spacing: -.01em; }
+button.platform-card { width: 100%; font-family: inherit; text-align: left; }
+.platform-section .checkbox-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+.upload-trigger { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; }
+.upload-trigger:disabled { cursor: wait; }
+.drop-zone-label, .drop-zone-hint { display: block; }
+.drop-zone.dragging { border-color: var(--accent); background: var(--accent-soft); }
+.file-list { list-style: none; padding: 0; }
+.privacy-note { font-size: 12px; color: var(--text-2); line-height: 1.65; }
+.privacy-note summary { cursor: pointer; min-height: 28px; text-decoration: underline; }
+.privacy-note p { margin-top: 8px; }
+.form-error-banner { scroll-margin-top: 100px; }
+.support-link { display: inline-flex; align-items: center; min-height: 44px; margin-top: 16px; text-decoration: underline; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

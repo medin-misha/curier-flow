@@ -1,12 +1,5 @@
-*
-!package.json
-!package-lock.json
-!next.config.ts
-!tsconfig.json
-!src/
-!public/
-
-node_modules/
-.next/
-coverage/
-*.tsbuildinfo
+node_modules
+dist
+.env*
+test-results*
+playwright-report

@@ -1,0 +1,950 @@
+{
+  "ru": {
+    "buttons": {
+      "connect-button": "Присоединиться"
+    },
+    "brand": {
+      "country": "Чехия"
+    },
+    "nav-bar": {
+      "about": "О нас",
+      "contacts": "Контакты",
+      "work-with-us": "Работа у нас",
+      "transport": "Прокат транспорта",
+      "language": "Язык"
+    },
+    "main-header": "Присоединяйся к MFS — самой надёжной и лояльной флотилии для курьеров по доставке еды в Чехии!",
+    "main-subheader": "Регистрируйся за 5 минут и начинай доставлять",
+    "transport-subheader": "Виды транспорта",
+    "transport-intro": {
+      "line1": "Даём транспорт для работы курьером по системе «всё включено»: берёшь и сразу выходишь на смену.",
+      "line2": "В стоимость уже входит обслуживание, ремонт и всё необходимое оборудование — без лишних затрат и простоев.",
+      "line3": "При оплате на месяц — цена ещё выгоднее."
+    },
+    "transport": {
+      "bike": {
+        "title": "Классические велосипеды",
+        "line1": "Простой и надёжный вариант для старта.",
+        "line2": "Минимум затрат — максимум выхлопа. Всё обслуживание берём на себя."
+      },
+      "ebike": {
+        "title": "Электровелосипеды",
+        "line1": "Самый популярный вариант среди курьеров. Быстро, удобно и меньше устаёшь.",
+        "line2": "От 1 250 Kč в неделю — уже с ремонтом, обслуживанием и всем необходимым для работы."
+      },
+      "escooter": {
+        "title": "Электросамокаты",
+        "line1": "Идеальны для коротких дистанций и центра города.",
+        "line2": "Лёгкие, манёвренные и полностью обслуживаются за наш счёт."
+      },
+      "car": {
+        "title": "Автомобили",
+        "line1": "Для тех, кто хочет брать больше заказов и работать в любую погоду.",
+        "line2": "От 2 000 Kč в неделю."
+      }
+    },
+    "transport-footnote": "* На весь транспорт, кроме автомобилей, залог не нужен. По авто есть залог. Обычный износ оплачиваем мы, но в случае ДТП ответственность за повреждения несёт водитель.",
+    "how-to-start": {
+      "title": "Как начать?",
+      "button": "Отправить заявку",
+      "steps": [
+        "Оставляешь ",
+        "заявку",
+        "Забираешь транспорт и термобокс",
+        "Выезжаешь на линию и зарабатываешь!"
+      ]
+    },
+    "why-us": {
+      "title": "Почему именно мы?",
+      "support-link-aria": "Написать в поддержку MFS в Telegram",
+      "item1": {
+        "title": "1. Зарплата 4 раза в месяц",
+        "line1": "Деньги приходят часто и без задержек!",
+        "line2": "Забудь про «ждать конца месяца».",
+        "line3": "Мы платим тебе каждую неделю — стабильно, чётко, до среды включительно!"
+      },
+      "item2": {
+        "title": "2. Мы берём на себя всю бюрократию:",
+        "line1": "Регистрация, документы, оформление — всё делаем быстро и без твоего участия.",
+        "line2": "Ты просто садишься за руль / на велик / на самокат и начинаешь зарабатывать!"
+      },
+      "item3": {
+        "title": "3. Электротранспорт без залогов и скрытых платежей,",
+        "line1": "с экипировкой и сервисом полностью включенным в цену аренды.",
+        "line2": "Бери и кати — без залогов и головной боли!"
+      }
+    },
+    "transport-section": {
+      "title": "Транспорт",
+      "alts": {
+        "car": "Автомобиль",
+        "bike2": "Электровелосипед",
+        "scooter": "Электросамокат",
+        "bike": "Велосипед",
+        "motorcycle": "Скутер"
+      }
+    },
+    "no-transport": {
+      "title": "Нет своего транспорта?",
+      "text1": "Не проблема, у нас доступен прокат полностью обслуженной техники для работы на платформе Bolt Food.",
+      "text2-title": "Всё включено в цену:",
+      "text2-list": [
+        "Полная экипировка (держатель для телефона, фонари, замок).",
+        "Техобслуживание и ремонт.",
+        "Страховка.",
+        "Электротранспорт без залогов и скрытых платежей!"
+      ]
+    },
+    "contacts": {
+      "title": "Контакты:",
+      "text1-line1": "Свяжитесь с нами!",
+      "text1-line2": "С удовольствием ответим на все интересующие вас вопросы!",
+      "text2": "Набор и поддержка курьеров 24/7"
+    },
+    "footer": {
+      "description": "Флотилия транспорта для курьеров Bolt Food в Чехии. Прага, Брно и окрестности.",
+      "contacts-title": "Контакты",
+      "service-title": "Сервис",
+      "links": {
+        "features": "Преимущества",
+        "how": "Как начать",
+        "transport": "Транспорт"
+      },
+      "copyright": "© 2026 May Fleet Solutions s.r.o. Все права защищены.",
+      "made-in": "Сделано в Праге"
+    },
+    "landing": {
+      "units": {
+        "minutes-short": "мин",
+        "hour-short": "ч",
+        "days": "дня",
+        "per-week": "/нед",
+        "per-month-times": "×/мес"
+      },
+      "hero": {
+        "eyebrow": "Bolt Food",
+        "title-line1": "Стань курьером",
+        "title-line2": "уже на этой неделе",
+        "lead": "Транспорт, оформление и поддержка — берём на себя. Ты садишься за руль, на велик или самокат и сразу зарабатываешь.",
+        "vehicle-link": "Посмотреть транспорт",
+        "open": "Набор открыт",
+        "meta": {
+          "payouts": "выплаты в месяц",
+          "deposit": "залога*",
+          "application": "на заявку"
+        },
+        "stats": {
+          "first-order": "От заявки до первого заказа",
+          "weekly-payouts": "Выплаты каждую неделю",
+          "deposit": "Залог на вело- и электротранспорт",
+          "support": "Поддержка на русском и чешском"
+        }
+      },
+      "partners": {
+        "label": "Работаем с платформой"
+      },
+      "features": {
+        "eyebrow": "Почему MFS",
+        "title-prefix": "Делаем работу",
+        "title-accent": "прозрачной",
+        "title-suffix": "а старт — простым",
+        "lead": "Без скрытых платежей и долгого ожидания. Три причины, по которым курьеры выбирают нас.",
+        "pills": {
+          "payouts": "4 раза в месяц",
+          "paperwork": "Без бумажек",
+          "deposit": "0 Kč залога"
+        }
+      },
+      "steps": {
+        "eyebrow": "Как начать",
+        "title-prefix": "От заявки до первого заказа —",
+        "title-accent": "2–3 дня",
+        "lead": "Три простых шага. Никакой бюрократии с твоей стороны.",
+        "step-label": "Шаг",
+        "items": [
+          {
+            "title": "Оставляешь заявку",
+            "text": "Заполни форму — займёт 5 минут. Свяжемся в течение часа, расскажем про условия и подберём транспорт."
+          },
+          {
+            "title": "Забираешь транспорт и термобокс",
+            "text": "Приезжаешь в офис в Праге, оформляем документы и сразу выдаём транспорт с экипировкой. Без залогов на велосипеды и электротранспорт."
+          },
+          {
+            "title": "Выезжаешь и зарабатываешь",
+            "text": "Регистрируешься в Bolt Food и берёшь заказы. Выплаты — 4 раза в месяц, поддержка — 7 дней в неделю."
+          }
+        ]
+      },
+      "vehicles": {
+        "title-prefix": "Выбирай",
+        "title-accent": "под себя",
+        "lead": "Велосипед, электробайк, самокат или авто — всё с обслуживанием и поддержкой.",
+        "no-deposit": "без залога",
+        "ebike-price": "от 1 250 Kč",
+        "car-price": "от 2 000 Kč"
+      },
+      "cta": {
+        "eyebrow": "Заявка · 5 минут",
+        "title": "Оставь заявку — мы свяжемся в течение часа",
+        "lead": "Поможем выбрать транспорт, оформим документы и расскажем, как стартовать в Bolt Food.",
+        "apply": "Оставить заявку",
+        "telegram": "Написать в Telegram",
+        "items": [
+          "Без обязательств — это просто анкета",
+          "Поддержка на русском и чешском",
+          "Никаких обзвонов «по списку» — пишем тому, кто оставил заявку"
+        ],
+        "metrics": {
+          "response": "время ответа от менеджера",
+          "form": "на заполнение анкеты",
+          "first-order": "до первого заказа"
+        }
+      }
+    },
+    "form": {
+      "header": "Форма регистрации с",
+      "logo-alt": "Логотип платформы",
+      "section1": {
+        "title": "Общая информация про Вас"
+      },
+      "section2": {
+        "title": "Документы"
+      },
+      "fields": {
+        "name": "Фамилия и имя (латиницей)",
+        "phone": "Чешский номер телефона",
+        "email": "Электронная почта",
+        "city": "Город",
+        "birth_date": "Дата рождения",
+        "address": "Адрес проживания в Чехии",
+        "desired_transport": "На каком транспорте вы бы хотели работать?",
+        "how_found_it": "Откуда вы про нас узнали?",
+        "invoice": "Укажите номер счёта чешского банка или другой способ оплаты",
+        "stay_type": "Укажите ваш тип пребывания в Чехии",
+        "citizenship": "Гражданство"
+      },
+      "transport-options": {
+        "bike": "Велосипед",
+        "escooter": "Самокат",
+        "scooter": "Скутер",
+        "car": "Автомобиль"
+      },
+      "placeholders": {
+        "phone": "+420",
+        "transport": "Выберите транспорт",
+        "invoice": "1234567890/1234",
+        "citizenship": "Выберите гражданство"
+      },
+      "citizenship": {
+        "other": "Другое"
+      },
+      "work_in": {
+        "label": "На какой платформе будете работать?",
+        "hint": "• Еженедельные выплаты\n• Комиссия флотилии 10%\n• Максимальная комиссия флотилии 1000 Kč в неделю",
+        "bolt_tag": "Самый популярный выбор",
+        "error": "Выберите платформу"
+      },
+      "platform": {
+        "label": "Выберите платформу для связи:"
+      },
+      "whatsapp-hint": "Убедитесь, что вы указали именно тот номер, на котором у вас зарегистрирован WhatsApp.",
+      "documents": {
+        "upload": "Загрузить",
+        "passport": "Фото ID паспорта с двух сторон",
+        "passport_foreign": "Фото загранпаспорта с двух сторон",
+        "or": "ИЛИ",
+        "residence_permit": "Фото или скан визы",
+        "op": "Гражданское удостоверение (OP)",
+        "op_front": "Občanský průkaz – лицевая сторона",
+        "op_back": "Občanský průkaz – обратная сторона",
+        "passport_front": "Паспорт – лицевая сторона",
+        "residence_permit_front": "Виза / ВНЖ – лицевая сторона",
+        "drop_here": "Перетащите файлы сюда или нажмите для загрузки"
+      },
+      "submit": "Завершить регистрацию",
+      "consent": {
+        "label": "Я даю согласие на обработку моих персональных данных"
+      },
+      "serverError": {
+        "title": "Не удалось отправить форму",
+        "network": "Проверьте подключение к интернету и попробуйте ещё раз.",
+        "timeout": "Сервер отвечает слишком долго. Попробуйте ещё раз чуть позже.",
+        "validation": "Мы не смогли обработать данные формы. Проверьте введённые данные и попробуйте снова.",
+        "upload": "Не удалось загрузить файлы. Попробуйте ещё раз.",
+        "serviceUnavailable": "Сервис временно недоступен. Попробуйте позже или напишите нам в Telegram.",
+        "server": "На сервере произошла ошибка. Попробуйте позже или напишите нам в Telegram.",
+        "partial": "Анкета уже могла отправиться частично. Не отправляйте её повторно сразу. Напишите нам в Telegram, и мы поможем завершить регистрацию.",
+        "unknown": "Не удалось отправить форму. Попробуйте ещё раз."
+      },
+      "alert": {
+        "required": "Пожалуйста, заполните все поля формы.",
+        "consent": "Пожалуйста, дайте согласие на обработку персональных данных.",
+        "submit": "Не удалось отправить форму. Попробуйте ещё раз."
+      }
+    },
+    "success": {
+      "title": "Спасибо, Вы успешно завершили регистрацию в нашей флотилии!",
+      "step": {
+        "label": "Следующий шаг :",
+        "description": "пожалуйста, ознакомьтесь с обучающими материалами в формате презентаций.",
+        "subtitle": "Если у Вас возникнут дополнительные вопросы, не стесняйтесь обращаться - с радостью поможем!"
+      },
+      "cta": "Просмотреть обучающие материалы",
+      "instructions": {
+        "heading": "Ваш аккаунт находится в обработке — мы свяжемся с вами в течение дня.",
+        "bolt": [
+          "Скачайте приложение Bolt Food Courier."
+        ]
+      },
+      "password-note": "Пожалуйста, не меняйте пароль, чтобы в случае возникновения трудностей во время работы мы могли зайти в аккаунт и оперативно помочь Вам."
+    },
+    "select-platform-title": "Выберите платформу",
+    "bolt-select": {
+      "button": "Продолжить с Bolt",
+      "platform-features": [
+        "· Свободный график",
+        "· Выплаты раз в неделю",
+        "· Доход зависит от заказов",
+        "· Свой или арендный транспорт"
+      ],
+      "platform-details": [
+        "· Комиссия флотилии 10%",
+        "· Доступно по всей Чехии"
+      ],
+      "indent": "Максимальная комиссия 1000 Kč в неделю"
+    }
+  },
+  "en": {
+    "buttons": {
+      "connect-button": "Join us"
+    },
+    "brand": {
+      "country": "Czechia"
+    },
+    "nav-bar": {
+      "about": "About us",
+      "contacts": "Contacts",
+      "work-with-us": "Jobs with us",
+      "transport": "Transport rental",
+      "language": "Language"
+    },
+    "main-header": "Join MFS — the most reliable and loyal fleet for food delivery couriers in the Czech Republic!",
+    "main-subheader": "Register in just 5 minutes and start delivering.",
+    "transport-subheader": "Types of Transport",
+    "transport-intro": {
+      "line1": "We provide transport for couriers in an \"all-inclusive\" format — just take it and start working right away.",
+      "line2": "The price already includes maintenance, repairs, and all necessary equipment — no extra costs or downtime.",
+      "line3": "Monthly payments come with better pricing."
+    },
+    "transport": {
+      "bike": {
+        "title": "Regular Bikes",
+        "line1": "A simple and reliable option to get started.",
+        "line2": "Low cost, maximum efficiency. Full service included."
+      },
+      "ebike": {
+        "title": "E-bikes",
+        "line1": "The most popular choice among couriers. Fast, convenient, and less tiring.",
+        "line2": "From 1,250 CZK per week, including maintenance, repairs, and full equipment."
+      },
+      "escooter": {
+        "title": "E-scooters",
+        "line1": "Perfect for short distances and city centers.",
+        "line2": "Lightweight, agile, and fully serviced."
+      },
+      "car": {
+        "title": "Cars",
+        "line1": "For those who want to handle more orders and work in any weather.",
+        "line2": "From 2,000 CZK per week."
+      }
+    },
+    "transport-footnote": "* No deposit is required for most vehicles. A deposit is required for cars. Regular wear and tear is covered by us, but in case of an accident, the driver is responsible for the damage.",
+    "how-to-start": {
+      "title": "How to start?",
+      "button": "Apply now",
+      "steps": [
+        "Apply ",
+        "now",
+        "Pick up the vehicle and the delivery box",
+        "You go online and start earning!"
+      ]
+    },
+    "why-us": {
+      "title": "Why should you choose us?",
+      "support-link-aria": "Write to MFS support in Telegram",
+      "item1": {
+        "title": "1. Salary 4 times a month",
+        "line1": "Get your money often and without delays!",
+        "line2": "Forget about “waiting until the end of the month.”",
+        "line3": "We pay you every week – reliably, on time, by Wednesday at the latest!"
+      },
+      "item2": {
+        "title": "2. We handle all the paperwork:",
+        "line1": "including your registration, documents, and formalities – everything is done quickly and without your involvement.",
+        "line2": "You just hop on the car / bike / scooter and start earning!"
+      },
+      "item3": {
+        "title": "3. Electric transport without deposits or hidden fees,",
+        "line1": "including equipment and service fully covered in the rental price",
+        "line2": "Take it and go — no deposits, no headaches!"
+      }
+    },
+    "transport-section": {
+      "title": "Transport",
+      "alts": {
+        "car": "Car",
+        "bike2": "Electric bicycle",
+        "scooter": "Electric scooter",
+        "bike": "Bicycle",
+        "motorcycle": "Motor scooter"
+      }
+    },
+    "no-transport": {
+      "title": "No transport?",
+      "text1": "No problem! We offer fully serviced transport for working on Bolt Food.",
+      "text2-title": "Everything is included in the price:",
+      "text2-list": [
+        "Full equipment (phone holder, lights, lock)",
+        "Service and repairs",
+        "Insurance",
+        "Electric transport without deposits or hidden fees!"
+      ]
+    },
+    "contacts": {
+      "title": "Contacts:",
+      "text1-line1": "Contact us!",
+      "text1-line2": "We will be happy to answer all your questions!",
+      "text2": "Recruitment and support for couriers 24/7"
+    },
+    "footer": {
+      "description": "Transport fleet for Bolt Food couriers in Czechia. Prague, Brno, and nearby areas.",
+      "contacts-title": "Contacts",
+      "service-title": "Service",
+      "links": {
+        "features": "Benefits",
+        "how": "How to start",
+        "transport": "Transport"
+      },
+      "copyright": "© 2026 May Fleet Solutions s.r.o. All rights reserved.",
+      "made-in": "Made in Prague"
+    },
+    "landing": {
+      "units": {
+        "minutes-short": "min",
+        "hour-short": "h",
+        "days": "days",
+        "per-week": "/week",
+        "per-month-times": "×/mo"
+      },
+      "hero": {
+        "eyebrow": "Bolt Food",
+        "title-line1": "Become a courier",
+        "title-line2": "as soon as this week",
+        "lead": "We handle transport, registration, and support. You get behind the wheel, on a bike, or on a scooter and start earning.",
+        "vehicle-link": "View transport",
+        "open": "Recruitment open",
+        "meta": {
+          "payouts": "payouts per month",
+          "deposit": "deposit*",
+          "application": "to apply"
+        },
+        "stats": {
+          "first-order": "From application to first order",
+          "weekly-payouts": "Payouts every week",
+          "deposit": "Deposit for bikes and electric transport",
+          "support": "Support in Russian and Czech"
+        }
+      },
+      "partners": {
+        "label": "Our delivery platform"
+      },
+      "features": {
+        "eyebrow": "Why MFS",
+        "title-prefix": "We make work",
+        "title-accent": "transparent",
+        "title-suffix": "and starting simple",
+        "lead": "No hidden fees and no long waits. Three reasons couriers choose us.",
+        "pills": {
+          "payouts": "4 times a month",
+          "paperwork": "No paperwork hassle",
+          "deposit": "0 Kč deposit"
+        }
+      },
+      "steps": {
+        "eyebrow": "How to start",
+        "title-prefix": "From application to first order in",
+        "title-accent": "2-3 days",
+        "lead": "Three simple steps. No bureaucracy on your side.",
+        "step-label": "Step",
+        "items": [
+          {
+            "title": "Submit an application",
+            "text": "Fill out the form in 5 minutes. We will contact you within an hour, explain the terms, and help choose transport."
+          },
+          {
+            "title": "Pick up transport and a thermal bag",
+            "text": "Come to our office in Prague, we handle the documents and provide transport with equipment right away. No deposits for bikes and electric transport."
+          },
+          {
+            "title": "Go online and earn",
+            "text": "Register with Bolt Food and start taking orders. Payouts are 4 times a month, support is available 7 days a week."
+          }
+        ]
+      },
+      "vehicles": {
+        "title-prefix": "Choose what",
+        "title-accent": "fits you",
+        "lead": "Bike, e-bike, scooter, or car — all with maintenance and support.",
+        "no-deposit": "no deposit",
+        "ebike-price": "from 1,250 Kč",
+        "car-price": "from 2,000 Kč"
+      },
+      "cta": {
+        "eyebrow": "Application · 5 minutes",
+        "title": "Submit an application — we will contact you within an hour",
+        "lead": "We will help choose transport, handle documents, and explain how to start with Bolt Food.",
+        "apply": "Apply now",
+        "telegram": "Write on Telegram",
+        "items": [
+          "No obligations — it is just an application form",
+          "Support in Russian and Czech",
+          "No random call lists — we write to the person who applied"
+        ],
+        "metrics": {
+          "response": "manager response time",
+          "form": "to complete the form",
+          "first-order": "until the first order"
+        }
+      }
+    },
+    "form": {
+      "header": "Registration form with",
+      "logo-alt": "Platform logo",
+      "section1": {
+        "title": "General information about you"
+      },
+      "section2": {
+        "title": "Documents"
+      },
+      "fields": {
+        "name": "Full name (Latin letters)",
+        "phone": "Czech phone number",
+        "email": "Email address",
+        "city": "City",
+        "birth_date": "Date of birth",
+        "address": "Residence address in the Czech Republic",
+        "desired_transport": "What type of transport would you like to work with?",
+        "how_found_it": "How did you hear about us?",
+        "invoice": "Enter your Czech bank account number or specify another payment method",
+        "stay_type": "What type of stay in the Czech Republic do you have?",
+        "citizenship": "Citizenship"
+      },
+      "transport-options": {
+        "bike": "Bicycle",
+        "escooter": "Scooter",
+        "scooter": "Motor scooter",
+        "car": "Car"
+      },
+      "placeholders": {
+        "phone": "+420",
+        "transport": "Select transport",
+        "invoice": "1234567890/1234",
+        "citizenship": "Select citizenship"
+      },
+      "citizenship": {
+        "other": "Other"
+      },
+      "work_in": {
+        "label": "Which platform will you work on?",
+        "hint": "• Weekly payouts\n• Fleet commission 10%\n• Maximum fleet commission 1000 Kč per week",
+        "bolt_tag": "Most popular choice",
+        "error": "Please select a platform"
+      },
+      "platform": {
+        "label": "Select a platform to contact:"
+      },
+      "whatsapp-hint": "Make sure you enter the phone number that your WhatsApp account is registered to.",
+      "documents": {
+        "upload": "Upload",
+        "passport": "ID passport photo from both sides",
+        "passport_foreign": "Foreign passport photo from both sides",
+        "or": "OR",
+        "residence_permit": "Visa photo or scan",
+        "op": "ID card (občanský průkaz)",
+        "op_front": "Občanský průkaz – front side",
+        "op_back": "Občanský průkaz – back side",
+        "passport_front": "Passport – front side",
+        "residence_permit_front": "Visa / residence permit – front side",
+        "drop_here": "Drag & drop files here or click to upload"
+      },
+      "submit": "Complete registration",
+      "consent": {
+        "label": "I consent to the processing of my personal data"
+      },
+      "serverError": {
+        "title": "We could not submit your form",
+        "network": "Check your internet connection and try again.",
+        "timeout": "The server is taking too long to respond. Please try again a little later.",
+        "validation": "We could not process the form data. Check the entered information and try again.",
+        "upload": "We could not upload the files. Please try again.",
+        "serviceUnavailable": "The service is temporarily unavailable. Please try again later or write to us on Telegram.",
+        "server": "A server error occurred. Please try again later or write to us on Telegram.",
+        "partial": "Your application may have been submitted only partially. Do not submit it again right away. Write to us on Telegram and we will help you finish the registration.",
+        "unknown": "We could not submit your form. Please try again."
+      },
+      "alert": {
+        "required": "Please fill in all form fields.",
+        "consent": "Please consent to the processing of personal data.",
+        "submit": "Failed to submit the form. Please try again."
+      }
+    },
+    "success": {
+      "title": "Thank you, you have successfully completed your registration in our fleet!",
+      "step": {
+        "label": "Next step :",
+        "description": "Please review the training materials in presentation format. If you have any further questions, don't hesitate to contact us – we'll be happy to help!",
+        "subtitle": "If you have any additional questions, do not hesitate to contact us - we will be happy to help!"
+      },
+      "cta": "View training materials",
+      "instructions": {
+        "heading": "Your account is being processed — we will contact you within the day.",
+        "bolt": [
+          "Download the Bolt Food Courier app and log in using your phone number."
+        ]
+      },
+      "password-note": "Please do not change the password so that we can log in to the account and help you promptly in case of any difficulties during work."
+    },
+    "select-platform-title": "Select a platform",
+    "bolt-select": {
+      "button": "Continue with Bolt",
+      "platform-features": [
+        "· Flexible schedule",
+        "· Weekly payouts",
+        "· Income depends on orders",
+        "· Own or rental transport"
+      ],
+      "platform-details": [
+        "· Fleet commission 10%",
+        "· Available throughout the Czech Republic"
+      ],
+      "indent": "Maximum commission 1000 CZK per week"
+    }
+  },
+  "cz": {
+    "buttons": {
+      "connect-button": "Připojit se"
+    },
+    "brand": {
+      "country": "Česko"
+    },
+    "nav-bar": {
+      "about": "O nás",
+      "contacts": "Kontakty",
+      "work-with-us": "Práce u nás",
+      "transport": "Pronájem dopravy",
+      "language": "Jazyk"
+    },
+    "main-header": "Přidej se k MFS — nejspolehlivější a nejvstřícnější flotile pro kurýry doručující jídlo v Česku!",
+    "main-subheader": "Zaregistruj se za 5 minut a začni doručovat",
+    "transport-subheader": "Druhy dopravy",
+    "transport-intro": {
+      "line1": "Poskytujeme dopravu pro kurýry ve formátu 'vše v ceně' — vezmete a můžete ihned vyrazit do práce.",
+      "line2": "V ceně je zahrnut servis, opravy i veškeré potřebné vybavení — bez starostí a zbytečných nákladů.",
+      "line3": "Při platbě na měsíc je cena ještě výhodnější."
+    },
+    "transport": {
+      "bike": {
+        "title": "Klasická kola",
+        "line1": "Jednoduché a spolehlivé řešení pro začátek.",
+        "line2": "Minimální náklady, maximální využití. Servis je plně v naší režii."
+      },
+      "ebike": {
+        "title": "Elektrokola",
+        "line1": "Nejoblíbenější varianta mezi kurýry. Rychlé, pohodlné a šetří energii.",
+        "line2": "Od 1 250 Kč týdně včetně servisu, oprav a kompletního vybavení."
+      },
+      "escooter": {
+        "title": "Elektrokoloběžky",
+        "line1": "Ideální pro kratší vzdálenosti a centrum města.",
+        "line2": "Lehké, obratné a plně servisované."
+      },
+      "car": {
+        "title": "Automobily",
+        "line1": "Pro ty, kteří chtějí zvládnout více objednávek a pracovat za každého počasí.",
+        "line2": "Od 2 000 Kč týdně."
+      }
+    },
+    "transport-footnote": "* Na většinu dopravy není vyžadována kauce. U automobilů je kauce nutná. Běžné opotřebení hradíme my, v případě nehody odpovídá za škodu řidič.",
+    "how-to-start": {
+      "title": "Jak začít?",
+      "button": "Odeslat žádost",
+      "steps": [
+        "Zanecháš ",
+        "žádost",
+        "Vybereš dopravu a termo box",
+        "Vyrážíš na trasu a vyděláváš!"
+      ]
+    },
+    "why-us": {
+      "title": "Proč právě my?",
+      "support-link-aria": "Napsat podpoře MFS v Telegramu",
+      "item1": {
+        "title": "1. Výplata 4× měsíčně",
+        "line1": "Peníze chodí často a bez zpoždění!",
+        "line2": "Zapomeň na čekání na konec měsíce.",
+        "line3": "Platíme ti každý týden — stabilně, přesně, nejpozději do středy!"
+      },
+      "item2": {
+        "title": "2. Veškerou byrokracii bereme na sebe:",
+        "line1": "Registraci, dokumenty, vyřízení — vše uděláme rychle a bez tvé účasti.",
+        "line2": "Ty jen sedneš za volant / na kolo / na koloběžku a začneš vydělávat!"
+      },
+      "item3": {
+        "title": "3. Elektrické dopravní prostředky,",
+        "line1": "s vybavením a servisem plně zahrnutým v ceně pronájmu.",
+        "line2": "Vezmi a jeď — bez kaucí a bez starostí!"
+      }
+    },
+    "transport-section": {
+      "title": "Doprava",
+      "alts": {
+        "car": "Automobil",
+        "bike2": "Elektrokolo",
+        "scooter": "Elektrokoloběžka",
+        "bike": "Kolo",
+        "motorcycle": "Skútr"
+      }
+    },
+    "no-transport": {
+      "title": "Nemáš vlastní dopravu?",
+      "text1": "Nevadí, máme k pronájmu plně servisovanou techniku pro práci na platformě Bolt Food.",
+      "text2-title": "Vše je zahrnuto v ceně:",
+      "text2-list": [
+        "Kompletní vybavení (držák na telefon, světla, zámek).",
+        "Servis a opravy.",
+        "Pojištění.",
+        "Elektromobilita bez záloh a skrytých poplatků!"
+      ]
+    },
+    "contacts": {
+      "title": "Kontakty:",
+      "text1-line1": "Kontaktuj nás!",
+      "text1-line2": "Rádi odpovíme na všechny tvé dotazy!",
+      "text2": "Nábor a podpora kurýrů 24/7"
+    },
+    "footer": {
+      "description": "Dopravní flotila pro kurýry Bolt Food v Česku. Praha, Brno a okolí.",
+      "contacts-title": "Kontakty",
+      "service-title": "Služby",
+      "links": {
+        "features": "Výhody",
+        "how": "Jak začít",
+        "transport": "Doprava"
+      },
+      "copyright": "© 2026 May Fleet Solutions s.r.o. Všechna práva vyhrazena.",
+      "made-in": "Vytvořeno v Praze"
+    },
+    "landing": {
+      "units": {
+        "minutes-short": "min",
+        "hour-short": "h",
+        "days": "dny",
+        "per-week": "/týden",
+        "per-month-times": "×/měs"
+      },
+      "hero": {
+        "eyebrow": "Bolt Food",
+        "title-line1": "Staň se kurýrem",
+        "title-line2": "už tento týden",
+        "lead": "My řešíme administrativu, ty jen jezdíš a vyděláváš.",
+        "vehicle-link": "Zobrazit vozový park",
+        "open": "Nábor otevřen",
+        "meta": {
+          "payouts": "výplaty měsíčně",
+          "deposit": "kauce*",
+          "application": "na žádost"
+        },
+        "stats": {
+          "first-order": "Od žádosti k první objednávce",
+          "weekly-payouts": "Výplaty každý týden",
+          "deposit": "Kauce na elektricky  dopravni prostredky",
+          "support": "Podpora"
+        }
+      },
+      "partners": {
+        "label": "Spolupracujeme s platformou"
+      },
+      "features": {
+        "eyebrow": "Proč MFS",
+        "title-prefix": "Děláme práci",
+        "title-accent": "transparentní",
+        "title-suffix": "a start jednoduchý",
+        "lead": "Bez skrytých poplatků a dlouhého čekání. Tři důvody, proč si kurýři vybírají nás.",
+        "pills": {
+          "payouts": "4× měsíčně",
+          "paperwork": "Bez papírování",
+          "deposit": "0 Kč kauce"
+        }
+      },
+      "steps": {
+        "eyebrow": "Jak začít",
+        "title-prefix": "Od žádosti k první objednávce za",
+        "title-accent": "2-3 dny",
+        "lead": "Tři jednoduché kroky. Žádná byrokracie z tvé strany.",
+        "step-label": "Krok",
+        "items": [
+          {
+            "title": "Odešleš žádost",
+            "text": "Vyplň formulář za 5 minut. Ozveme se do hodiny, vysvětlíme podmínky a vybereme dopravu."
+          },
+          {
+            "title": "Vyzvedneš si dopravní prostředek a termobox",
+            "text": "Přijedeš do kanceláře v Praze, vyřídíme dokumenty a hned předáme dopravní prostředek s vybavením. Bez kaucí na kola a elektrickou dopravu."
+          },
+          {
+            "title": "Vyrazíš a vyděláváš",
+            "text": "Zaregistruješ se do Bolt Food a bereš objednávky. Výplaty jsou 4× měsíčně, podpora 7 dní v týdnu."
+          }
+        ]
+      },
+      "vehicles": {
+        "title-prefix": "Vyber si",
+        "title-accent": "podle sebe",
+        "lead": "Kolo, elektrokolo, koloběžka nebo auto — vše se servisem a podporou.",
+        "no-deposit": "bez kauce",
+        "ebike-price": "od 1 250 Kč",
+        "car-price": "od 2 000 Kč"
+      },
+      "cta": {
+        "eyebrow": "Žádost · 5 minut",
+        "title": "Odešli žádost — ozveme se do hodiny",
+        "lead": "Pomůžeme vybrat dopravu, vyřídíme dokumenty a vysvětlíme, jak začít s Bolt Food.",
+        "apply": "Odeslat žádost",
+        "telegram": "Napsat na Telegram",
+        "items": [
+          "Bez závazků — je to jen krátký formulář",
+          "Podpora v ruštině a češtině",
+          "Žádné obvolávání podle seznamu — píšeme tomu, kdo žádost odeslal"
+        ],
+        "metrics": {
+          "response": "čas odpovědi manažera",
+          "form": "na vyplnění formuláře",
+          "first-order": "do první objednávky"
+        }
+      }
+    },
+    "form": {
+      "header": "Registrační formulář s",
+      "logo-alt": "Logo platformy",
+      "section1": {
+        "title": "Obecné informace o vás"
+      },
+      "section2": {
+        "title": "Dokumenty"
+      },
+      "fields": {
+        "name": "Příjmení a jméno (latinkou)",
+        "phone": "České telefonní číslo",
+        "email": "E-mail",
+        "city": "Město",
+        "birth_date": "Datum narození",
+        "address": "Adresa bydliště v ČR",
+        "desired_transport": "Na jaké dopravě byste chtěl/a pracovat?",
+        "how_found_it": "Odkud jste se o nás dozvěděl/a?",
+        "invoice": "Uveďte číslo účtu české banky nebo jiný způsob platby",
+        "stay_type": "Uveďte váš typ pobytu v ČR",
+        "citizenship": "Státní příslušnost"
+      },
+      "transport-options": {
+        "bike": "Kolo",
+        "escooter": "Koloběžka",
+        "scooter": "Skútr",
+        "car": "Automobil"
+      },
+      "placeholders": {
+        "phone": "+420",
+        "transport": "Vyberte dopravu",
+        "invoice": "1234567890/1234",
+        "citizenship": "Vyberte státní příslušnost"
+      },
+      "citizenship": {
+        "other": "Jiná"
+      },
+      "work_in": {
+        "label": "Na které platformě budete pracovat?",
+        "hint": "• Týdenní výplaty\n• Provize flotily 10%\n• Maximální provize flotily 1000 Kč za týden",
+        "bolt_tag": "Nejoblíbenější volba",
+        "error": "Vyberte platformu"
+      },
+      "platform": {
+        "label": "Vyberte platformu pro kontakt:"
+      },
+      "whatsapp-hint": "Ujistěte se, že zadáváte číslo, na kterém máte registrovaný WhatsApp.",
+      "documents": {
+        "upload": "Nahrát",
+        "passport": "Foto ID pasu z obou stran",
+        "passport_foreign": "Foto cestovního pasu z obou stran",
+        "or": "NEBO",
+        "residence_permit": "Foto nebo sken víza",
+        "op": "Občanský průkaz (OP)",
+        "op_front": "Občanský průkaz – přední strana",
+        "op_back": "Občanský průkaz – zadní strana",
+        "passport_front": "Cestovní pas – přední strana",
+        "residence_permit_front": "Vízum / povolení k pobytu – přední strana",
+        "drop_here": "Přetáhněte soubory sem nebo klikněte pro nahrání"
+      },
+      "submit": "Dokončit registraci",
+      "consent": {
+        "label": "Souhlasím se zpracováním svých osobních údajů"
+      },
+      "serverError": {
+        "title": "Formulář se nepodařilo odeslat",
+        "network": "Zkontrolujte připojení k internetu a zkuste to znovu.",
+        "timeout": "Server odpovídá příliš dlouho. Zkuste to prosím o chvíli později.",
+        "validation": "Nepodařilo se zpracovat údaje z formuláře. Zkontrolujte zadané informace a zkuste to znovu.",
+        "upload": "Nepodařilo se nahrát soubory. Zkuste to prosím znovu.",
+        "serviceUnavailable": "Služba je dočasně nedostupná. Zkuste to později nebo nám napište na Telegram.",
+        "server": "Na serveru došlo k chybě. Zkuste to později nebo nám napište na Telegram.",
+        "partial": "Vaše žádost se už mohla odeslat jen částečně. Neodesílejte ji hned znovu. Napište nám na Telegram a pomůžeme vám registraci dokončit.",
+        "unknown": "Formulář se nepodařilo odeslat. Zkuste to prosím znovu."
+      },
+      "alert": {
+        "required": "Vyplňte prosím všechna pole formuláře.",
+        "consent": "Prosím udělte souhlas se zpracováním osobních údajů.",
+        "submit": "Formulář se nepodařilo odeslat. Zkuste to prosím znovu."
+      }
+    },
+    "success": {
+      "title": "Děkujeme, úspěšně jste dokončili registraci v naší flotile!",
+      "step": {
+        "label": "Další krok :",
+        "description": "prosíme seznamte se s výukovými materiály ve formě prezentací.",
+        "subtitle": "Pokud budete mít další otázky, neváhejte se ozvat – rádi pomůžeme!"
+      },
+      "cta": "Zobrazit výukové materiály",
+      "instructions": {
+        "heading": "Váš účet se právě zpracovává — během dne vás budeme kontaktovat.",
+        "bolt": [
+          "Stáhněte si aplikaci Bolt Food Courier"
+        ]
+      },
+      "password-note": "Prosíme, neměňte heslo, abychom vám v případě potíží mohli vstoupit do účtu a rychle pomoci."
+    },
+    "select-platform-title": "Vyberte platformu",
+    "bolt-select": {
+      "button": "Pokračovat s Bolt",
+      "platform-features": [
+        "· Volný rozvrh",
+        "· Výplaty jednou týdně",
+        "· Příjem závisí na objednávkách",
+        "· Vlastní nebo pronajatá doprava"
+      ],
+      "platform-details": [
+        "· Provize flotily 10%",
+        "· Dostupné po celé ČR"
+      ],
+      "indent": "Maximální provize 1000 Kč týdně"
+    }
+  }
+}
