@@ -445,8 +445,8 @@ function fileFormat(document: CourierDocument) {
             </div>
             <div class="platform-status-panel">
               <span
-                class="status"
-                :class="platform.status === 'active' ? 'status-ok' : 'status-warn'"
+                class="status courier-status"
+                :class="`courier-status-${platform.status}`"
               >
                 {{ statusLabels[platform.status] }}
               </span>

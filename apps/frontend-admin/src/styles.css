@@ -790,7 +790,7 @@ h3 {
   width: 10%;
 }
 
-.col-platform {
+.col-courier-status {
   width: 14%;
 }
 
@@ -992,6 +992,34 @@ h3 {
 
 .status-warn::before {
   background: color-mix(in oklch, var(--fg) 48%, var(--surface));
+}
+
+.courier-status-pending {
+  border-color: #fde047;
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.courier-status-active {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.courier-status-inactive {
+  border-color: #fca5a5;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.courier-status-problem {
+  border-color: #f9a8d4;
+  background: #fce7f3;
+  color: #9d174d;
+}
+
+.courier-status::before {
+  background: currentColor;
 }
 
 .table-action {
@@ -2038,7 +2066,7 @@ h3 {
     width: 22%;
   }
 
-  .col-platform {
+  .col-courier-status {
     width: 16%;
   }
 

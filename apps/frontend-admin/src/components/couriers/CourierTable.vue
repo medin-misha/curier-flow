@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { COURIER_BULK_LIMIT, type Courier } from '../../types/courier'
+import { COURIER_BULK_LIMIT, type Courier, type PlatformStatus } from '../../types/courier'
 
 defineProps<{
   couriers: Courier[]
@@ -11,6 +11,13 @@ const emit = defineEmits<{
   select: [courier: Courier, event: Event]
   toggle: [courier: Courier]
 }>()
+
+const statusLabels: Record<PlatformStatus, string> = {
+  pending: 'Ожидает',
+  active: 'Активен',
+  inactive: 'Неактивен',
+  problem: 'Проблема',
+}
 
 function selectCourier(courier: Courier, event: Event) {
   emit('select', courier, event)
@@ -25,7 +32,7 @@ function selectCourier(courier: Courier, event: Event) {
           <th class="col-courier">Курьер</th>
           <th class="col-contact">Контакты</th>
           <th class="col-city">Город</th>
-          <th class="col-platform">Платформы</th>
+          <th class="col-courier-status">Статус</th>
           <th class="col-docs">Документы</th>
           <th class="col-consent">Согласие</th>
           <th class="col-updated">Обновлено</th>
@@ -69,10 +76,17 @@ function selectCourier(courier: Courier, event: Event) {
             </div>
           </td>
           <td class="city-cell" data-label="Город">{{ courier.city || '—' }}</td>
-          <td data-label="Платформы">
+          <td data-label="Статус">
             <div v-if="courier.platforms.length" class="tag-list">
-              <span v-for="platform in courier.platforms" :key="platform.name" class="tag">
-                {{ platform.name }}
+              <span
+                v-for="platform in courier.platforms"
+                :key="platform.id"
+                class="status courier-status"
+                :class="`courier-status-${platform.status}`"
+                :title="platform.name"
+                :aria-label="`${platform.name}: ${statusLabels[platform.status]}`"
+              >
+                {{ statusLabels[platform.status] }}
               </span>
             </div>
             <span v-else class="meta">Не подключены</span>
