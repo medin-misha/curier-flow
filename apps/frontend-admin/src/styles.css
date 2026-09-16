@@ -669,6 +669,73 @@ h3 {
   overflow: hidden;
 }
 
+.courier-bulk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.courier-page-selection,
+.courier-select-cell,
+.courier-bulk-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.courier-page-selection {
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.courier-bulk-buttons {
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.courier-selection-note {
+  flex-basis: 100%;
+}
+
+.courier-checkbox {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.courier-checkbox:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.courier-select-cell .person {
+  min-width: 0;
+}
+
+.ds-table tbody tr.courier-row-selected {
+  background: var(--accent-soft);
+}
+
+.courier-bulk-list {
+  max-height: 180px;
+  overflow-y: auto;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+}
+
+.courier-bulk-list li + li {
+  margin-top: 6px;
+}
+
+[data-od-id='courier-bulk-dialog'] .form-grid {
+  margin-top: 16px;
+}
+
 .ds-table {
   width: 100%;
   border-collapse: collapse;

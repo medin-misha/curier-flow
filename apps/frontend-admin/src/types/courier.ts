@@ -1,5 +1,22 @@
 export type DeliveryPlatform = 'bolt_food' | 'foodora' | 'wolt'
 export type PlatformStatus = 'pending' | 'active' | 'inactive'
+export const COURIER_BULK_LIMIT = 100
+export type CourierBulkAction = 'delete' | 'status'
+
+export interface CourierBulkStatusInput {
+  platform: DeliveryPlatform
+  status: PlatformStatus
+}
+
+export interface CourierBulkDeleteResult {
+  deletedCount: number
+}
+
+export interface CourierBulkStatusResult {
+  updatedCount: number
+  unchangedCount: number
+}
+
 export type DocumentReviewStatus = 'ready' | 'processing' | 'rejected'
 export type DocumentType =
   | 'passport'

@@ -11,8 +11,11 @@ import {
 } from '../../api/couriers'
 import { apiErrorMessage } from '../../api/client'
 import { getFileDownloadUrl, getFilePreviewUrl } from '../../api/files'
+import { useCourierBulkActions } from '../../composables/useCourierBulkActions'
 import type {
   Courier,
+  CourierBulkAction,
+  CourierBulkStatusInput,
   CourierCreateInput,
   CourierDocument,
   CourierDocumentCreateInput,
@@ -23,6 +26,7 @@ import type {
   PlatformStatus,
 } from '../../types/courier'
 import AppToast from '../ui/AppToast.vue'
+import CourierBulkModal from './CourierBulkModal.vue'
 import CourierCreateModal from './CourierCreateModal.vue'
 import CourierDeleteModal from './CourierDeleteModal.vue'
 import CourierDetailsModal from './CourierDetailsModal.vue'
@@ -30,6 +34,13 @@ import CourierEditModal from './CourierEditModal.vue'
 import CourierRegistry from './CourierRegistry.vue'
 
 const PAGE_SIZE = 5
+
+const emit = defineEmits<{ busyChange: [busy: boolean] }>()
+const bulk = useCourierBulkActions()
+const bulkAction = ref<CourierBulkAction | null>(null)
+const bulkRefreshing = ref(false)
+const bulkBusy = computed(() => bulk.busy.value || bulkRefreshing.value)
+watch(bulkBusy, (busy) => emit('busyChange', busy))
 
 const couriers = ref<Courier[]>([])
 const searchQuery = ref('')
@@ -85,10 +96,14 @@ const paginationSummary = computed(
   () => `Страница ${currentPage.value} · записей ${couriers.value.length}`,
 )
 
-watch([createOpen, editOpen, deleteOpen, selectedCourier], () => {
+watch([createOpen, editOpen, deleteOpen, selectedCourier, bulkAction], () => {
   document.body.classList.toggle(
     'modal-open',
-    createOpen.value || editOpen.value || deleteOpen.value || Boolean(selectedCourier.value),
+    createOpen.value ||
+      editOpen.value ||
+      deleteOpen.value ||
+      Boolean(selectedCourier.value) ||
+      Boolean(bulkAction.value),
   )
 })
 
@@ -100,7 +115,10 @@ function rememberFocus(trigger?: EventTarget | null) {
 }
 
 function restoreFocus() {
-  void nextTick(() => lastFocused.value?.focus())
+  void nextTick(() => {
+    if (lastFocused.value?.isConnected) lastFocused.value.focus()
+    else document.querySelector<HTMLElement>('[data-od-id="courier-bulk-toolbar"] input')?.focus()
+  })
 }
 
 function showToast(title: string, message: string) {
@@ -130,6 +148,7 @@ async function loadPage(page: number) {
     })
     if (sequence !== loadSequence) return
     couriers.value = result.items
+    bulk.sync(result.items)
     nextCursor.value = result.nextCursor
   } catch (error) {
     if (sequence !== loadSequence) return
@@ -140,6 +159,8 @@ async function loadPage(page: number) {
 }
 
 async function search() {
+  if (bulkBusy.value || bulkAction.value) return
+  bulk.clearSelection()
   appliedQuery.value = searchQuery.value.trim()
   appliedStatus.value = statusFilter.value
   cursors.value = [null]
@@ -149,7 +170,7 @@ async function search() {
 }
 
 async function pageTo(page: number) {
-  if (page < 1) return
+  if (page < 1 || loading.value || bulkBusy.value || bulkAction.value) return
   if (page === currentPage.value + 1) {
     if (!nextCursor.value) return
     cursors.value[page - 1] = nextCursor.value
@@ -158,6 +179,7 @@ async function pageTo(page: number) {
 }
 
 function openCreate(event: MouseEvent) {
+  if (bulkBusy.value || bulkAction.value) return
   rememberFocus(event.currentTarget)
   selectedCourier.value = null
   createError.value = ''
@@ -229,6 +251,7 @@ async function submitCreate(input: CourierCreateInput) {
   try {
     const created = await createCourier(input)
     createOpen.value = false
+    bulk.clearSelection()
     searchQuery.value = ''
     statusFilter.value = ''
     appliedQuery.value = ''
@@ -245,6 +268,7 @@ async function submitCreate(input: CourierCreateInput) {
 }
 
 async function openDetails(courier: Courier, event: Event) {
+  if (loading.value || bulkBusy.value || bulkAction.value) return
   rememberFocus(event.currentTarget)
   resetDocumentPreviews()
   selectedCourier.value = courier
@@ -252,6 +276,7 @@ async function openDetails(courier: Courier, event: Event) {
     const fresh = await getCourier(courier.id)
     if (selectedCourier.value?.id === fresh.id) {
       selectedCourier.value = fresh
+      bulk.sync([fresh])
       const index = couriers.value.findIndex((item) => item.id === fresh.id)
       if (index >= 0) couriers.value[index] = fresh
       void loadDocumentPreviews(fresh)
@@ -365,6 +390,7 @@ async function updatePlatformStatus(platform: CourierPlatform, status: PlatformS
 
     const index = couriers.value.findIndex((courier) => courier.id === courierId)
     if (index >= 0) couriers.value[index] = withUpdatedPlatform(couriers.value[index], updated)
+    bulk.sync(couriers.value)
 
     showToast(
       'Статус платформы изменён',
@@ -404,6 +430,7 @@ async function submitEdit(input: CourierUpdateInput) {
     selectedCourier.value = updated
     const index = couriers.value.findIndex((courier) => courier.id === updated.id)
     if (index >= 0) couriers.value[index] = updated
+    bulk.sync([updated])
     editOpen.value = false
     editField.value = null
     showToast('Изменения сохранены', `Профиль ${updated.fullName} обновлён.`)
@@ -430,8 +457,10 @@ async function confirmDelete() {
   deleting.value = true
   deleteError.value = ''
   const deletedName = selectedCourier.value.fullName
+  const deletedId = selectedCourier.value.id
   try {
-    await deleteCourier(selectedCourier.value.id)
+    await deleteCourier(deletedId)
+    bulk.forget(deletedId)
     deleteOpen.value = false
     selectedCourier.value = null
     resetDocumentPreviews()
@@ -447,11 +476,67 @@ async function confirmDelete() {
   }
 }
 
+function toggleSelection(courier: Courier) {
+  if (loading.value || bulkBusy.value || bulkAction.value) return
+  bulk.toggle(courier)
+}
+
+function togglePageSelection() {
+  if (loading.value || bulkBusy.value || bulkAction.value) return
+  bulk.togglePage(couriers.value)
+}
+
+function openBulk(action: CourierBulkAction, event: MouseEvent) {
+  if (loading.value || bulkBusy.value || !bulk.selected.value.length) return
+  rememberFocus(event.currentTarget)
+  bulk.error.value = ''
+  bulkAction.value = action
+}
+
+function closeBulk() {
+  if (bulkBusy.value) return
+  bulkAction.value = null
+  restoreFocus()
+}
+
+async function finishBulk(title: string, message: string) {
+  bulkRefreshing.value = true
+  bulkAction.value = null
+  couriers.value = []
+  cursors.value = [null]
+  nextCursor.value = null
+  try {
+    await loadPage(1)
+    showToast(title, message)
+    restoreFocus()
+  } finally {
+    bulkRefreshing.value = false
+  }
+}
+
+async function confirmBulkDelete() {
+  if (bulkAction.value !== 'delete' || bulkBusy.value) return
+  const result = await bulk.remove()
+  if (result) await finishBulk('Курьеры удалены', `Удалено профилей: ${result.deletedCount}.`)
+}
+
+async function confirmBulkStatus(input: CourierBulkStatusInput) {
+  if (bulkAction.value !== 'status' || bulkBusy.value) return
+  const result = await bulk.updateStatus(input)
+  if (result) {
+    await finishBulk(
+      'Статусы платформы обновлены',
+      `Изменено: ${result.updatedCount}. Уже имели нужный статус: ${result.unchangedCount}.`,
+    )
+  }
+}
+
 onMounted(() => {
   void loadPage(1)
 })
 
 onBeforeUnmount(() => {
+  emit('busyChange', false)
   document.body.classList.remove('modal-open')
   revokePreviewUrls(previewUrls.value)
   if (toastTimer) clearTimeout(toastTimer)
@@ -470,14 +555,31 @@ onBeforeUnmount(() => {
       :has-next="Boolean(nextCursor)"
       :loading="loading"
       :error="loadError"
+      :selected-ids="bulk.selectedIds.value"
+      :bulk-busy="bulkBusy"
       @create="openCreate"
       @select="openDetails"
       @page="pageTo"
       @retry="loadPage(currentPage)"
       @search="search"
+      @toggle="toggleSelection"
+      @toggle-page="togglePageSelection"
+      @clear-selection="bulk.clearSelection"
+      @bulk="openBulk"
     />
   </main>
 
+  <CourierBulkModal
+    v-if="bulkAction"
+    :action="bulkAction"
+    :couriers="bulk.selected.value"
+    :busy="bulkBusy"
+    :error="bulk.error.value"
+    @close="closeBulk"
+    @delete="confirmBulkDelete"
+    @status="confirmBulkStatus"
+    @clear-error="bulk.error.value = ''"
+  />
   <CourierCreateModal
     v-if="createOpen"
     :saving="creating"

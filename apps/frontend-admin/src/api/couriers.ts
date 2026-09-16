@@ -1,5 +1,8 @@
 import type {
   Courier,
+  CourierBulkDeleteResult,
+  CourierBulkStatusInput,
+  CourierBulkStatusResult,
   CourierCreateInput,
   CourierDocument,
   CourierDocumentCreateInput,
@@ -12,7 +15,7 @@ import type {
   FileStatus,
   PlatformStatus,
 } from '../types/courier'
-import { apiRequest, jsonBody } from './client'
+import { ApiError, apiErrorMessage, apiRequest, jsonBody } from './client'
 
 interface FileResponse {
   id: string
@@ -278,4 +281,73 @@ export function deleteCourier(courierId: string) {
   return apiRequest<void>(`/courier/${courierId}`, {
     method: 'DELETE',
   })
+}
+
+function bulkBody(payload: unknown, idempotencyKey: string) {
+  const body = jsonBody(payload)
+  const headers = new Headers(body.headers)
+  headers.set('Idempotency-Key', idempotencyKey)
+  return { ...body, headers }
+}
+
+export async function bulkDeleteCouriers(
+  courierIds: string[],
+  idempotencyKey: string,
+): Promise<CourierBulkDeleteResult> {
+  const response = await apiRequest<{ deleted_count: number }>('/courier/bulk-delete', {
+    method: 'POST',
+    ...bulkBody({ courier_ids: courierIds }, idempotencyKey),
+  })
+  return { deletedCount: response.deleted_count }
+}
+
+export async function bulkUpdateCourierStatus(
+  courierIds: string[],
+  input: CourierBulkStatusInput,
+  idempotencyKey: string,
+): Promise<CourierBulkStatusResult> {
+  const response = await apiRequest<{ updated_count: number; unchanged_count: number }>(
+    '/courier/bulk-status',
+    {
+      method: 'PATCH',
+      ...bulkBody(
+        { courier_ids: courierIds, platform: input.platform, status: input.status },
+        idempotencyKey,
+      ),
+    },
+  )
+  return { updatedCount: response.updated_count, unchangedCount: response.unchanged_count }
+}
+
+export function courierBulkErrorMessage(error: unknown, couriers: Courier[]) {
+  const fallback = 'Не удалось получить результат операции. Повторите запрос с теми же параметрами.'
+  if (!(error instanceof ApiError)) return fallback
+
+  const problem = error.problem
+  const ids = problem?.courier_ids ?? (problem?.courier_id ? [problem.courier_id] : [])
+  const names = ids.map((id) => couriers.find((courier) => courier.id === id)?.fullName ?? id)
+  const affected = names.length ? ` Курьеры: ${names.join(', ')}.` : ''
+
+  if (error.status === 404) {
+    return `Некоторые курьеры больше не существуют. Обновите реестр и выбор.${affected} Операция отменена для всей выборки.`
+  }
+  if (problem?.reason === 'platform-account-missing') {
+    return `У некоторых курьеров нет регистрации на выбранной платформе.${affected} Статусы всей выборки остались прежними.`
+  }
+  if (problem?.reason === 'signed-contract-protects-rental') {
+    return `Удаление запрещено: в истории аренды есть подписанный договор.${affected} Ни один курьер не удалён.`
+  }
+  if (problem?.reason === 'payload-mismatch') {
+    return 'Этот ключ уже использован с другими параметрами. Закройте форму и сформируйте операцию заново.'
+  }
+  if (problem?.reason === 'in-flight' || problem?.reason === 'in-progress') {
+    return 'Операция ещё выполняется. Повторите запрос через несколько секунд.'
+  }
+  if (error.status === 401 || error.status === 403) {
+    return 'Для этой операции требуется действующая сессия администратора.'
+  }
+  if (error.status === 422) {
+    return 'Выберите от 1 до 100 разных курьеров и проверьте платформу и статус.'
+  }
+  return apiErrorMessage(error, fallback)
 }

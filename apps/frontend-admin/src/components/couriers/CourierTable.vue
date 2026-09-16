@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import type { Courier } from '../../types/courier'
+import { COURIER_BULK_LIMIT, type Courier } from '../../types/courier'
 
 defineProps<{
   couriers: Courier[]
+  selectedIds: string[]
+  disabled: boolean
 }>()
 
 const emit = defineEmits<{
   select: [courier: Courier, event: Event]
+  toggle: [courier: Courier]
 }>()
 
 function selectCourier(courier: Courier, event: Event) {
@@ -34,17 +37,29 @@ function selectCourier(courier: Courier, event: Event) {
           v-for="courier in couriers"
           :key="courier.id"
           class="clickable-row"
-          tabindex="0"
+          :class="{ 'courier-row-selected': selectedIds.includes(courier.id) }"
+          :tabindex="disabled ? -1 : 0"
           :aria-label="`Открыть профиль ${courier.fullName}`"
           :data-od-id="`courier-row-${courier.id}`"
-          @click="selectCourier(courier, $event)"
-          @keydown.enter="selectCourier(courier, $event)"
-          @keydown.space.prevent="selectCourier(courier, $event)"
+          @click="!disabled && selectCourier(courier, $event)"
+          @keydown.enter.self="!disabled && selectCourier(courier, $event)"
+          @keydown.space.self.prevent="!disabled && selectCourier(courier, $event)"
         >
           <td data-label="Курьер">
-            <div class="person">
-              <strong>{{ courier.fullName }}</strong>
-              <span class="num">ID {{ courier.id }}</span>
+            <div class="courier-select-cell">
+              <input
+                class="courier-checkbox"
+                type="checkbox"
+                :aria-label="`Выбрать курьера ${courier.fullName}`"
+                :checked="selectedIds.includes(courier.id)"
+                :disabled="disabled || (!selectedIds.includes(courier.id) && selectedIds.length >= COURIER_BULK_LIMIT)"
+                @click.stop
+                @change="$emit('toggle', courier)"
+              />
+              <div class="person">
+                <strong>{{ courier.fullName }}</strong>
+                <span class="num">ID {{ courier.id }}</span>
+              </div>
             </div>
           </td>
           <td data-label="Контакты">
@@ -80,6 +95,7 @@ function selectCourier(courier: Courier, event: Event) {
             <button
               class="table-action"
               type="button"
+              :disabled="disabled"
               :aria-label="`Открыть профиль ${courier.fullName}`"
               @click.stop="selectCourier(courier, $event)"
             >

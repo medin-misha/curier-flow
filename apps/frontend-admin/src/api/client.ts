@@ -7,6 +7,9 @@ export interface ApiProblem {
   request_id?: string
   reason?: string
   field?: string
+  courier_id?: string
+  courier_ids?: string[]
+  platform?: string
   errors?: Array<{
     loc: Array<string | number>
     msg: string

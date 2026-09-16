@@ -14,6 +14,7 @@ const auth = useAuthSession()
 const activeTab = ref<'couriers' | 'bikes' | 'finance' | 'documents' | 'admins'>('couriers')
 const financeBusy = ref(false)
 const documentsBusy = ref(false)
+const couriersBusy = ref(false)
 
 onMounted(auth.initialize)
 onBeforeUnmount(auth.dispose)
@@ -31,12 +32,12 @@ onBeforeUnmount(auth.dispose)
     <AdminHeader
       :admin="auth.admin.value"
       :logging-out="auth.busy.value"
-      :navigation-locked="financeBusy || documentsBusy"
+      :navigation-locked="financeBusy || documentsBusy || couriersBusy"
       :active-tab="activeTab"
       @logout="auth.logout"
       @select-tab="activeTab = $event"
     />
-    <CourierAdmin v-if="activeTab === 'couriers'" />
+    <CourierAdmin v-if="activeTab === 'couriers'" @busy-change="couriersBusy = $event" />
     <BikesAdmin v-else-if="activeTab === 'bikes'" />
     <FinanceAdmin v-else-if="activeTab === 'finance'" @busy-change="financeBusy = $event" />
     <DocumentsAdmin
