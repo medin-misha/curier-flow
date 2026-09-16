@@ -1,7 +1,7 @@
 # Courier module
 
-Перед работой прочитай корневой `AGENTS.md` и `apps/backend/AGENTS.md`:
-локальный файл дополняет их, но не рассчитывай на автоматическое объединение.
+Применяются [root](../../../../../../AGENTS.md) и [backend](../../../../AGENTS.md)
+правила; читай их, если ещё не загружены.
 
 Модуль владеет aggregate `Courier -> platform_accounts/documents -> File` и
 HTTP-префиксом `/courier`. ORM `File`, S3 primitives и физическая очистка

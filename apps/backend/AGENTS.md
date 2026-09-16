@@ -1,80 +1,48 @@
 # Backend
 
-FastAPI + SQLAlchemy 2.0 async + PostgreSQL. Рабочий каталог локальных команд
-разработки и skills — `apps/backend/`. API, worker, контейнеры и применение
-миграций запускаются только через `../../infra/`.
+FastAPI, SQLAlchemy async, PostgreSQL. Применяются [общие правила](../../AGENTS.md);
+прочитай их, если ещё не загружены. Для существующего модуля читай его AGENTS.
+Команды выполняй из `apps/backend/`; API, worker и контейнеры — через `infra/`.
 
-Перед работой прочитай корневой `../../AGENTS.md`: OpenCode выбирает этот файл
-как ближайший, но не объединяет его с родительским. Для общей backend-задачи
-используй `apps/backend/` как рабочий каталог, для существующего модуля —
-`apps/backend/src/app/modules/<name>/`; во втором случае прочитай также
-локальный `AGENTS.md`. Skills от модуля до корня обнаруживаются автоматически.
+## Проверка
 
-## Команды
+`make install` — зависимости и хуки; `make check` — формат, lint, типы и
+импорты; `make test` — pytest/testcontainers (нужен Docker, kernel coverage ≥85%).
+Миграция: `make revision m="..."`; применение: `make -C ../../infra migrate`.
+Перед backend-коммитом используй `pre-commit`; уже успешные проверки актуального
+состояния повторять не нужно.
 
-| Команда | Что делает |
+## Инварианты
+
+- Слои `api → modules → platform → kernel`; бизнес-модули не импортируют
+  друг друга, общаются событиями. Состав — `modules/__init__.py::MODULES`.
+- HTTP только разбирает запрос/ответ; бизнес-логика и CRUD — в services.
+- Запись: `Depends(get_uow, scope="function")`; чтение: `get_ro_session`.
+  `session.commit()` в модулях запрещён; внешний I/O внутри транзакции запрещён.
+- Ошибки: `AppError` → RFC 9457, не `HTTPException` из бизнес-кода.
+- Пагинация: keyset `(created_at DESC, id DESC)` с соответствующим индексом.
+- Settings через pydantic-settings; новый параметр — также в `.env.example`
+  с тем же default. Изменение схемы — только миграцией.
+- TaskIQ — наша работа, RabbitMQ — внешний обмен; оба только в `worker.py`.
+
+## Контекст по задаче
+
+Из `.agents/rules/` читай только нужные файлы:
+
+| Изменение | Правило |
 | --- | --- |
-| `make install` | зависимости и git-хуки |
-| `make check` | формат, ruff, mypy, import-linter |
-| `make test` | pytest с testcontainers и покрытием kernel ≥ 85% |
-| `make revision m="..."` | autogenerate миграции |
-| `make -C ../../infra migrate` | применить миграции в окружении стека |
-| `make -C ../../infra help` | команды управления стеком |
+| Импорты, registry, entrypoint | `layers.md` |
+| Структура модуля, handlers/services | `module-layout.md` |
+| Запись, Uow/RoSession, внешний I/O | `transactions.md` |
+| emit/after_commit, подписчик | `events.md` |
+| TaskIQ, consumer, worker | `background-work.md` |
+| Ошибки | `errors.md` |
+| Список, cursor, индекс | `pagination.md` |
+| Settings, env | `settings.md` |
+| Модель, Alembic | `migrations.md` |
+| Пишущая ручка, replay | `idempotency.md` |
+| kernel/platform | `kernel-and-platform.md` |
 
-Перед backend-коммитом обязателен skill `pre-commit`; тестам нужен Docker.
-
-## Неподвижные инварианты
-
-- Слои: `api → modules → platform → kernel`; бизнес-модули не импортируют
-  друг друга и общаются доменными событиями.
-- Состав сервиса задаёт только `src/app/modules/__init__.py::MODULES`.
-- HTTP-ручка разбирает запрос и собирает ответ; бизнес-логика и `CRUD` живут
-  в `services.py`.
-- Пишущая ручка использует `Depends(get_uow, scope="function")`, читающая —
-  `get_ro_session`; `session.commit()` в модуле запрещён.
-- В открытой транзакции нет S3, HTTP, RabbitMQ и `kiq()`.
-- Наружу выходят ошибки RFC 9457; бизнес-код поднимает `AppError`, не
-  `HTTPException`.
-- Пагинация только keyset по `(created_at DESC, id DESC)` и с совпадающим
-  индексом.
-- Окружение читается через pydantic-settings; новая настройка одновременно
-  появляется в `.env.example` с тем же дефолтом.
-- Схема БД меняется только миграцией.
-- TaskIQ выполняет нашу фоновую работу, RabbitMQ напрямую — обмен с внешними
-  сервисами; оба механизма живут только в `worker.py`.
-
-## Контекст по изменению
-
-Подробные правила лежат в `.agents/rules/`. Читай только строки, относящиеся к
-реальному изменению:
-
-| Правило | Когда читать |
-| --- | --- |
-| `layers.md` | меняются импорты, границы слоёв, registry или entrypoint |
-| `module-layout.md` | создаётся модуль или меняется ответственность handlers/services/module |
-| `transactions.md` | меняются Uow/RoSession, сервис с записью или внешний I/O |
-| `events.md` | `emit`, `after_commit`, `events.py` или `subscribers.py` |
-| `background-work.md` | `tasks.py`, `consumers.py`, worker, TaskIQ или RabbitMQ |
-| `errors.md` | меняются ошибки, error handlers или публичный контракт отказа |
-| `pagination.md` | list-ручка, `list_page`, cursor или keyset-индекс |
-| `settings.md` | Settings-класс, config или `.env.example` |
-| `migrations.md` | модель, индекс, ограничение или Alembic |
-| `idempotency.md` | записывающая ручка, `@idempotent`, повтор сообщения |
-| `kernel-and-platform.md` | любой код в `kernel/` или `platform/` |
-
-## Skills
-
-Backend skills находятся в `.agents/skills/` и доступны при запуске из
-`apps/backend` или глубже:
-
-| Skill | Когда |
-| --- | --- |
-| `admin-auth` | Admin/JWT, login/refresh/logout, bootstrap и точечная защита ручек |
-| `new-module` | новый бизнес-модуль целиком |
-| `background-effect` | событие, уведомление, задача, расписание, чужая очередь |
-| `db-migration` | изменение схемы существующего модуля |
-| `pre-commit` | проверка перед backend-коммитом |
-
-У существующего модуля обязательно есть собственный `AGENTS.md`. Не используй
-`new-module` для его изменения: выбери каталог модуля рабочим и следуй его
-`AGENTS.md` и указанным там skills.
+Skills в `.agents/skills/`: `admin-auth` — JWT/защита ручек;
+`background-effect` — выбор фонового эффекта; `db-migration` — схема БД;
+`new-module` — только новый модуль; `pre-commit` — проверка перед коммитом.
