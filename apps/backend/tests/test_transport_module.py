@@ -10,11 +10,13 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.routing import APIRoute
 from httpx import AsyncClient
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import delete, event, func, select, text, update
+from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
 from app.kernel.db import session as session_module
 from app.kernel.idempotency import IdempotencyKey, is_idempotent
+from app.kernel.pagination import PageParams
 from app.kernel.security.authentication import is_authenticated
 from app.kernel.security.tokens import issue_tokens, jwt_settings
 from app.modules.courier_module.models import (
@@ -28,12 +30,16 @@ from app.modules.courier_module.models import (
 )
 from app.modules.courier_module.module import courier_module
 from app.modules.storage.module import storage_module
+from app.modules.transport_module.events import CourierProfileChanged
 from app.modules.transport_module.models import (
     CourierTransport,
     Transport,
     TransportComponent,
+    TransportCourierProfile,
 )
 from app.modules.transport_module.module import transport_module
+from app.modules.transport_module.services import list_transports
+from app.modules.transport_module.subscribers import sync_courier_profile
 from app.platform.files import File, FileStatus
 from tests.asgi import app_client, build_app
 
@@ -60,6 +66,7 @@ async def _clear_transport_data() -> None:
             )
         )
         await session.execute(delete(Courier))
+        await session.execute(delete(TransportCourierProfile))
         await session.execute(delete(File))
 
 
@@ -172,6 +179,136 @@ async def create_rental(
         json=body,
         headers=idempotency_headers(),
     )
+
+
+async def test_last_renter_uses_rental_period_and_survives_return(client: AsyncClient) -> None:
+    """История задним числом не вытесняет последнего арендатора в списке и карточке."""
+    transport = await create_transport(client)
+    empty = await create_transport(client, serial_number="never-rented")
+    assert transport["last_rental"] is None
+    assert empty["last_rental"] is None
+    current_courier = await create_courier(suffix="current-renter")
+    older_courier = await create_courier(suffix="older-renter")
+    now = datetime.now(tz=UTC)
+    active = (
+        await create_rental(
+            client, transport["id"], current_courier, started_at=now - timedelta(days=2)
+        )
+    ).json()
+    historical = await create_rental(
+        client,
+        transport["id"],
+        older_courier,
+        started_at=now - timedelta(days=10),
+        ended_at=now - timedelta(days=5),
+    )
+    assert historical.status_code == HTTPStatus.CREATED
+    pending = (await client.get(f"/transport/{transport['id']}")).json()
+    assert pending["last_rental"]["id"] == active["id"]
+    assert pending["last_rental"]["courier"] == {
+        "id": str(current_courier),
+        "full_name": None,
+        "phone": None,
+    }
+    async with session_module.session_factory() as session, session.begin():
+        await sync_courier_profile(
+            CourierProfileChanged(
+                courier_id=current_courier,
+                full_name="Jan Novák",
+                phone="+420777111222",
+                changed_at=now,
+            ),
+            session,
+        )
+
+    items: list[dict[str, Any]] = []
+    cursor = None
+    while True:
+        params: dict[str, Any] = {"limit": 1}
+        if cursor is not None:
+            params["cursor"] = cursor
+        page = (await client.get("/transport", params=params)).json()
+        items.extend(page["items"])
+        cursor = page["next_cursor"]
+        if cursor is None:
+            break
+    assert len(items) == 2
+    assert {item["id"] for item in items} == {transport["id"], empty["id"]}
+    assert next(item for item in items if item["id"] == empty["id"])["last_rental"] is None
+    latest = next(item for item in items if item["id"] == transport["id"])["last_rental"]
+    assert latest == {
+        "id": active["id"],
+        "courier": {"id": str(current_courier), "full_name": "Jan Novák", "phone": "+420777111222"},
+        "started_at": active["started_at"],
+        "ended_at": None,
+        "is_active": True,
+    }
+    patched = await client.patch(f"/transport/{transport['id']}", json={"color": "Blue"})
+    assert patched.json()["last_rental"] == latest
+    closed = await client.post(
+        f"/transport/{transport['id']}/rentals/{active['id']}/close",
+        json={"ended_at": (now - timedelta(days=1)).isoformat()},
+        headers=idempotency_headers(),
+    )
+    assert closed.status_code == HTTPStatus.OK
+    latest.update(ended_at=closed.json()["ended_at"], is_active=False)
+    detail = (await client.get(f"/transport/{transport['id']}")).json()
+    assert detail["last_rental"] == latest
+    assert detail["active_rental"] is None
+    available = (await client.get("/transport", params={"is_available": True})).json()["items"]
+    assert (
+        next(item for item in available if item["id"] == transport["id"])["last_rental"] == latest
+    )
+    filtered = (await client.get("/transport", params={"courier_id": str(current_courier)})).json()
+    assert filtered["items"] == []
+    next_rental = await create_rental(
+        client, transport["id"], older_courier, started_at=now - timedelta(hours=1)
+    )
+    assert next_rental.status_code == HTTPStatus.CREATED
+    assert (await client.get(f"/transport/{transport['id']}")).json()["last_rental"][
+        "id"
+    ] == next_rental.json()["id"]
+
+
+async def test_last_renter_query_count_does_not_grow_with_page(client: AsyncClient) -> None:
+    """Количество запросов не зависит от количества транспорта и арендаторов."""
+    for number in range(4):
+        transport = await create_transport(client, serial_number=f"query-count-{number}")
+        courier = await create_courier()
+        response = await create_rental(
+            client,
+            transport["id"],
+            courier,
+            started_at=datetime.now(tz=UTC) - timedelta(days=1),
+        )
+        assert response.status_code == HTTPStatus.CREATED
+    statements: list[str] = []
+
+    def record_query(
+        _conn: Connection,
+        _cursor: Any,
+        statement: str,
+        _parameters: Any,
+        _context: Any,
+        _executemany: bool,
+    ) -> None:
+        statements.append(statement)
+
+    engine = session_module.engine.sync_engine
+    event.listen(engine, "before_cursor_execute", record_query)
+    try:
+        async with session_module.session_factory() as session:
+            await list_transports(PageParams(limit=1), session=session)
+        first_count = len(statements)
+        statements.clear()
+        async with session_module.session_factory() as session:
+            page = await list_transports(PageParams(limit=4), session=session)
+        assert len(page.items) == 4
+        assert all(item.last_rental is not None for item in page.items)
+        assert len(statements) == first_count
+        assert len(statements) <= 5
+    finally:
+        event.remove(engine, "before_cursor_execute", record_query)
 
 
 async def test_every_transport_endpoint_requires_admin_jwt(client: AsyncClient) -> None:

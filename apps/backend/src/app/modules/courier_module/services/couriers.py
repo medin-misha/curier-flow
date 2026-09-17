@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select, tuple_, update
+from sqlalchemy import func, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -16,7 +16,11 @@ from app.kernel.db.crud import CRUD
 from app.kernel.errors import Conflict, NotFound, ValidationFailed
 from app.kernel.events.bus import emit
 from app.kernel.pagination import Page, PageParams, decode_cursor, encode_cursor
-from app.modules.courier_module.events import CourierRegistered
+from app.modules.courier_module.events import (
+    CourierDeleted,
+    CourierProfileChanged,
+    CourierRegistered,
+)
 from app.modules.courier_module.models import (
     Courier,
     CourierDocument,
@@ -196,7 +200,15 @@ async def patch_courier(
     session: AsyncSession,
 ) -> Courier:
     """Нормализовать natural keys, применить PATCH и consent transitions."""
-    courier = await CRUD.get_or_404(Courier, courier_id, session)
+    courier = await session.scalar(
+        select(Courier)
+        .where(Courier.id == courier_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if courier is None:
+        raise NotFound("Courier not found", resource=Courier.__name__, pk=str(courier_id))
+    previous_contact = (courier.full_name, courier.phone)
     updates: dict[str, object] = {}
     if "email" in patch.model_fields_set:
         updates["email"] = normalize_email(cast(str, patch.email))
@@ -214,6 +226,8 @@ async def patch_courier(
         await CRUD.update(courier, normalized, session)
     except IntegrityError as error:
         raise_known_integrity(error)
+    if previous_contact != (courier.full_name, courier.phone):
+        await _emit_profile_changed(courier.id, courier.full_name, courier.phone, session=session)
     return await get_courier(courier_id, session=session)
 
 
@@ -238,6 +252,13 @@ async def delete_courier(courier_id: UUID, *, session: AsyncSession) -> None:
         await session.flush()
     except IntegrityError as error:
         raise_known_integrity(error)
+    emit(
+        session,
+        CourierDeleted(
+            courier_id=courier_id,
+            changed_at=cast(datetime, await session.scalar(select(func.clock_timestamp()))),
+        ),
+    )
 
 
 async def bulk_delete_couriers(courier_ids: Sequence[UUID], *, session: AsyncSession) -> int:
@@ -311,6 +332,7 @@ async def _finalize_new_aggregate(
                 platforms=[account.platform for account in request.platform_accounts],
             ),
         )
+        await _emit_profile_changed(inserted_id, request.full_name, request.phone, session=session)
         staged = await consume_uploaded_staging(session, staging_ids)
         staged_by_id = {row.id: row for row in staged}
         for account in request.platform_accounts:
@@ -335,3 +357,18 @@ async def _finalize_new_aggregate(
             )
         await session.flush()
     return True
+
+
+async def _emit_profile_changed(
+    courier_id: UUID, full_name: str, phone: str, *, session: AsyncSession
+) -> None:
+    """Зафиксировать контакт и время БД после записи под блокировкой строки."""
+    emit(
+        session,
+        CourierProfileChanged(
+            courier_id=courier_id,
+            full_name=full_name,
+            phone=phone,
+            changed_at=cast(datetime, await session.scalar(select(func.clock_timestamp()))),
+        ),
+    )

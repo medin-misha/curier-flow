@@ -54,8 +54,26 @@ class TransportComponentResponse(BaseResponse):
         return format(value, ".2f")
 
 
+class TransportCourierResponse(BaseResponse):
+    """Контакт курьера; до доставки события доступны только его идентификатор."""
+
+    id: UUID
+    full_name: str | None
+    phone: str | None
+
+
+class TransportLastRentalResponse(BaseResponse):
+    """Последняя по началу периода аренда с кратким контактом курьера."""
+
+    id: UUID
+    courier: TransportCourierResponse
+    started_at: datetime
+    ended_at: datetime | None
+    is_active: bool
+
+
 class TransportListItemResponse(BaseResponse):
-    """Транспорт в списке с признаком доступности."""
+    """Транспорт в списке с доступностью и последней арендой."""
 
     id: UUID
     type: str
@@ -67,6 +85,7 @@ class TransportListItemResponse(BaseResponse):
     deposit_amount: Decimal | None
     rental_price: Decimal
     is_available: bool
+    last_rental: TransportLastRentalResponse | None = None
     created_at: datetime
     updated_at: datetime
 

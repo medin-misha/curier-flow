@@ -76,7 +76,7 @@ Filters = Annotated[TransportFilters, Depends()]
 @authenticated
 @idempotent
 async def create(body: TransportCreate, uow: Uow) -> TransportDetailResponse:
-    return TransportDetailResponse.model_validate(await create_transport(body, session=uow))
+    return await create_transport(body, session=uow)
 
 
 @router.get("", summary="List transports")
@@ -86,7 +86,7 @@ async def list_page(
     session: RoSession,
     filters: Filters,
 ) -> Page[TransportListItemResponse]:
-    found = await list_transports(
+    return await list_transports(
         page,
         session=session,
         transport_type=filters.transport_type,
@@ -94,18 +94,12 @@ async def list_page(
         courier_id=filters.courier_id,
         is_available=filters.is_available,
     )
-    return Page[TransportListItemResponse](
-        items=[TransportListItemResponse.model_validate(item) for item in found.items],
-        next_cursor=found.next_cursor,
-    )
 
 
 @router.get("/{transport_id}", summary="Transport by id")
 @authenticated
 async def retrieve(transport_id: UUID, session: RoSession) -> TransportDetailResponse:
-    return TransportDetailResponse.model_validate(
-        await get_transport(transport_id, session=session)
-    )
+    return await get_transport(transport_id, session=session)
 
 
 @router.patch("/{transport_id}", summary="Update a transport")
@@ -115,9 +109,7 @@ async def update(
     body: TransportPatch,
     uow: Uow,
 ) -> TransportDetailResponse:
-    return TransportDetailResponse.model_validate(
-        await patch_transport(transport_id, body, session=uow)
-    )
+    return await patch_transport(transport_id, body, session=uow)
 
 
 @router.delete(

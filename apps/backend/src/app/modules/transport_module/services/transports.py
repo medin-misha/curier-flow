@@ -12,6 +12,10 @@ from app.kernel.db.crud import CRUD
 from app.kernel.pagination import Page, PageParams, decode_cursor, encode_cursor
 from app.modules.transport_module.models import CourierTransport, Transport
 from app.modules.transport_module.schemas.requests import TransportCreate, TransportPatch
+from app.modules.transport_module.schemas.responses import (
+    TransportDetailResponse,
+    TransportListItemResponse,
+)
 from app.modules.transport_module.services.common import (
     normalize_serial_number,
     normalize_transport_type,
@@ -22,11 +26,14 @@ from app.modules.transport_module.services.common import (
 from app.modules.transport_module.services.queries import (
     active_rental_option,
     get_transport,
+    load_last_rentals,
     lock_transport,
 )
 
 
-async def create_transport(request: TransportCreate, *, session: AsyncSession) -> Transport:
+async def create_transport(
+    request: TransportCreate, *, session: AsyncSession
+) -> TransportDetailResponse:
     """Нормализовать и создать транспорт."""
     normalized = request.model_copy(
         update={
@@ -52,7 +59,7 @@ async def list_transports(
     serial_number: str | None = None,
     courier_id: UUID | None = None,
     is_available: bool | None = None,
-) -> Page[Transport]:
+) -> Page[TransportListItemResponse]:
     """Вернуть keyset-страницу с фильтрами текущей аренды."""
     active = exists(
         select(CourierTransport.id).where(
@@ -97,7 +104,16 @@ async def list_transports(
     if len(rows) > page.limit:
         last = items[-1]
         next_cursor = encode_cursor(last.created_at, last.id)
-    return Page(items=items, next_cursor=next_cursor)
+    last_rentals = await load_last_rentals([item.id for item in items], session=session)
+    return Page(
+        items=[
+            TransportListItemResponse.model_validate(item).model_copy(
+                update={"last_rental": last_rentals.get(item.id)}
+            )
+            for item in items
+        ],
+        next_cursor=next_cursor,
+    )
 
 
 async def patch_transport(
@@ -105,7 +121,7 @@ async def patch_transport(
     patch: TransportPatch,
     *,
     session: AsyncSession,
-) -> Transport:
+) -> TransportDetailResponse:
     """Проверить итоговое состояние залога и применить PATCH."""
     transport = await lock_transport(transport_id, session=session)
     updates: dict[str, object] = {}

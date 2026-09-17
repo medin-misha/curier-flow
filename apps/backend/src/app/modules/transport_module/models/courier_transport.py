@@ -86,3 +86,10 @@ Index(
     CourierTransport.created_at.desc(),
     CourierTransport.id.desc(),
 )
+
+Index(
+    "ix_courier_transports_latest_rental",
+    CourierTransport.transport_id,
+    CourierTransport.started_at.desc(),
+    CourierTransport.id.desc(),
+)

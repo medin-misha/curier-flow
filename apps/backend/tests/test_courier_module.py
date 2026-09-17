@@ -385,7 +385,19 @@ async def test_aggregate_post_uploads_and_commits_all_rows(
 
     async with session_module.session_factory() as session:
         topics = list((await session.scalars(select(OutboxMessage.topic))).all())
-    assert sorted(topics) == ["courier.registered", "file.confirmed"]
+    assert sorted(topics) == ["courier.profile_changed", "courier.registered", "file.confirmed"]
+    async with session_module.session_factory() as session:
+        profile = (
+            await session.scalars(
+                select(OutboxMessage.payload).where(
+                    OutboxMessage.topic == "courier.profile_changed"
+                )
+            )
+        ).one()
+    assert profile["courier_id"] == body["id"]
+    assert profile["full_name"] == body["full_name"]
+    assert profile["phone"] == body["phone"]
+    assert datetime.fromisoformat(profile["changed_at"]).tzinfo is not None
     assert await registration_payloads() == [
         {
             "courier_id": body["id"],
