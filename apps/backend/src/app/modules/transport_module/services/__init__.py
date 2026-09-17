@@ -12,6 +12,7 @@ from app.modules.transport_module.services.rentals import (
     close_rental,
     create_rental,
     list_rentals,
+    patch_rental_payment,
 )
 from app.modules.transport_module.services.transports import (
     create_transport,
@@ -35,5 +36,6 @@ __all__ = [
     "list_rentals",
     "list_transports",
     "patch_component",
+    "patch_rental_payment",
     "patch_transport",
 ]

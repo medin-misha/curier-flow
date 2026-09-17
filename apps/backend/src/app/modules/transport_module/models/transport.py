@@ -3,7 +3,16 @@
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.kernel.db.base import Base
@@ -23,6 +32,7 @@ class Transport(UUIDPkMixin, TimestampMixin, Base):
             "type",
             "model",
             "serial_number",
+            "ordinal_number",
             "color",
             "deposit_required",
             "deposit_amount",
@@ -33,6 +43,9 @@ class Transport(UUIDPkMixin, TimestampMixin, Base):
     )
     __table_args__ = (
         UniqueConstraint("serial_number"),
+        CheckConstraint(
+            "ordinal_number IS NULL OR ordinal_number > 0", name="ordinal_number_positive"
+        ),
         CheckConstraint(
             "char_length(type) > 0 AND type = lower(btrim(type))", name="type_normalized"
         ),
@@ -63,6 +76,7 @@ class Transport(UUIDPkMixin, TimestampMixin, Base):
     type: Mapped[str] = mapped_column(String(64))
     model: Mapped[str] = mapped_column(String(128))
     serial_number: Mapped[str] = mapped_column(String(64))
+    ordinal_number: Mapped[int | None] = mapped_column(Integer, default=None)
     color: Mapped[str] = mapped_column(String(64))
     deposit_required: Mapped[bool] = mapped_column(Boolean, default=False)
     deposit_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), default=None)

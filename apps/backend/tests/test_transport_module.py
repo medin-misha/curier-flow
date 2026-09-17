@@ -11,6 +11,7 @@ import pytest
 from fastapi.routing import APIRoute
 from httpx import AsyncClient
 from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.exc import IntegrityError
 
 from app.kernel.db import session as session_module
 from app.kernel.idempotency import IdempotencyKey, is_idempotent
@@ -27,7 +28,11 @@ from app.modules.courier_module.models import (
 )
 from app.modules.courier_module.module import courier_module
 from app.modules.storage.module import storage_module
-from app.modules.transport_module.models import CourierTransport, Transport, TransportComponent
+from app.modules.transport_module.models import (
+    CourierTransport,
+    Transport,
+    TransportComponent,
+)
 from app.modules.transport_module.module import transport_module
 from app.platform.files import File, FileStatus
 from tests.asgi import app_client, build_app
@@ -152,6 +157,7 @@ async def create_rental(
     started_at: datetime,
     ended_at: datetime | None = None,
     file_id: UUID | None = None,
+    payment_type: str = "monthly",
 ) -> Any:
     """Создать аренду с отдельным идемпотентным ключом."""
     body: dict[str, Any] = {
@@ -159,6 +165,7 @@ async def create_rental(
         "started_at": started_at.isoformat(),
         "ended_at": ended_at.isoformat() if ended_at is not None else None,
         "file_id": str(file_id) if file_id is not None else None,
+        "payment_type": payment_type,
     }
     return await client.post(
         f"/transport/{transport_id}/rentals",
@@ -185,6 +192,7 @@ async def test_every_transport_endpoint_requires_admin_jwt(client: AsyncClient) 
         ("POST", f"/transport/{transport_id}/rentals"),
         ("GET", f"/transport/{transport_id}/rentals"),
         ("GET", f"/transport/{transport_id}/rentals/{child_id}"),
+        ("PATCH", f"/transport/{transport_id}/rentals/{child_id}"),
         ("POST", f"/transport/{transport_id}/rentals/{child_id}/close"),
         ("POST", f"/transport/{transport_id}/rentals/{child_id}/contract"),
     )
@@ -223,6 +231,7 @@ async def test_transport_crud_normalization_decimal_and_validation(client: Async
     )
     assert created["rental_price"] == "1250.00"
     assert created["deposit_amount"] is None
+    assert created["ordinal_number"] is None
     assert created["comment"] is None
     assert created["debt_amount"] == "0.00"
     assert created["components"] == []
@@ -289,6 +298,59 @@ async def test_transport_crud_normalization_decimal_and_validation(client: Async
     removed = await client.delete(f"/transport/{created['id']}")
     assert removed.status_code == HTTPStatus.NO_CONTENT
     assert (await client.get(f"/transport/{created['id']}")).status_code == HTTPStatus.NOT_FOUND
+
+
+async def test_transport_ordinal_number_create_patch_clear_and_list(client: AsyncClient) -> None:
+    created_response = await client.post(
+        "/transport",
+        json={**BASE_TRANSPORT, "ordinal_number": 17},
+        headers=idempotency_headers(),
+    )
+    assert created_response.status_code == HTTPStatus.CREATED
+    created = created_response.json()
+    assert created["ordinal_number"] == 17
+    url = f"/transport/{created['id']}"
+
+    duplicate = await client.post(
+        "/transport",
+        json={**BASE_TRANSPORT, "serial_number": "other-number", "ordinal_number": 17},
+        headers=idempotency_headers(),
+    )
+    assert duplicate.status_code == HTTPStatus.CREATED
+    assert (await client.get("/transport")).json()["items"][0]["ordinal_number"] == 17
+
+    preserved = await client.patch(url, json={"color": "Blue"})
+    assert preserved.json()["ordinal_number"] == 17
+    changed = await client.patch(url, json={"ordinal_number": 2_147_483_647})
+    assert changed.status_code == HTTPStatus.OK
+    assert changed.json()["ordinal_number"] == 2_147_483_647
+    cleared = await client.patch(url, json={"ordinal_number": None})
+    assert cleared.status_code == HTTPStatus.OK
+    assert cleared.json()["ordinal_number"] is None
+    assert (await client.get(url)).json()["ordinal_number"] is None
+
+    explicit_null = await client.post(
+        "/transport",
+        json={**BASE_TRANSPORT, "serial_number": "null-number", "ordinal_number": None},
+        headers=idempotency_headers(),
+    )
+    assert explicit_null.status_code == HTTPStatus.CREATED
+    assert explicit_null.json()["ordinal_number"] is None
+
+
+@pytest.mark.parametrize("value", [0, -1, 1.5, 1.0, True, "1", 2_147_483_648])
+async def test_transport_ordinal_number_rejects_invalid_values(
+    client: AsyncClient, value: Any
+) -> None:
+    transport = await create_transport(client)
+    created = await client.post(
+        "/transport",
+        json={**BASE_TRANSPORT, "serial_number": "invalid-number", "ordinal_number": value},
+        headers=idempotency_headers(),
+    )
+    patched = await client.patch(f"/transport/{transport['id']}", json={"ordinal_number": value})
+    assert created.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert patched.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 async def test_transport_keyset_filters_and_identical_timestamps(client: AsyncClient) -> None:
@@ -452,6 +514,135 @@ async def test_rental_history_overlap_close_filters_and_replay(client: AsyncClie
     assert first_transport["id"] in {item["id"] for item in available}
     assert by_current_courier == []
     assert len(history) == 2
+
+
+@pytest.mark.parametrize("payment_type", ["monthly", "weekly", "weekly_in_arrears"])
+async def test_rental_payment_type_create_and_read(client: AsyncClient, payment_type: str) -> None:
+    transport = await create_transport(client)
+    courier_id = await create_courier()
+    response = await create_rental(
+        client,
+        transport["id"],
+        courier_id,
+        started_at=datetime.now(tz=UTC) - timedelta(days=1),
+        payment_type=payment_type,
+    )
+    assert response.status_code == HTTPStatus.CREATED
+    rental = response.json()
+    assert rental["payment_type"] == payment_type
+    base_url = f"/transport/{transport['id']}"
+    assert (await client.get(base_url)).json()["active_rental"]["payment_type"] == payment_type
+    assert (await client.get(f"{base_url}/rentals")).json()["items"][0][
+        "payment_type"
+    ] == payment_type
+    assert (await client.get(f"{base_url}/rentals/{rental['id']}")).json()[
+        "payment_type"
+    ] == payment_type
+
+
+async def test_rental_creation_requires_valid_payment_type(client: AsyncClient) -> None:
+    transport = await create_transport(client)
+    body = {
+        "courier_id": str(await create_courier()),
+        "started_at": (datetime.now(tz=UTC) - timedelta(days=1)).isoformat(),
+    }
+    for payment_fields in ({}, {"payment_type": None}, {"payment_type": "daily"}):
+        response = await client.post(
+            f"/transport/{transport['id']}/rentals",
+            json={**body, **payment_fields},
+            headers=idempotency_headers(),
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
+
+
+@pytest.mark.parametrize("closed", [False, True])
+async def test_legacy_rental_payment_patch_preserves_period_and_contract(
+    client: AsyncClient, closed: bool
+) -> None:
+    transport = await create_transport(client)
+    other_transport = await create_transport(client, serial_number="other-parent")
+    courier_id = await create_courier()
+    file_id = await create_file()
+    rental_id = uuid4()
+    started_at = datetime.now(tz=UTC) - timedelta(days=3)
+    ended_at = started_at + timedelta(days=1) if closed else None
+    async with session_module.session_factory() as session, session.begin():
+        session.add(
+            CourierTransport(
+                id=rental_id,
+                transport_id=UUID(transport["id"]),
+                courier_id=courier_id,
+                started_at=started_at,
+                ended_at=ended_at,
+                file_id=file_id,
+            )
+        )
+
+    url = f"/transport/{transport['id']}/rentals/{rental_id}"
+    before = (await client.get(url)).json()
+    assert before["payment_type"] is None
+    legacy_history = (await client.get(f"/transport/{transport['id']}/rentals")).json()
+    assert legacy_history["items"][0]["payment_type"] is None
+    detail = (await client.get(f"/transport/{transport['id']}")).json()
+    if not closed:
+        assert detail["active_rental"]["payment_type"] is None
+
+    for invalid in (
+        {},
+        {"payment_type": None},
+        {"payment_type": "daily"},
+        {"payment_type": "monthly", "courier_id": str(courier_id)},
+        {"payment_type": "monthly", "file_id": None},
+        {"payment_type": "monthly", "started_at": started_at.isoformat()},
+        {"payment_type": "monthly", "ended_at": None},
+    ):
+        response = await client.patch(url, json=invalid)
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY, response.text
+
+    wrong_parent = await client.patch(
+        f"/transport/{other_transport['id']}/rentals/{rental_id}",
+        json={"payment_type": "monthly"},
+    )
+    missing_rental = await client.patch(
+        f"/transport/{transport['id']}/rentals/{uuid4()}",
+        json={"payment_type": "monthly"},
+    )
+    assert wrong_parent.status_code == HTTPStatus.NOT_FOUND
+    assert missing_rental.status_code == HTTPStatus.NOT_FOUND
+    for payment_type in ("monthly", "weekly", "weekly_in_arrears"):
+        response = await client.patch(url, json={"payment_type": payment_type})
+        assert response.status_code == HTTPStatus.OK, response.text
+        after = response.json()
+        assert after["payment_type"] == payment_type
+        for field in ("courier_id", "transport_id", "file_id", "started_at", "ended_at"):
+            assert after[field] == before[field]
+        assert (await client.get(url)).json()["payment_type"] == payment_type
+
+    assert (
+        await client.patch(url, json={"payment_type": None})
+    ).status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+async def test_transport_payment_and_ordinal_constraints_enforced_in_database(
+    client: AsyncClient,
+) -> None:
+    transport = await create_transport(client)
+    rental_response = await create_rental(
+        client,
+        transport["id"],
+        await create_courier(),
+        started_at=datetime.now(tz=UTC) - timedelta(days=1),
+    )
+    assert rental_response.status_code == HTTPStatus.CREATED
+    rental_id = rental_response.json()["id"]
+    for statement, pk in (
+        ("UPDATE transports SET ordinal_number = 0 WHERE id = :id", transport["id"]),
+        ("UPDATE transports SET ordinal_number = -1 WHERE id = :id", transport["id"]),
+        ("UPDATE courier_transports SET payment_type = 'daily' WHERE id = :id", rental_id),
+    ):
+        with pytest.raises(IntegrityError):
+            async with session_module.session_factory() as session, session.begin():
+                await session.execute(text(statement), {"id": UUID(pk)})
 
 
 async def test_close_rental_accepts_future_end_and_closes_immediately(
@@ -808,9 +999,11 @@ async def test_postgresql_constraints_triggers_and_indexes(transport_database: N
     assert extension == "btree_gist"
     assert constraints["excl_courier_transports_transport_period"] == "x"
     assert constraints["excl_courier_transports_courier_period"] == "x"
+    assert constraints["ck_courier_transports_payment_type_allowed"] == "c"
     assert {
         "ck_transports_comment_normalized",
         "ck_transports_debt_amount_non_negative",
+        "ck_transports_ordinal_number_positive",
     } <= transport_constraints
     assert {
         "transport_require_ready_contract_file",
@@ -845,7 +1038,7 @@ def test_manifest_route_markers_and_openapi_contract() -> None:
             if is_idempotent(route.endpoint):
                 idempotency.add(key)
 
-    assert len(auth) == 15
+    assert len(auth) == 16
     assert all(auth.values())
     assert idempotency == {
         ("POST", "/transport"),
@@ -859,3 +1052,9 @@ def test_manifest_route_markers_and_openapi_contract() -> None:
     assert {"comment", "debt_amount"} <= schemas["TransportDetailResponse"]["properties"].keys()
     assert "comment" not in schemas["TransportListItemResponse"]["properties"]
     assert "debt_amount" not in schemas["TransportListItemResponse"]["properties"]
+    assert "ordinal_number" in schemas["TransportListItemResponse"]["properties"]
+    assert "ordinal_number" in schemas["TransportDetailResponse"]["properties"]
+    assert "payment_type" in schemas["CourierTransportCreate"]["required"]
+    assert schemas["CourierTransportPaymentPatch"]["required"] == ["payment_type"]
+    assert schemas["RentalPaymentType"]["enum"] == ["monthly", "weekly", "weekly_in_arrears"]
+    assert "patch" in app.openapi()["paths"]["/transport/{transport_id}/rentals/{rental_id}"]

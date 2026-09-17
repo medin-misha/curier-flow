@@ -14,6 +14,7 @@ from app.modules.transport_module.schemas.requests import (
     CourierTransportClose,
     CourierTransportContractAttach,
     CourierTransportCreate,
+    CourierTransportPaymentPatch,
 )
 from app.modules.transport_module.services.common import raise_known_integrity
 from app.modules.transport_module.services.queries import (
@@ -56,6 +57,19 @@ async def list_rentals(
         page=page,
         where=(CourierTransport.transport_id == transport_id,),
     )
+
+
+async def patch_rental_payment(
+    transport_id: UUID,
+    rental_id: UUID,
+    request: CourierTransportPaymentPatch,
+    *,
+    session: AsyncSession,
+) -> CourierTransport:
+    """Указать тип оплаты текущей или завершённой аренды, не меняя её период."""
+    rental = await get_rental(transport_id, rental_id, session=session, for_update=True)
+    await CRUD.update(rental, request, session)
+    return await get_rental(transport_id, rental_id, session=session)
 
 
 async def close_rental(

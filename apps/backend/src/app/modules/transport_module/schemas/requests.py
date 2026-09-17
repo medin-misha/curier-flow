@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, StringConstraints, model_validator
 
 from app.kernel.schemas import BaseRequest
+from app.modules.transport_module.models import RentalPaymentType
 
 TransportType = Annotated[
     str,
@@ -25,6 +26,7 @@ SerialNumber = Annotated[
 ]
 PositiveMoney = Annotated[Decimal, Field(gt=0, max_digits=12, decimal_places=2)]
 NonNegativeMoney = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
+OrdinalNumber = Annotated[int, Field(strict=True, gt=0, le=2_147_483_647)]
 
 
 class TransportCreate(BaseRequest):
@@ -33,6 +35,7 @@ class TransportCreate(BaseRequest):
     type: TransportType
     model: Trimmed128
     serial_number: SerialNumber
+    ordinal_number: OrdinalNumber | None = None
     color: Trimmed64
     deposit_required: bool = False
     deposit_amount: PositiveMoney | None = None
@@ -48,11 +51,12 @@ class TransportCreate(BaseRequest):
 
 
 class TransportPatch(BaseRequest):
-    """Частичное изменение бизнес-полей транспорта без explicit null."""
+    """Частичное изменение транспорта с очисткой комментария и порядкового номера."""
 
     type: TransportType | None = None
     model: Trimmed128 | None = None
     serial_number: SerialNumber | None = None
+    ordinal_number: OrdinalNumber | None = None
     color: Trimmed64 | None = None
     deposit_required: bool | None = None
     deposit_amount: PositiveMoney | None = None
@@ -65,7 +69,7 @@ class TransportPatch(BaseRequest):
         nulled = sorted(
             name
             for name in self.model_fields_set
-            if name != "comment" and getattr(self, name) is None
+            if name not in {"comment", "ordinal_number"} and getattr(self, name) is None
         )
         if nulled:
             raise ValueError(f"Fields must not be null: {', '.join(nulled)}")
@@ -104,6 +108,7 @@ class CourierTransportCreate(BaseRequest):
     """Активная или завершённая историческая аренда."""
 
     courier_id: UUID
+    payment_type: RentalPaymentType
     started_at: AwareDatetime
     ended_at: AwareDatetime | None = None
     file_id: UUID | None = None
@@ -116,6 +121,12 @@ class CourierTransportCreate(BaseRequest):
         if self.ended_at is not None and self.ended_at <= self.started_at:
             raise ValueError("ended_at must be later than started_at")
         return self
+
+
+class CourierTransportPaymentPatch(BaseRequest):
+    """Указать или изменить только тип оплаты существующей аренды."""
+
+    payment_type: RentalPaymentType
 
 
 class CourierTransportClose(BaseRequest):

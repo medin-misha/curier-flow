@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import field_serializer
 
 from app.kernel.schemas import BaseResponse
+from app.modules.transport_module.models import RentalPaymentType
 
 
 class FileResponse(BaseResponse):
@@ -26,6 +27,7 @@ class CourierTransportResponse(BaseResponse):
     id: UUID
     transport_id: UUID
     courier_id: UUID
+    payment_type: RentalPaymentType | None
     started_at: datetime
     ended_at: datetime | None
     file_id: UUID | None
@@ -59,6 +61,7 @@ class TransportListItemResponse(BaseResponse):
     type: str
     model: str
     serial_number: str
+    ordinal_number: int | None
     color: str
     deposit_required: bool
     deposit_amount: Decimal | None

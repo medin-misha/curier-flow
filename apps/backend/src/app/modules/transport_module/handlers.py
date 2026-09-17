@@ -15,6 +15,7 @@ from app.modules.transport_module.schemas.requests import (
     CourierTransportClose,
     CourierTransportContractAttach,
     CourierTransportCreate,
+    CourierTransportPaymentPatch,
     TransportComponentCreate,
     TransportComponentPatch,
     TransportCreate,
@@ -41,6 +42,7 @@ from app.modules.transport_module.services import (
     list_rentals,
     list_transports,
     patch_component,
+    patch_rental_payment,
     patch_transport,
 )
 
@@ -240,6 +242,19 @@ async def rental_detail(
 ) -> CourierTransportResponse:
     return CourierTransportResponse.model_validate(
         await get_rental(transport_id, rental_id, session=session)
+    )
+
+
+@router.patch("/{transport_id}/rentals/{rental_id}", summary="Update rental payment type")
+@authenticated
+async def update_rental_payment(
+    transport_id: UUID,
+    rental_id: UUID,
+    body: CourierTransportPaymentPatch,
+    uow: Uow,
+) -> CourierTransportResponse:
+    return CourierTransportResponse.model_validate(
+        await patch_rental_payment(transport_id, rental_id, body, session=uow)
     )
 
 
