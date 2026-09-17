@@ -21,6 +21,7 @@ import {
   transportErrorMessage,
   updateTransport,
   updateTransportComponent,
+  updateTransportRentalPayment,
 } from '../../api/transports'
 import { useTransportRegistry } from '../../composables/useTransportRegistry'
 import type {
@@ -29,6 +30,7 @@ import type {
   TransportComponentInput,
   TransportInput,
   TransportListItem,
+  TransportPaymentType,
   TransportRental,
   TransportRentalInput,
 } from '../../types/transport'
@@ -38,6 +40,8 @@ import ComponentFormModal from './ComponentFormModal.vue'
 import ConfirmActionModal from './ConfirmActionModal.vue'
 import ContractAttachModal from './ContractAttachModal.vue'
 import RentalFormModal from './RentalFormModal.vue'
+import RentalPaymentFormModal from './RentalPaymentFormModal.vue'
+import { transportPaymentLabel } from './transportPayment'
 import TransportDetailsModal from './TransportDetailsModal.vue'
 import TransportFormModal from './TransportFormModal.vue'
 
@@ -50,6 +54,7 @@ type Dialog =
   | { type: 'delete-component'; component: TransportComponent }
   | { type: 'create-rental' }
   | { type: 'close-rental'; rental: TransportRental }
+  | { type: 'edit-rental-payment'; rental: TransportRental }
   | { type: 'contract'; rental: TransportRental }
 
 interface ContractAttempt {
@@ -189,7 +194,7 @@ async function loadRentals(reset: boolean) {
   }
 }
 
-async function openDetails(transport: TransportListItem, event: MouseEvent) {
+async function openDetails(transport: TransportListItem, event: Event) {
   const sequence = ++detailSequence
   rememberFocus(event.currentTarget)
   actionError.value = ''
@@ -323,6 +328,25 @@ async function createRental(input: TransportRentalInput) {
   }
 }
 
+async function saveRentalPayment(paymentType: TransportPaymentType) {
+  if (!selectedTransport.value || dialog.value?.type !== 'edit-rental-payment') return
+  busy.value = true
+  actionError.value = ''
+  try {
+    const updated = await updateTransportRentalPayment(selectedTransport.value.id, dialog.value.rental.id, paymentType)
+    rentals.value = rentals.value.map((rental) => rental.id === updated.id ? updated : rental)
+    if (selectedTransport.value.activeRental?.id === updated.id) {
+      selectedTransport.value.activeRental = updated
+    }
+    dialog.value = null
+    showToast('Тип оплаты сохранён', transportPaymentLabel(updated.paymentType))
+  } catch (error) {
+    actionError.value = transportErrorMessage(error, 'Не удалось сохранить тип оплаты.')
+  } finally {
+    busy.value = false
+  }
+}
+
 async function closeRental(endedAt: string) {
   if (!selectedTransport.value || dialog.value?.type !== 'close-rental') return
   busy.value = true
@@ -410,10 +434,11 @@ onBeforeUnmount(() => {
 <template>
   <main id="content"><BikesRegistry :transports="registry.transports.value" :filters="registry.draftFilters" :current-page="registry.currentPage.value" :pagination-summary="paginationSummary" :has-next="Boolean(registry.nextCursor.value)" :loading="registry.loading.value" :error="registry.loadError.value" @create="openDialog({ type: 'create-transport' }, $event)" @select="openDetails" @apply-filters="registry.applyFilters" @clear-filters="registry.clearFilters" @page="registry.pageTo" @retry="registry.loadPage(registry.currentPage.value)" /></main>
 
-  <TransportDetailsModal v-if="selectedTransport && !dialog" :transport="selectedTransport" :rentals="rentals" :courier-names="courierNames" :rental-loading="rentalLoading" :rentals-next="Boolean(nextRentalCursor)" :busy="busy" :error="actionError" :downloading-file-ids="downloadingFileIds" @close="closeDetails" @edit="openDialog({ type: 'edit-transport' })" @delete="openDialog({ type: 'delete-transport' })" @add-component="openDialog({ type: 'create-component' })" @edit-component="openDialog({ type: 'edit-component', component: $event })" @delete-component="openDialog({ type: 'delete-component', component: $event })" @create-rental="openDialog({ type: 'create-rental' })" @close-rental="openDialog({ type: 'close-rental', rental: $event })" @attach-contract="openDialog({ type: 'contract', rental: $event })" @download-contract="downloadContract" @load-more-rentals="loadRentals(false)" />
+  <TransportDetailsModal v-if="selectedTransport && !dialog" :transport="selectedTransport" :rentals="rentals" :courier-names="courierNames" :rental-loading="rentalLoading" :rentals-next="Boolean(nextRentalCursor)" :busy="busy" :error="actionError" :downloading-file-ids="downloadingFileIds" @close="closeDetails" @edit="openDialog({ type: 'edit-transport' })" @delete="openDialog({ type: 'delete-transport' })" @add-component="openDialog({ type: 'create-component' })" @edit-component="openDialog({ type: 'edit-component', component: $event })" @delete-component="openDialog({ type: 'delete-component', component: $event })" @create-rental="openDialog({ type: 'create-rental' })" @close-rental="openDialog({ type: 'close-rental', rental: $event })" @edit-rental-payment="openDialog({ type: 'edit-rental-payment', rental: $event })" @attach-contract="openDialog({ type: 'contract', rental: $event })" @download-contract="downloadContract" @load-more-rentals="loadRentals(false)" />
   <TransportFormModal v-if="dialog?.type === 'create-transport' || dialog?.type === 'edit-transport'" :transport="dialog.type === 'edit-transport' ? selectedTransport : null" :saving="busy" :error="actionError" @close="closeDialog" @save="saveTransport" />
   <ComponentFormModal v-if="dialog?.type === 'create-component' || dialog?.type === 'edit-component'" :component="dialog.type === 'edit-component' ? dialog.component : null" :saving="busy" :error="actionError" @close="closeDialog" @save="saveComponent" />
   <RentalFormModal v-if="dialog?.type === 'create-rental' || dialog?.type === 'close-rental'" :rental="dialog.type === 'close-rental' ? dialog.rental : null" :require-historical="dialog.type === 'create-rental' && Boolean(selectedTransport?.activeRental)" :saving="busy" :error="actionError" @close="closeDialog" @create="createRental" @close-rental="closeRental" />
+  <RentalPaymentFormModal v-if="dialog?.type === 'edit-rental-payment'" :rental="dialog.rental" :saving="busy" :error="actionError" @close="closeDialog" @save="saveRentalPayment" />
   <ContractAttachModal v-if="dialog?.type === 'contract'" :rental="dialog.rental" :saving="busy" :error="actionError" @close="closeDialog" @save="attachContract" />
   <ConfirmActionModal v-if="dialog?.type === 'delete-transport' || dialog?.type === 'delete-component'" :title="confirmCopy.title" :message="confirmCopy.message" :action="confirmCopy.action" :saving="busy" :error="actionError" @close="closeDialog" @confirm="confirmDelete" />
   <AppToast v-if="toastVisible" :title="toastTitle" :message="toastMessage" />

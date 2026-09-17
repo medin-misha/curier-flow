@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { Transport, TransportComponent, TransportRental } from '../../types/transport'
 import AppModal from '../ui/AppModal.vue'
+import { transportPaymentLabel } from './transportPayment'
 
 const props = defineProps<{
   transport: Transport
@@ -23,6 +24,7 @@ defineEmits<{
   deleteComponent: [component: TransportComponent]
   createRental: []
   closeRental: [rental: TransportRental]
+  editRentalPayment: [rental: TransportRental]
   attachContract: [rental: TransportRental]
   downloadContract: [rental: TransportRental]
   loadMoreRentals: []
@@ -47,6 +49,7 @@ function courierName(id: string) {
     <div class="modal-header"><div class="row-between"><div><p class="eyebrow">{{ transport.type }}</p><h2 id="bikeDetailTitle">{{ transport.model }}</h2><p class="num">{{ transport.serialNumber }} · ID {{ transport.id }}</p></div><button class="btn btn-ghost btn-icon" type="button" aria-label="Закрыть" :disabled="busy" @click="$emit('close')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></div>
     <div class="modal-body">
       <div class="detail-grid">
+        <div class="detail-item"><span>Порядковый номер</span><strong class="num">{{ transport.ordinalNumber ?? '—' }}</strong></div>
         <div class="detail-item"><span>Цвет</span><strong>{{ transport.color }}</strong></div>
         <div class="detail-item"><span>Доступность</span><strong>{{ transport.isAvailable ? 'Свободен' : 'Выдан' }}</strong></div>
         <div class="detail-item"><span>Ставка аренды</span><strong class="num">{{ transport.rentalPrice }} Kč</strong></div>
@@ -62,8 +65,8 @@ function courierName(id: string) {
       <div class="detail-group">
         <div class="row-between"><div><h3>Текущая аренда</h3><p class="admin-state-note">Доступность вычисляется по активной аренде.</p></div><button class="btn btn-primary btn-compact" type="button" @click="$emit('createRental')">{{ transport.isAvailable ? 'Выдать курьеру' : 'Добавить прошлый период' }}</button></div>
         <div v-if="transport.activeRental" class="rental-current">
-          <div><strong>{{ courierName(transport.activeRental.courierId) }}</strong><span class="num">с {{ formatDate(transport.activeRental.startedAt) }}</span></div>
-          <button class="btn btn-secondary btn-compact" type="button" @click="$emit('closeRental', transport.activeRental)">Завершить аренду</button>
+          <div><strong>{{ courierName(transport.activeRental.courierId) }}</strong><span class="num">с {{ formatDate(transport.activeRental.startedAt) }}</span><span>Тип оплаты: {{ transportPaymentLabel(transport.activeRental.paymentType) }}</span></div>
+          <div class="inline-actions"><button class="btn btn-secondary btn-compact" type="button" :disabled="busy" data-od-id="edit-current-rental-payment" @click="$emit('editRentalPayment', transport.activeRental)">{{ transport.activeRental.paymentType ? 'Изменить тип оплаты' : 'Указать тип оплаты' }}</button><button class="btn btn-secondary btn-compact" type="button" @click="$emit('closeRental', transport.activeRental)">Завершить аренду</button></div>
         </div>
         <div v-else class="document-empty"><strong>Велосипед свободен</strong><span>Активной аренды нет.</span></div>
       </div>
@@ -80,11 +83,13 @@ function courierName(id: string) {
       </div>
 
       <div class="detail-group">
-        <div class="row-between"><div><h3>История аренды</h3><p class="admin-state-note">Периоды нельзя редактировать или удалять.</p></div><span class="meta">{{ rentals.length }}</span></div>
+        <div class="row-between"><div><h3>История аренды</h3><p class="admin-state-note">Даты периодов нельзя редактировать, записи — удалять.</p></div><span class="meta">{{ rentals.length }}</span></div>
         <div v-if="rentals.length" class="rental-list">
           <article v-for="rental in rentals" :key="rental.id" class="rental-card">
             <div class="row-between rental-title"><div><strong>{{ courierName(rental.courierId) }}</strong><p class="num">{{ formatDate(rental.startedAt) }} — {{ formatDate(rental.endedAt) }}</p></div><span class="status" :class="rental.isActive ? 'status-warn' : 'status-ok'">{{ rental.isActive ? 'Активна' : 'Завершена' }}</span></div>
+            <p>Тип оплаты: {{ transportPaymentLabel(rental.paymentType) }}</p>
             <div class="rental-actions">
+              <button class="btn btn-secondary btn-compact" type="button" :disabled="busy" :data-od-id="`edit-rental-payment-${rental.id}`" @click="$emit('editRentalPayment', rental)">{{ rental.paymentType ? 'Изменить тип оплаты' : 'Указать тип оплаты' }}</button>
               <span v-if="rental.file" class="num">{{ rental.file.originalName }}</span><span v-else class="meta">Договор не приложен</span>
               <button v-if="rental.file" class="btn btn-secondary btn-compact" type="button" :disabled="downloadingFileIds.includes(rental.file.id)" @click="$emit('downloadContract', rental)">{{ downloadingFileIds.includes(rental.file.id) ? 'Скачиваем…' : 'Скачать договор' }}</button>
               <button v-else class="btn btn-secondary btn-compact" type="button" @click="$emit('attachContract', rental)">Приложить договор</button>

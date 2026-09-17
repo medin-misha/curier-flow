@@ -3,12 +3,26 @@ import type { TransportComponentInput, TransportInput } from '../../types/transp
 const positiveMoney = /^\d{1,10}(?:[.,]\d{1,2})?$/
 const nonNegativeMoney = /^\d{1,10}(?:[.,]\d{1,2})?$/
 
+export interface TransportFormInput extends Omit<TransportInput, 'ordinalNumber'> {
+  ordinalNumber: string
+}
+
 export function normalizeMoney(value: string) {
   return value.trim().replace(',', '.')
 }
 
-export function validateTransportInput(input: TransportInput) {
+export function validateTransportInput(input: TransportFormInput) {
   const errors: Record<string, string> = {}
+  const ordinalText = input.ordinalNumber.trim()
+  const ordinalNumber = ordinalText === '' ? null : Number(ordinalText)
+  if (ordinalNumber !== null && (
+    !/^\d+$/.test(ordinalText)
+    || !Number.isInteger(ordinalNumber)
+    || ordinalNumber <= 0
+    || ordinalNumber > 2_147_483_647
+  )) {
+    errors.ordinalNumber = 'Введите целое число от 1 до 2147483647 или оставьте поле пустым.'
+  }
   if (!input.type.trim() || input.type.trim().length > 64) errors.type = 'Укажите тип до 64 символов.'
   if (!input.model.trim() || input.model.trim().length > 128) errors.model = 'Укажите модель до 128 символов.'
   if (!input.serialNumber.trim() || input.serialNumber.trim().length > 64) errors.serialNumber = 'Укажите серийный номер до 64 символов.'
@@ -30,6 +44,7 @@ export function validateTransportInput(input: TransportInput) {
       ? null
       : {
           ...input,
+          ordinalNumber,
           type: input.type.trim().toLowerCase(),
           model: input.model.trim(),
           serialNumber: input.serialNumber.trim().toUpperCase(),

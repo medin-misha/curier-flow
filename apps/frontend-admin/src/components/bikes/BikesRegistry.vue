@@ -14,16 +14,12 @@ defineProps<{
 
 defineEmits<{
   create: [event: MouseEvent]
-  select: [transport: TransportListItem, event: MouseEvent]
+  select: [transport: TransportListItem, event: Event]
   applyFilters: []
   clearFilters: []
   page: [page: number]
   retry: []
 }>()
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ru-RU').format(new Date(value))
-}
 </script>
 
 <template>
@@ -32,11 +28,11 @@ function formatDate(value: string) {
       <div class="row-between page-heading">
         <div>
           <p class="eyebrow">Transport API</p>
-          <h1 data-od-id="bikes-title">Велосипеды</h1>
+          <h1 data-od-id="bikes-title">Транспорт</h1>
         </div>
         <button class="btn btn-primary" type="button" data-od-id="create-bike" @click="$emit('create', $event)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          Добавить велосипед
+          Добавить транспорт
         </button>
       </div>
 
@@ -63,23 +59,29 @@ function formatDate(value: string) {
         <template v-else>
           <div class="table-shell">
             <table v-if="transports.length" class="ds-table bikes-table" data-od-id="bikes-table">
-              <thead><tr><th>Велосипед</th><th>Серийный номер</th><th>Цвет</th><th>Ставка</th><th>Залог</th><th>Доступность</th><th>Обновлён</th><th><span class="visually-hidden">Действия</span></th></tr></thead>
+              <thead><tr><th>Порядковый номер</th><th>Модель</th><th>Серийный номер</th><th>Курьер</th></tr></thead>
               <tbody>
-                <tr v-for="transport in transports" :key="transport.id" :data-od-id="`bike-row-${transport.id}`">
-                  <td data-label="Велосипед"><div class="person"><strong>{{ transport.model }}</strong><span>{{ transport.type }}</span></div></td>
+                <tr
+                  v-for="transport in transports"
+                  :key="transport.id"
+                  class="clickable-row"
+                  tabindex="0"
+                  :aria-label="`Открыть ${transport.model}, ${transport.serialNumber}`"
+                  :data-od-id="`bike-row-${transport.id}`"
+                  @click="$emit('select', transport, $event)"
+                  @keydown.enter.self="$emit('select', transport, $event)"
+                  @keydown.space.self.prevent="$emit('select', transport, $event)"
+                >
+                  <td data-label="Порядковый номер"><span class="num">{{ transport.ordinalNumber ?? '—' }}</span></td>
+                  <td data-label="Модель"><strong>{{ transport.model }}</strong></td>
                   <td data-label="Серийный номер"><span class="num">{{ transport.serialNumber }}</span></td>
-                  <td data-label="Цвет">{{ transport.color }}</td>
-                  <td data-label="Ставка"><span class="num">{{ transport.rentalPrice }} Kč</span></td>
-                  <td data-label="Залог"><span class="num">{{ transport.depositRequired ? `${transport.depositAmount} Kč` : 'Без залога' }}</span></td>
-                  <td data-label="Доступность"><span class="status" :class="transport.isAvailable ? 'status-ok' : 'status-warn'">{{ transport.isAvailable ? 'Свободен' : 'Выдан' }}</span></td>
-                  <td data-label="Обновлён"><span class="num">{{ formatDate(transport.updatedAt) }}</span></td>
-                  <td data-label="Действия"><button class="table-action" type="button" :aria-label="`Открыть ${transport.model}`" :data-od-id="`open-bike-${transport.id}`" @click="$emit('select', transport, $event)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="5" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="12" cy="19" r="1" /></svg></button></td>
+                  <td data-label="Курьер">{{ transport.lastRental?.courier.fullName || '—' }}</td>
                 </tr>
               </tbody>
             </table>
-            <div v-else class="empty-state"><h2>Велосипеды не найдены</h2><p>Измените точные фильтры или добавьте первый велосипед.</p></div>
+            <div v-else class="empty-state"><h2>Транспорт не найден</h2><p>Измените точные фильтры или добавьте транспорт.</p></div>
           </div>
-          <AdminPagination :current-page="currentPage" :summary="paginationSummary" :can-next="hasNext" :loading="loading" entity-label="велосипедов" data-od-id="bikes-pagination" @page="$emit('page', $event)" />
+          <AdminPagination :current-page="currentPage" :summary="paginationSummary" :can-next="hasNext" :loading="loading" entity-label="транспорта" data-od-id="bikes-pagination" @page="$emit('page', $event)" />
         </template>
       </div>
     </div>

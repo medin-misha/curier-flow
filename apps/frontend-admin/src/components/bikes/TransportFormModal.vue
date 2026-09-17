@@ -2,7 +2,7 @@
 import { nextTick, reactive } from 'vue'
 import type { Transport, TransportInput } from '../../types/transport'
 import AppModal from '../ui/AppModal.vue'
-import { validateTransportInput } from './transportForm'
+import { validateTransportInput, type TransportFormInput } from './transportForm'
 
 const props = defineProps<{
   transport?: Transport | null
@@ -15,10 +15,11 @@ const emit = defineEmits<{
   save: [input: TransportInput]
 }>()
 
-const form = reactive<TransportInput>({
+const form = reactive<TransportFormInput>({
   type: props.transport?.type ?? 'e-bike',
   model: props.transport?.model ?? '',
   serialNumber: props.transport?.serialNumber ?? '',
+  ordinalNumber: props.transport?.ordinalNumber?.toString() ?? '',
   color: props.transport?.color ?? '',
   depositRequired: props.transport?.depositRequired ?? false,
   depositAmount: props.transport?.depositAmount ?? '',
@@ -33,7 +34,7 @@ function submit() {
   for (const key of Object.keys(errors)) delete errors[key]
   Object.assign(errors, result.errors)
   if (!result.value) {
-    const first = ['type', 'model', 'serialNumber', 'color', 'rentalPrice', 'debtAmount', 'depositAmount', 'comment'].find((key) => errors[key])
+    const first = ['type', 'model', 'serialNumber', 'ordinalNumber', 'color', 'rentalPrice', 'debtAmount', 'depositAmount', 'comment'].find((key) => errors[key])
     void nextTick(() => document.getElementById(`bike-${first}`)?.focus())
     return
   }
@@ -51,6 +52,7 @@ function submit() {
             <div class="field" :class="{ invalid: errors.type }"><label class="required" for="bike-type">Тип</label><input id="bike-type" v-model="form.type" class="input" maxlength="64" placeholder="e-bike" /><span class="field-error">{{ errors.type }}</span></div>
             <div class="field" :class="{ invalid: errors.model }"><label class="required" for="bike-model">Модель</label><input id="bike-model" v-model="form.model" class="input" maxlength="128" /><span class="field-error">{{ errors.model }}</span></div>
             <div class="field" :class="{ invalid: errors.serialNumber }"><label class="required" for="bike-serialNumber">Серийный номер</label><input id="bike-serialNumber" v-model="form.serialNumber" class="input num" maxlength="64" /><span class="field-error">{{ errors.serialNumber }}</span></div>
+            <div class="field" :class="{ invalid: errors.ordinalNumber }"><label for="bike-ordinalNumber">Порядковый номер</label><input id="bike-ordinalNumber" v-model="form.ordinalNumber" class="input num" inputmode="numeric" :aria-invalid="Boolean(errors.ordinalNumber)" aria-describedby="bike-ordinalNumber-error" /><span id="bike-ordinalNumber-error" class="field-error">{{ errors.ordinalNumber }}</span></div>
             <div class="field" :class="{ invalid: errors.color }"><label class="required" for="bike-color">Цвет</label><input id="bike-color" v-model="form.color" class="input" maxlength="64" /><span class="field-error">{{ errors.color }}</span></div>
           </div>
         </div>

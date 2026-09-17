@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdminResponse } from './api/admins'
 import type { CourierResponse } from './api/couriers'
 import type { PlatformStatus } from './types/courier'
+import type { TransportPaymentType } from './types/transport'
 import App from './App.vue'
 
 let wrapper: VueWrapper | undefined
@@ -45,6 +46,7 @@ interface TestRental {
   id: string
   transport_id: string
   courier_id: string
+  payment_type: TransportPaymentType | null
   started_at: string
   ended_at: string | null
   file_id: string | null
@@ -59,6 +61,7 @@ interface TestTransport {
   type: string
   model: string
   serial_number: string
+  ordinal_number: number | null
   color: string
   deposit_required: boolean
   deposit_amount: string | null
@@ -68,6 +71,13 @@ interface TestTransport {
   is_available: boolean
   components: TestComponent[]
   active_rental: TestRental | null
+  last_rental: {
+    id: string
+    courier: { id: string; full_name: string | null; phone: string | null }
+    started_at: string
+    ended_at: string | null
+    is_active: boolean
+  } | null
   created_at: string
   updated_at: string
 }
@@ -107,6 +117,7 @@ function bike(index: number): TestTransport {
     type: 'e-bike',
     model: `City Runner ${index}`,
     serial_number: `BIKE-${String(index).padStart(3, '0')}`,
+    ordinal_number: null,
     color: index % 2 ? 'Black' : 'Blue',
     deposit_required: true,
     deposit_amount: '500.00',
@@ -116,8 +127,20 @@ function bike(index: number): TestTransport {
     is_available: true,
     components: [],
     active_rental: null,
+    last_rental: null,
     created_at: '2026-08-10T10:00:00Z',
     updated_at: '2026-08-20T10:00:00Z',
+  }
+}
+
+function rentalSummary(rental: TestRental): NonNullable<TestTransport['last_rental']> {
+  const courier = serverCouriers.find((item) => item.id === rental.courier_id)
+  return {
+    id: rental.id,
+    courier: { id: rental.courier_id, full_name: courier?.full_name ?? null, phone: courier?.phone ?? null },
+    started_at: rental.started_at,
+    ended_at: rental.ended_at,
+    is_active: rental.is_active,
   }
 }
 
@@ -456,6 +479,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       type: String(body.type),
       model: String(body.model),
       serial_number: String(body.serial_number),
+      ordinal_number: body.ordinal_number as number | null,
       color: String(body.color),
       deposit_required: Boolean(body.deposit_required),
       deposit_amount: body.deposit_amount === null ? null : String(body.deposit_amount),
@@ -465,6 +489,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       is_available: true,
       components: [],
       active_rental: null,
+      last_rental: null,
       created_at: '2026-08-28T10:00:00Z',
       updated_at: '2026-08-28T10:00:00Z',
     }
@@ -486,6 +511,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       if (body.type !== undefined) transport.type = String(body.type)
       if (body.model !== undefined) transport.model = String(body.model)
       if (body.serial_number !== undefined) transport.serial_number = String(body.serial_number)
+      if (body.ordinal_number !== undefined) transport.ordinal_number = body.ordinal_number as number | null
       if (body.color !== undefined) transport.color = String(body.color)
       if (body.deposit_required !== undefined) {
         transport.deposit_required = Boolean(body.deposit_required)
@@ -550,6 +576,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
     if (resource === 'rentals' && !childId && method === 'POST') {
       const body = JSON.parse(String(init.body)) as {
         courier_id: string
+        payment_type: TransportPaymentType
         started_at: string
         ended_at: string | null
       }
@@ -557,6 +584,7 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
         id: 'rental-transport-1',
         transport_id: transportId,
         courier_id: body.courier_id,
+        payment_type: body.payment_type,
         started_at: body.started_at,
         ended_at: body.ended_at,
         file_id: null,
@@ -566,6 +594,9 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
         updated_at: '2026-08-28T10:00:00Z',
       }
       serverRentals.unshift(rental)
+      if (!transport.last_rental || rental.started_at > transport.last_rental.started_at) {
+        transport.last_rental = rentalSummary(rental)
+      }
       if (rental.is_active) {
         transport.active_rental = rental
         transport.is_available = false
@@ -578,12 +609,18 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
       )
       if (!rental) return problem(404, 'Rental not found')
       if (!command && method === 'GET') return jsonResponse(rental)
+      if (!command && method === 'PATCH') {
+        const body = JSON.parse(String(init.body)) as { payment_type: TransportPaymentType }
+        rental.payment_type = body.payment_type
+        return jsonResponse(rental)
+      }
       if (command === 'close' && method === 'POST') {
         const body = JSON.parse(String(init.body)) as { ended_at: string }
         rental.ended_at = body.ended_at
         rental.is_active = false
         transport.active_rental = null
         transport.is_available = true
+        transport.last_rental = rentalSummary(rental)
         return jsonResponse(rental)
       }
       if (command === 'contract' && method === 'POST') {
@@ -1249,12 +1286,142 @@ describe('Admin CRUD', () => {
 })
 
 describe('Bikes full accounting', () => {
+  it.each(['Enter', ' '])('открывает транспорт клавишей %s и возвращает фокус на строку', async (key) => {
+    const page = await mountApp()
+    await openBikesTab(page)
+    const transport = serverTransports[0]
+    const row = page.get(`[data-od-id="bike-row-${transport.id}"]`)
+    const focus = vi.spyOn(row.element as HTMLElement, 'focus')
+
+    expect(row.attributes('tabindex')).toBe('0')
+    await row.trigger('keydown', { key })
+    await flushPromises()
+    expect(page.get('#bikeDetailTitle').text()).toBe(transport.model)
+
+    await page.get('[data-od-id="bike-detail-dialog"] [aria-label="Закрыть"]').trigger('click')
+    await flushPromises()
+    expect(page.find('[data-od-id="bike-detail-dialog"]').exists()).toBe(false)
+    expect(focus).toHaveBeenCalledOnce()
+  })
+
+  it.each([true, false])('показывает имя прежнего арендатора из ответа API, имя доступно: %s', async (hasContact) => {
+    const transport = serverTransports[0]
+    const courier = serverCouriers[0]
+    transport.last_rental = {
+      id: 'previous-rental',
+      courier: { id: courier.id, full_name: hasContact ? courier.full_name : null, phone: hasContact ? courier.phone : null },
+      started_at: '2026-08-01T10:00:00Z',
+      ended_at: '2026-08-10T10:00:00Z',
+      is_active: false,
+    }
+    const page = await mountApp()
+    const start = requests.length
+    await openBikesTab(page)
+    const renterCell = () => page.get(`[data-od-id="bike-row-${transport.id}"] [data-label="Курьер"]`)
+    expect(renterCell().text()).toBe(hasContact ? courier.full_name : '—')
+    expect(renterCell().find('a').exists()).toBe(false)
+    expect(requests.slice(start).some((request) => request.url.startsWith('/courier'))).toBe(false)
+    await renterCell().trigger('click')
+    await flushPromises()
+    expect(page.get('#bikeDetailTitle').text()).toBe(transport.model)
+    expect(renterCell().text()).toBe(hasContact ? courier.full_name : '—')
+  })
+
+  it.each([
+    ['monthly', 'Месячный', ''],
+    ['weekly_in_arrears', 'Неделя назад', '2026-08-21T10:00'],
+  ])('создаёт аренду с типом оплаты %s', async (paymentType, label, endedAt) => {
+    const page = await mountApp()
+    await openBikesTab(page)
+    await page.get(`[data-od-id="bike-row-${bike(1).id}"]`).trigger('click')
+    await flushPromises()
+    await buttonWithText(page, 'Выдать курьеру').trigger('click')
+    await flushPromises()
+    expect(page.get('#rental-paymentType').element).toHaveProperty('value', '')
+    await page.get('[aria-label="Курьер"]').setValue(serverCouriers[0].id)
+    await page.get('#rental-startedAt').setValue('2026-08-20T10:00')
+    await page.get('#rental-historicalEnd').setValue(endedAt)
+    await page.get('#rental-paymentType').setValue(paymentType)
+    await page.get('[data-od-id="rental-form-dialog"] form').trigger('submit')
+    await flushPromises()
+    await flushPromises()
+    const request = requests.find((item) => item.url.endsWith('/rentals') && item.init.method === 'POST')
+    expect(JSON.parse(String(request?.init.body))).toMatchObject({
+      payment_type: paymentType,
+      ended_at: endedAt ? new Date(endedAt).toISOString() : null,
+    })
+    expect(page.get('.rental-card').text()).toContain(`Тип оплаты: ${label}`)
+  })
+
+  it.each([true, false])('заполняет и изменяет оплату прежней аренды, активна: %s', async (isActive) => {
+    const transport = serverTransports[0]
+    const rental: TestRental = {
+      id: 'legacy-rental',
+      transport_id: transport.id,
+      courier_id: serverCouriers[0].id,
+      payment_type: null,
+      started_at: '2026-08-01T10:00:00Z',
+      ended_at: isActive ? null : '2026-08-10T10:00:00Z',
+      file_id: 'legacy-contract',
+      file: {
+        id: 'legacy-contract', original_name: 'existing.pdf', content_type: 'application/pdf',
+        size: 2048, status: 'ready', created_at: '2026-08-01T10:00:00Z',
+      },
+      is_active: isActive,
+      created_at: '2026-08-01T10:00:00Z',
+      updated_at: '2026-08-01T10:00:00Z',
+    }
+    const original = structuredClone(rental)
+    serverRentals.push(rental)
+    transport.active_rental = isActive ? rental : null
+    transport.is_available = !isActive
+    const page = await mountApp()
+    await openBikesTab(page)
+    await page.get(`[data-od-id="bike-row-${transport.id}"]`).trigger('click')
+    await flushPromises()
+    expect(page.get('.rental-card').text()).toContain('Тип оплаты: Не указан')
+    const action = isActive ? 'edit-current-rental-payment' : 'edit-rental-payment-legacy-rental'
+    await page.get(`[data-od-id="${action}"]`).trigger('click')
+    expect(page.get('#rental-edit-paymentType').element).toHaveProperty('value', '')
+    await page.get('[data-od-id="rental-payment-dialog"] form').trigger('submit')
+    expect(page.get('[data-od-id="rental-payment-dialog"]').text()).toContain('Выберите тип оплаты.')
+    expect(requests.some((item) => item.init.method === 'PATCH')).toBe(false)
+    await page.get('#rental-edit-paymentType').setValue('monthly')
+    await page.get('[data-od-id="rental-payment-dialog"] form').trigger('submit')
+    await flushPromises()
+    expect(page.get('.rental-card').text()).toContain('Тип оплаты: Месячный')
+    if (isActive) expect(page.get('.rental-current').text()).toContain('Тип оплаты: Месячный')
+
+    await page.get('[data-od-id="edit-rental-payment-legacy-rental"]').trigger('click')
+    expect(page.get('#rental-edit-paymentType').element).toHaveProperty('value', 'monthly')
+    await page.get('#rental-edit-paymentType').setValue('weekly_in_arrears')
+    await page.get('[data-od-id="rental-payment-dialog"] form').trigger('submit')
+    await flushPromises()
+    const patchRequests = requests.filter((item) => item.init.method === 'PATCH')
+    expect(patchRequests.map((item) => JSON.parse(String(item.init.body)))).toEqual([
+      { payment_type: 'monthly' }, { payment_type: 'weekly_in_arrears' },
+    ])
+    expect(patchRequests.every((item) => item.url === `/transport/${transport.id}/rentals/legacy-rental`)).toBe(true)
+    expect(page.get('.rental-card').text()).toContain('Тип оплаты: Неделя назад')
+    if (isActive) expect(page.get('.rental-current').text()).toContain('Тип оплаты: Неделя назад')
+    expect(rental).toEqual({ ...original, payment_type: 'weekly_in_arrears' })
+  })
+
   it('фильтрует парк и управляет велосипедом и комплектацией', async () => {
     const page = await mountApp()
     await openBikesTab(page)
 
-    expect(page.get('[data-od-id="bikes-title"]').text()).toBe('Велосипеды')
+    expect(page.get('[data-od-id="tab-bikes"]').text()).toBe('Транспорт')
+    expect(page.get('[data-od-id="bikes-title"]').text()).toBe('Транспорт')
+    expect(page.findAll('[data-od-id="bikes-table"] th').map((cell) => cell.text())).toEqual([
+      'Порядковый номер', 'Модель', 'Серийный номер', 'Курьер',
+    ])
+    expect(page.get('[data-od-id="bikes-table"]').find('button').exists()).toBe(false)
+    expect(page.get(`[data-od-id="bike-row-${bike(1).id}"]`).findAll('td').map((cell) => cell.text())).toEqual([
+      '—', bike(1).model, bike(1).serial_number, '—',
+    ])
     expect(page.findAll('[data-od-id^="bike-row-"]')).toHaveLength(2)
+    expect(page.findAll('[data-label="Курьер"]').map((cell) => cell.text())).toEqual(['—', '—'])
     const listRequest = requests.find((request) => request.url.startsWith('/transport?'))
     expect(new Headers(listRequest?.init.headers).get('Authorization')).toBe('Bearer access-token')
 
@@ -1277,6 +1444,7 @@ describe('Bikes full accounting', () => {
     await page.get('[data-od-id="create-bike"]').trigger('click')
     await page.get('#bike-model').setValue('Urban Cargo')
     await page.get('#bike-serialNumber').setValue(' cargo-099 ')
+    await page.get('#bike-ordinalNumber').setValue('42')
     await page.get('#bike-color').setValue('Graphite')
     await page.get('#bike-rentalPrice').setValue('1500,50')
     await page.get('#bike-debtAmount').setValue('125,75')
@@ -1293,6 +1461,7 @@ describe('Bikes full accounting', () => {
       type: 'e-bike',
       model: 'Urban Cargo',
       serial_number: 'CARGO-099',
+      ordinal_number: 42,
       color: 'Graphite',
       deposit_required: false,
       deposit_amount: null,
@@ -1301,12 +1470,15 @@ describe('Bikes full accounting', () => {
       debt_amount: '125.75',
     })
     expect(page.text()).toContain('Urban Cargo')
+    expect(page.get('[data-od-id="bike-row-20000000-0000-4000-8000-000000000099"] [data-label="Порядковый номер"]').text()).toBe('42')
 
     const createdId = '20000000-0000-4000-8000-000000000099'
-    await page.get(`[data-od-id="open-bike-${createdId}"]`).trigger('click')
+    await page.get(`[data-od-id="bike-row-${createdId}"]`).trigger('click')
     await flushPromises()
     expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('125.75 Kč')
     expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Требуется плановое обслуживание')
+    expect(page.get('#bikeDetailTitle').text()).toBe('Urban Cargo')
+    expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Порядковый номер42')
     await buttonWithText(page, 'Добавить позицию').trigger('click')
     await page.get('#component-name').setValue('Замок')
     await page.get('#component-unitPrice').setValue('25.50')
@@ -1339,6 +1511,21 @@ describe('Bikes full accounting', () => {
       debt_amount: '300.25',
     })
 
+    await buttonWithText(page, 'Редактировать').trigger('click')
+    expect(page.get('#bike-ordinalNumber').element).toHaveProperty('value', '42')
+    await page.get('#bike-ordinalNumber').setValue('77')
+    await page.get('[data-od-id="bike-form-dialog"] form').trigger('submit')
+    await flushPromises()
+    expect(JSON.parse(String(requests.filter((request) => request.url === `/transport/${createdId}` && request.init.method === 'PATCH').at(-1)?.init.body))).toEqual({ ordinal_number: 77 })
+    expect(page.get(`[data-od-id="bike-row-${createdId}"] [data-label="Порядковый номер"]`).text()).toBe('77')
+
+    await buttonWithText(page, 'Редактировать').trigger('click')
+    await page.get('#bike-ordinalNumber').setValue('')
+    await page.get('[data-od-id="bike-form-dialog"] form').trigger('submit')
+    await flushPromises()
+    expect(JSON.parse(String(requests.filter((request) => request.url === `/transport/${createdId}` && request.init.method === 'PATCH').at(-1)?.init.body))).toEqual({ ordinal_number: null })
+    expect(page.get(`[data-od-id="bike-row-${createdId}"] [data-label="Порядковый номер"]`).text()).toBe('—')
+
     await buttonWithText(page, 'Удалить велосипед').trigger('click')
     await page.get('[data-od-id="confirm-action-dialog"] .btn-danger').trigger('click')
     await flushPromises()
@@ -1350,19 +1537,27 @@ describe('Bikes full accounting', () => {
     await openBikesTab(page)
     const transportId = bike(1).id
 
-    await page.get(`[data-od-id="open-bike-${transportId}"]`).trigger('click')
+    await page.get(`[data-od-id="bike-row-${transportId}"]`).trigger('click')
     await flushPromises()
     await buttonWithText(page, 'Выдать курьеру').trigger('click')
     await flushPromises()
     await page.get('[aria-label="Курьер"]').setValue(serverCouriers[0].id)
     await page.get('#rental-startedAt').setValue('2026-08-20T10:00')
     await page.get('[data-od-id="rental-form-dialog"] form').trigger('submit')
+    expect(page.get('[data-od-id="rental-form-dialog"]').text()).toContain('Выберите тип оплаты.')
+    expect(requests.some((request) => request.url.endsWith('/rentals') && request.init.method === 'POST')).toBe(false)
+    await page.get('#rental-paymentType').setValue('weekly')
+    await page.get('[data-od-id="rental-form-dialog"] form').trigger('submit')
     await flushPromises()
     await flushPromises()
 
     const rentalRequest = requests.find((request) => request.url.endsWith('/rentals') && request.init.method === 'POST')
     expect(new Headers(rentalRequest?.init.headers).get('Idempotency-Key')).toBeTruthy()
+    expect(JSON.parse(String(rentalRequest?.init.body)).payment_type).toBe('weekly')
     expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Выдан')
+    expect(page.get('.rental-current').text()).toContain('Тип оплаты: Недельный')
+    const renterCell = () => page.get(`[data-od-id="bike-row-${transportId}"] [data-label="Курьер"]`)
+    expect(renterCell().text()).toBe(serverCouriers[0].full_name)
 
     await buttonWithText(page, 'Приложить договор').trigger('click')
     const contract = new File(['signed'], 'contract.pdf', { type: 'application/pdf', lastModified: 1 })
@@ -1407,6 +1602,8 @@ describe('Bikes full accounting', () => {
       ended_at: new Date('2099-09-04T10:00').toISOString(),
     })
     expect(page.get('[data-od-id="bike-detail-dialog"]').text()).toContain('Велосипед свободен')
+    expect(page.get('.rental-card').text()).toContain('Тип оплаты: Недельный')
+    expect(renterCell().text()).toBe(serverCouriers[0].full_name)
 
     await buttonWithText(page, 'Удалить велосипед').trigger('click')
     await page.get('[data-od-id="confirm-action-dialog"] .btn-danger').trigger('click')

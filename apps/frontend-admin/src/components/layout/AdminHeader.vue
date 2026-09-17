@@ -56,7 +56,7 @@ const initials = computed(() => props.admin.username.slice(0, 2).toLocaleUpperCa
             <circle cx="19" cy="17" r="4" />
             <path d="m5 17 5-9 5 9H5m5-9h6M8 5h4m-2 0v3m9 9-4-13h3" />
           </svg>
-          Велосипеды
+          Транспорт
         </button>
         <button
           class="tab"

@@ -55,6 +55,7 @@ const rental: TransportRental = {
   id: 'rental-1',
   transportId: 'transport-1',
   courierId: courier.id,
+  paymentType: 'weekly_in_arrears',
   startedAt: '2026-08-30T10:00:00Z',
   endedAt: null,
   fileId: null,
@@ -69,11 +70,19 @@ const transport: Transport = {
   type: 'bike',
   model: 'Urban Arrow',
   serialNumber: 'SN-001',
+  ordinalNumber: 42,
   color: 'black',
   depositRequired: true,
   depositAmount: '2000.00',
   rentalPrice: '1500.00',
   isAvailable: false,
+  lastRental: {
+    id: rental.id,
+    courier: { id: rental.courierId, fullName: null, phone: null },
+    startedAt: rental.startedAt,
+    endedAt: rental.endedAt,
+    isActive: rental.isActive,
+  },
   components: [],
   activeRental: rental,
   comment: null,
@@ -88,8 +97,8 @@ const template: DocumentTemplate = {
   fileId: 'file-1',
   fields: {
     courier: ['full_name', 'city', 'date_of_birth'],
-    transport: ['model', 'serial_number', 'deposit_required'],
-    transport_courier: ['started_at', 'is_active'],
+    transport: ['model', 'serial_number', 'ordinal_number', 'deposit_required'],
+    transport_courier: ['started_at', 'is_active', 'payment_type'],
     manual: ['contract_number'],
   },
   createdAt: '2026-08-30T10:00:00Z',
@@ -156,10 +165,27 @@ describe('DocumentRenderModal', () => {
     expect(rendered.transport).toMatchObject({
       model: 'Urban Arrow',
       serial_number: 'SN-001',
+      ordinal_number: '42',
       deposit_required: 'Да',
     })
-    expect(rendered.transport_courier).toEqual({ started_at: '30.08.2026', is_active: 'Да' })
+    expect(rendered.transport_courier).toEqual({ started_at: '30.08.2026', is_active: 'Да', payment_type: 'Неделя назад' })
     expect(rendered.manual).toEqual({ contract_number: 'A-42' })
+  })
+
+  it('оставляет пустыми необязательный номер и незаполненный тип оплаты прежней аренды', async () => {
+    transportApi.get.mockResolvedValueOnce({ ...transport, ordinalNumber: null })
+    transportApi.listRentals.mockResolvedValueOnce({ items: [{ ...rental, paymentType: null }], nextCursor: null })
+    const wrapper = mount(DocumentRenderModal, {
+      props: { template, rendering: false, error: '' },
+      global: { stubs: { Teleport: true } },
+    })
+    await flushPromises()
+    await wrapper.get('#document-transport').setValue(transport.id)
+    await flushPromises()
+    await wrapper.get('#document-rental').setValue(rental.id)
+    await flushPromises()
+    expect(wrapper.get('#document-value-transport-ordinal_number').element).toHaveProperty('value', '')
+    expect(wrapper.get('#document-value-transport_courier-payment_type').element).toHaveProperty('value', '')
   })
 
   it('блокирует рендер для аренды другого курьера', async () => {

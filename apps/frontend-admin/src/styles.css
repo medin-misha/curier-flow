@@ -835,14 +835,11 @@ h3 {
   width: 16%;
 }
 
-.bikes-table th:nth-child(1) { width: 17%; }
-.bikes-table th:nth-child(2) { width: 14%; }
-.bikes-table th:nth-child(3) { width: 9%; }
-.bikes-table th:nth-child(4) { width: 11%; }
-.bikes-table th:nth-child(5) { width: 13%; }
-.bikes-table th:nth-child(6) { width: 12%; }
-.bikes-table th:nth-child(7) { width: 19%; }
-.bikes-table th:nth-child(8) { width: 5%; }
+.bikes-table th:nth-child(1) { width: 18%; }
+.bikes-table th:nth-child(2) { width: 27%; }
+.bikes-table th:nth-child(3) { width: 25%; }
+.bikes-table th:nth-child(4) { width: 30%; }
+.bikes-table td { overflow-wrap: anywhere; }
 
 .receipts-table th:nth-child(1) { width: 20%; }
 .receipts-table th:nth-child(2) { width: 13%; }
@@ -2208,6 +2205,10 @@ h3 {
     display: flex;
     justify-content: flex-end;
     border-bottom: 0;
+  }
+
+  .bikes-table tbody td:last-child {
+    display: grid;
   }
 
   .city-cell {

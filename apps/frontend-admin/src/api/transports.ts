@@ -6,6 +6,7 @@ import type {
   TransportFilters,
   TransportInput,
   TransportListItem,
+  TransportPaymentType,
   TransportRental,
   TransportRentalInput,
 } from '../types/transport'
@@ -24,6 +25,7 @@ interface TransportRentalResponse {
   id: string
   transport_id: string
   courier_id: string
+  payment_type: TransportPaymentType | null
   started_at: string
   ended_at: string | null
   file_id: string | null
@@ -44,16 +46,30 @@ interface TransportComponentResponse {
   updated_at: string
 }
 
+interface TransportLastRentalResponse {
+  id: string
+  courier: {
+    id: string
+    full_name: string | null
+    phone: string | null
+  }
+  started_at: string
+  ended_at: string | null
+  is_active: boolean
+}
+
 interface TransportListItemResponse {
   id: string
   type: string
   model: string
   serial_number: string
+  ordinal_number: number | null
   color: string
   deposit_required: boolean
   deposit_amount: string | null
   rental_price: string
   is_available: boolean
+  last_rental: TransportLastRentalResponse | null
   created_at: string
   updated_at: string
 }
@@ -86,6 +102,7 @@ export function mapRental(rental: TransportRentalResponse): TransportRental {
     id: rental.id,
     transportId: rental.transport_id,
     courierId: rental.courier_id,
+    paymentType: rental.payment_type,
     startedAt: rental.started_at,
     endedAt: rental.ended_at,
     fileId: rental.file_id,
@@ -115,11 +132,23 @@ export function mapTransportListItem(response: TransportListItemResponse): Trans
     type: response.type,
     model: response.model,
     serialNumber: response.serial_number,
+    ordinalNumber: response.ordinal_number,
     color: response.color,
     depositRequired: response.deposit_required,
     depositAmount: response.deposit_amount,
     rentalPrice: response.rental_price,
     isAvailable: response.is_available,
+    lastRental: response.last_rental ? {
+      id: response.last_rental.id,
+      courier: {
+        id: response.last_rental.courier.id,
+        fullName: response.last_rental.courier.full_name,
+        phone: response.last_rental.courier.phone,
+      },
+      startedAt: response.last_rental.started_at,
+      endedAt: response.last_rental.ended_at,
+      isActive: response.last_rental.is_active,
+    } : null,
     createdAt: response.created_at,
     updatedAt: response.updated_at,
   }
@@ -147,6 +176,7 @@ function transportPayload(input: TransportInput, patch: boolean) {
     type: input.type.trim().toLowerCase(),
     model: input.model.trim(),
     serial_number: input.serialNumber.trim().toUpperCase(),
+    ordinal_number: input.ordinalNumber,
     color: input.color.trim(),
     deposit_required: input.depositRequired,
     ...(input.depositRequired
@@ -162,10 +192,11 @@ function transportPayload(input: TransportInput, patch: boolean) {
 
 function transportPatch(input: TransportInput, current: Transport) {
   const normalized = transportPayload(input, true)
-  const patch: Record<string, string | boolean | null> = {}
+  const patch: Record<string, string | number | boolean | null> = {}
   if (normalized.type !== current.type) patch.type = normalized.type
   if (normalized.model !== current.model) patch.model = normalized.model
   if (normalized.serial_number !== current.serialNumber) patch.serial_number = normalized.serial_number
+  if (normalized.ordinal_number !== current.ordinalNumber) patch.ordinal_number = normalized.ordinal_number
   if (normalized.color !== current.color) patch.color = normalized.color
   if (normalized.rental_price !== current.rentalPrice) patch.rental_price = normalized.rental_price
   if (normalized.comment !== current.comment) patch.comment = normalized.comment
@@ -299,12 +330,26 @@ export async function createTransportRental(
       ...commandBody(
         {
           courier_id: input.courierId,
+          payment_type: input.paymentType,
           started_at: input.startedAt,
           ended_at: input.endedAt,
           file_id: null,
         },
         idempotencyKey,
       ),
+    }),
+  )
+}
+
+export async function updateTransportRentalPayment(
+  transportId: string,
+  rentalId: string,
+  paymentType: TransportPaymentType,
+) {
+  return mapRental(
+    await apiRequest<TransportRentalResponse>(`/transport/${transportId}/rentals/${rentalId}`, {
+      method: 'PATCH',
+      ...jsonBody({ payment_type: paymentType }),
     }),
   )
 }

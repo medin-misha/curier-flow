@@ -1,6 +1,7 @@
 import type { Courier } from '../../types/courier'
 import type { DocumentModelGroup } from '../../types/document'
 import type { Transport, TransportRental } from '../../types/transport'
+import { transportPaymentLabel } from '../bikes/transportPayment'
 
 type FieldReader<T> = (model: T) => string
 type ModelFieldReaders<T> = Record<string, FieldReader<T>>
@@ -43,6 +44,7 @@ const transportFields: ModelFieldReaders<Transport> = {
   type: (transport) => transport.type,
   model: (transport) => transport.model,
   serial_number: (transport) => transport.serialNumber,
+  ordinal_number: (transport) => text(transport.ordinalNumber),
   color: (transport) => transport.color,
   deposit_required: (transport) => yesNo(transport.depositRequired),
   deposit_amount: (transport) => text(transport.depositAmount),
@@ -58,6 +60,7 @@ const rentalFields: ModelFieldReaders<TransportRental> = {
   id: (rental) => rental.id,
   transport_id: (rental) => rental.transportId,
   courier_id: (rental) => rental.courierId,
+  payment_type: (rental) => rental.paymentType === null ? '' : transportPaymentLabel(rental.paymentType),
   started_at: (rental) => date(rental.startedAt),
   ended_at: (rental) => date(rental.endedAt),
   file_id: (rental) => text(rental.fileId),
