@@ -87,7 +87,10 @@ services:
       start_period: 5s
 
   minio:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: curier-flow-minio:RELEASE.2025-10-15T17-29-55Z
+    build:
+      context: ./minio
+    pull_policy: build
     restart: unless-stopped
     logging: *default-logging
     command: ["server", "/data", "--console-address", ":9001"]
@@ -112,7 +115,8 @@ services:
   # готовым, как в проде, и не умеет создавать себе бакет само.
   # Тот же образ, что и у minio: `mc` лежит в нём, отдельный тянуть незачем.
   minio-init:
-    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    image: curier-flow-minio:RELEASE.2025-10-15T17-29-55Z
+    pull_policy: never
     logging: *default-logging
     # Профиль выключает сервис из обычного `up`: одноразовая задача завершается,
     # а `up --wait` умеет ждать только running|healthy и считает вышедший
