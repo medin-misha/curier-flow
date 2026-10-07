@@ -70,6 +70,7 @@ TTL access-токена.
 
 Courier endpoints с `@authenticated`:
 
+- `POST /import-courier` (исторический импорт, natural-key идемпотентность);
 - `GET /courier`;
 - `POST /courier/bulk-delete`;
 - `PATCH /courier/bulk-status`;

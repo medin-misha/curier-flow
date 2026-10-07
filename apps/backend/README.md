@@ -1,5 +1,8 @@
 # backend-template
 
+Перенос листа `Users` из XLSX описан в [спецификации импорта курьеров](docs/courier-import-spec.md).
+`POST /import-courier` требует Admin JWT и по умолчанию выполняет только проверку.
+
 Шаблон backend-сервиса: **FastAPI + SQLAlchemy 2.0 (async) + PostgreSQL**.
 
 Инфраструктура уже написана — транзакции, доменные события, идемпотентность,

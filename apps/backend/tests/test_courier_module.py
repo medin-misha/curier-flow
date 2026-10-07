@@ -1263,12 +1263,13 @@ def test_manifest_openapi_and_task_contract() -> None:
         for method in route.methods or ()
     }
 
-    assert courier_module.url_prefix == "/courier"
+    assert courier_module.url_prefix == ""
     assert courier_module.models == "app.modules.courier_module.models"
     assert courier_module.tasks == (retention_task,)
     assert getattr(retention_task, SCHEDULE_ATTR) == [{"cron": "29 2 * * *"}]
     assert task_name(courier_module, retention_task) == "courier_module.purge_expired_documents"
     assert route_auth == {
+        ("POST", "/import-courier"): True,
         ("POST", "/courier"): False,
         ("GET", "/courier"): True,
         ("POST", "/courier/bulk-delete"): True,

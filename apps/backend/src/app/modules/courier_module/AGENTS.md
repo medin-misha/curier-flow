@@ -4,7 +4,7 @@
 правила; читай их, если ещё не загружены.
 
 Модуль владеет aggregate `Courier -> platform_accounts/documents -> File` и
-HTTP-префиксом `/courier`. ORM `File`, S3 primitives и физическая очистка
+HTTP-путями `/courier` и `/import-courier`. ORM `File`, S3 primitives и физическая очистка
 остаются в `app.platform.files`/storage; импортировать `app.modules.storage`
 запрещено.
 
@@ -19,6 +19,8 @@ HTTP-префиксом `/courier`. ORM `File`, S3 primitives и физичес�
   S3/File cleanup выполняет универсальная storage-задача;
 - natural keys POST — нормализованные email/phone. Повтор возвращает
   сохранённый aggregate и не дополняет его входным payload.
+- исторический `/import-courier` требует Admin JWT и повторяет natural-key
+  правила; dry run не пишет, импорт не создаёт `CourierRegistered`.
 - только winner-ветка финальной транзакции aggregate POST записывает
   `CourierRegistered` (`courier.registered`) в outbox после фактического
   INSERT Courier; natural-key repeat, concurrent loser и nested account POST

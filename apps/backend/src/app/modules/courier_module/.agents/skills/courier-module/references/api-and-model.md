@@ -5,6 +5,11 @@ GET list; отдельных nested GET нет. Список — keyset по
 `(created_at DESC, id DESC)` и точные фильтры email/phone/full_name/status;
 `status` выбирает Courier с хотя бы одной platform-регистрацией в этом статусе.
 
+Манифест имеет пустой prefix: module router объединяет прежние пути `/courier`
+с `POST /import-courier`. Исторический импорт требует Admin access JWT,
+использует natural keys, function-scoped UoW и по умолчанию dry run.
+Контракт и команды описаны в [спецификации](../../../../../../../../docs/courier-import-spec.md).
+
 `POST /courier` публичен для формы регистрации. Каждый другой endpoint router
 помечен `@authenticated` и требует Admin access JWT; защита не распространяется
 на `/files` и не задаётся общим URL-списком.

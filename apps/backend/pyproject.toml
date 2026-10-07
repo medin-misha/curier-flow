@@ -125,9 +125,11 @@ ignore = [
 "alembic/**" = ["D"]
 # В тестах assert — рабочий инструмент, а не подозрительный код.
 "tests/**" = ["D", "S101", "PLR2004"]
+# Одноразовые локальные CLI пишут краткий результат в stdout.
+"scripts/**" = ["D", "T201"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["app"]
+known-first-party = ["app", "scripts"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
@@ -153,7 +155,7 @@ ban-relative-imports = "all"
 python_version = "3.12"
 # alembic проверяется наравне с кодом: env.py импортирует ядро и реестр, а
 # миграции правят схему боевой базы — ошибка типа там дороже, чем в сервисе.
-files = ["src", "tests", "alembic"]
+files = ["src", "tests", "alembic", "scripts"]
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 show_error_codes = true

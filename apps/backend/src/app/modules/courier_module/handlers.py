@@ -70,7 +70,7 @@ Sessions = Annotated[async_sessionmaker[AsyncSession], Depends(get_session_facto
 Uploader = Annotated[MultipartUploader, Depends(get_courier_uploader)]
 PageQuery = Annotated[PageParams, Depends()]
 
-router = APIRouter(tags=["courier"])
+router = APIRouter(prefix="/courier", tags=["courier"])
 
 
 @router.post(

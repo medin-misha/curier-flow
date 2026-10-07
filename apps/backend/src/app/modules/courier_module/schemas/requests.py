@@ -45,8 +45,8 @@ class CourierDocumentCreate(BaseRequest):
     _validate_hold = field_validator("legal_hold_until")(_aware_datetime)
 
 
-class CourierAggregateCreate(BaseRequest):
-    """Courier, platform accounts и metadata multipart-документов."""
+class CourierProfileCreate(BaseRequest):
+    """Общие scalar-поля регистрации и исторического импорта."""
 
     full_name: str = Field(min_length=1, max_length=255)
     email: str = Field(min_length=1, max_length=320)
@@ -60,10 +60,14 @@ class CourierAggregateCreate(BaseRequest):
     contact: str | None = Field(default=None, max_length=255)
     source: str | None = Field(default=None, max_length=64)
     consent_to_processing: bool = False
+    _validate_date_of_birth = field_validator("date_of_birth")(_future_date_of_birth)
+
+
+class CourierAggregateCreate(CourierProfileCreate):
+    """Courier, platform accounts и metadata multipart-документов."""
+
     platform_accounts: list[PlatformAccountCreate] = Field(min_length=1, max_length=3)
     documents: list[CourierDocumentCreate] = Field(default_factory=list)
-
-    _validate_date_of_birth = field_validator("date_of_birth")(_future_date_of_birth)
 
     @model_validator(mode="after")
     def _platforms_are_unique(self) -> Self:

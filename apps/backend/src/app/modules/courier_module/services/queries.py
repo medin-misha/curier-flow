@@ -34,16 +34,23 @@ async def find_by_identity(
 ) -> Courier | None:
     """Найти natural-key match или поднять identity-split."""
     async with session_factory() as session:
-        rows = list(
-            (
-                await session.scalars(
-                    select(Courier)
-                    .where(or_(Courier.email == email, Courier.phone == phone))
-                    .options(*aggregate_options())
-                    .order_by(Courier.id)
-                )
-            ).all()
-        )
+        return await find_identity_in_session(email, phone, session=session)
+
+
+async def find_identity_in_session(
+    email: str, phone: str, *, session: AsyncSession
+) -> Courier | None:
+    """Применить общие natural-key правила CREATE в текущей транзакции."""
+    rows = list(
+        (
+            await session.scalars(
+                select(Courier)
+                .where(or_(Courier.email == email, Courier.phone == phone))
+                .options(*aggregate_options())
+                .order_by(Courier.id)
+            )
+        ).all()
+    )
     if len(rows) > 1:
         raise Conflict(
             "Email and phone belong to different couriers",

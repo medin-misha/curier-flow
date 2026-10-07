@@ -4,10 +4,11 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Final
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 
 from app.kernel.registry import Module
 from app.modules.courier_module.handlers import router
+from app.modules.courier_module.import_handlers import router as import_router
 from app.modules.courier_module.services import CourierModuleSettings
 from app.modules.courier_module.tasks import purge_expired_documents
 from app.platform.files import FilePolicy, MultipartUploader, file_policy
@@ -30,10 +31,12 @@ def courier_lifespan(
     return lifespan
 
 
+module_router = APIRouter(routes=[*router.routes, *import_router.routes])
+
 courier_module: Final = Module(
     name="courier_module",
-    prefix="/courier",
-    router=router,
+    prefix="",
+    router=module_router,
     settings=CourierModuleSettings,
     models="app.modules.courier_module.models",
     tasks=(purge_expired_documents,),
