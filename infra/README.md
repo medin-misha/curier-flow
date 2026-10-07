@@ -30,25 +30,27 @@ BUILDKIT_PROGRESS=plain make up-infra
 
 `PUBLIC_DOMAIN` в `infra/.env` задаёт базовый домен без схемы, порта и пути.
 По умолчанию это `localhost`: локальные адреса и CA Caddy сохраняются. Для
-публичного сервера с IP `34.27.210.24`:
+публичного сервера с доменом `mfs-fleet.info` и IP `35.238.140.57`:
 
 ```dotenv
-PUBLIC_DOMAIN=34-27-210-24.sslip.io
+PUBLIC_DOMAIN=mfs-fleet.info
 DEBUG=false
 S3_PUBLIC_ENDPOINT_URL=https://minio.${PUBLIC_DOMAIN:-localhost}
 ```
 
 | Сервис | URL для этого сервера |
 | --- | --- |
-| Сайт | `https://34-27-210-24.sslip.io` |
-| Admin/Courier UI | `https://admin.34-27-210-24.sslip.io` |
-| Backend API | `https://backend.34-27-210-24.sslip.io` |
-| Grafana | `https://grafana.34-27-210-24.sslip.io` |
-| MinIO S3 API | `https://minio.34-27-210-24.sslip.io` |
+| Сайт | `https://mfs-fleet.info` |
+| Admin/Courier UI | `https://admin.mfs-fleet.info` |
+| Backend API | `https://backend.mfs-fleet.info` |
+| Grafana | `https://grafana.mfs-fleet.info` |
+| MinIO S3 API | `https://minio.mfs-fleet.info` |
 
-`sslip.io` автоматически возвращает IP из имени: регистрация домена и ручные
-DNS-записи не нужны. Это DNS, не туннель; IP сервера следует закрепить как
-статический. При его смене придётся изменить домен и заново войти в Admin.
+У DNS-провайдера создай A-записи `@`, `admin`, `backend`, `grafana` и `minio`,
+указывающие на `35.238.140.57`. Вместо четырёх записей поддоменов можно
+использовать wildcard A-запись `*`; запись основного домена `@` всё равно нужна.
+IP сервера следует закрепить как статический; при его смене обнови DNS.
+После смены домена понадобится заново войти в Admin.
 
 Caddy получает отдельные публично доверенные сертификаты через ACME и продлевает
 их автоматически. Certbot, DNS API token и wildcard-сертификат не нужны.
