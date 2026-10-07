@@ -1,9 +1,11 @@
 # Telegram notification worker
 
-Готовый самостоятельный sending-only service на Python 3.12, который читает
+Готовый самостоятельный service на Python 3.12, который читает
 регистрации Courier из RabbitMQ и отправляет plain-text уведомления через
-Telegram Bot API. Polling, webhook, обработка команд `/start`, БД и импорты из
-`apps/backend` отсутствуют.
+Telegram Bot API. Через long polling бот отвечает на `/start` строкой
+`chat_id: <id текущего чата>`, включая отрицательный ID группы. Поддерживаются
+аргументы команды и `/start@<username этого бота>`. Привязка Admin, webhook,
+БД и импорты из `apps/backend` отсутствуют.
 
 ## Контракт
 
@@ -20,6 +22,9 @@ DLQ вместе с их durable/TTL/DLX параметрами. Несовпа�
 
 При старте worker сначала проверяет token вызовом `getMe`, затем открывает
 robust RabbitMQ connection, ждёт topology и начинает consume с `prefetch=1`.
+Polling команд начинается после `getMe` и работает также во время ожидания
+RabbitMQ. На один bot token должен работать один polling worker; активный
+webhook несовместим с polling.
 Каждый payload строго валидируется, форматируется без Markdown/HTML и
 отправляется через `sendMessage` с отключённым preview ссылок.
 

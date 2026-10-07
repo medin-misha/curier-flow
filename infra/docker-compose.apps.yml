@@ -107,7 +107,7 @@ services:
     logging: *default-logging
     build:
       context: ../apps/telegram-bot
-    # Намеренно без общего env_file: sending-only процессу не нужны JWT,
+    # Намеренно без общего env_file: Telegram worker не нужны JWT,
     # PostgreSQL, Redis, MinIO и другие секреты backend. Передаём только его
     # RabbitMQ, logging и Telegram-контракт.
     environment:

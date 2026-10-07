@@ -6,8 +6,9 @@ description: Изменить Telegram notification worker с сохранени
 # Telegram notification
 
 Это канонический service workflow и living contract для
-`apps/telegram-bot/`. Сервис остаётся sending-only, не импортирует backend и не
-получает polling, webhook, HTTP server или собственную БД.
+`apps/telegram-bot/`. Сервис отправляет уведомления и через long polling
+отвечает на `/start` текущим chat_id. Он не импортирует backend и не получает
+webhook, HTTP server, привязку Admin или собственную БД.
 
 ## Маршрутизация контекста
 

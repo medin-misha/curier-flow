@@ -1,7 +1,7 @@
 [project]
 name = "courier-telegram-bot"
 version = "0.1.0"
-description = "Sending-only Telegram notification worker"
+description = "Telegram notification worker with chat ID command"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "aio-pika>=10.0.1",

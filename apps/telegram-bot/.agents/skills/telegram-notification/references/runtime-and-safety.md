@@ -12,6 +12,18 @@ topology и начать consume. Любая ошибка `getMe`, включа�
 RabbitMQ connection получает `fail_fast=0` и переподключается robust-механизмом.
 SIGINT/SIGTERM может прервать ожидание connection или отсутствующей topology.
 
+После успешного `getMe` параллельно с ожиданием RabbitMQ запускается
+`getUpdates`: long polling 20 секунд, HTTP timeout 25 секунд, только
+`allowed_updates=["message"]`. Команды `/start`, `/start <аргументы>` и
+`/start@<username этого бота>` отвечают в текущий чат строкой `chat_id: <chat.id>`.
+ID отправителя не используется, привязка Admin не выполняется.
+
+Offset продвигается после обработки update. Network, 429 и 5xx повторяются
+с паузой не меньше секунды (для 429 учитывается `retry_after`). Permanent 4xx
+отправки ответа пропускает update; 401 и permanent ошибки `getUpdates`
+останавливают worker. Используется один polling process на bot token;
+активный webhook несовместим с `getUpdates`.
+
 ## Graceful shutdown
 
 SIGINT и SIGTERM выставляют общий stop event. После старта consumer остановка
@@ -22,7 +34,7 @@ SIGINT и SIGTERM выставляют общий stop event. После ста�
    секунд, значение строго положительное).
 3. При timeout записать только технические counts, отменить in-flight tasks и
    закрыть channel; неподтверждённая delivery вернётся в очередь.
-4. Закрыть robust RabbitMQ connection, затем HTTP client.
+4. Закрыть robust RabbitMQ connection, отменить polling, затем HTTP client.
 
 Runtime `401`, retry publish failure, ACK failure и иное неожиданное исключение
 обработчика помечают consumer fatal. Worker выполняет тот же shutdown, затем

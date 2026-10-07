@@ -1,4 +1,4 @@
-"""Process entrypoint и graceful lifecycle sending-only worker."""
+"""Process entrypoint и graceful lifecycle Telegram worker."""
 
 import asyncio
 import signal
@@ -12,6 +12,7 @@ import structlog
 from aio_pika import connect_robust
 from aio_pika.abc import AbstractRobustConnection
 
+from telegram_bot.commands import poll_start_commands
 from telegram_bot.config import Settings
 from telegram_bot.logging import configure_logging
 from telegram_bot.rabbitmq import NotificationConsumer, StartupCancelledError
@@ -85,28 +86,54 @@ async def run_service(
         if stop_event.is_set():
             return
 
-        connection = await _connect_until_stopped(
-            settings,
-            stop_event=stop_event,
-            connection_opener=connection_opener,
-        )
-        if connection is None:
-            return
-
-        consumer = consumer_factory(connection, telegram, settings, stop_event)
+        polling_task = asyncio.create_task(poll_start_commands(telegram, stop_event))
+        polling_task.add_done_callback(lambda _task: stop_event.set())
         try:
-            await consumer.start()
-            await _wait_for_stop_or_fatal(stop_event, consumer.fatal_event)
-        except StartupCancelledError:
-            return
+            await _run_notifications(
+                settings,
+                telegram,
+                stop_event=stop_event,
+                connection_opener=connection_opener,
+                consumer_factory=consumer_factory,
+            )
         finally:
-            try:
-                await consumer.stop(drain_timeout=settings.telegram_shutdown_timeout)
-            finally:
-                await connection.close()
+            polling_task.cancel()
+            await asyncio.gather(polling_task, return_exceptions=True)
+        if not polling_task.cancelled():
+            polling_task.result()
 
-        if consumer.fatal_error is not None:
-            raise consumer.fatal_error
+
+async def _run_notifications(
+    settings: Settings,
+    telegram: TelegramBotClient,
+    *,
+    stop_event: asyncio.Event,
+    connection_opener: ConnectionOpener,
+    consumer_factory: ConsumerFactory,
+) -> None:
+    """Сохранить AMQP lifecycle независимо от получения команд."""
+    connection = await _connect_until_stopped(
+        settings,
+        stop_event=stop_event,
+        connection_opener=connection_opener,
+    )
+    if connection is None:
+        return
+
+    consumer = consumer_factory(connection, telegram, settings, stop_event)
+    try:
+        await consumer.start()
+        await _wait_for_stop_or_fatal(stop_event, consumer.fatal_event)
+    except StartupCancelledError:
+        return
+    finally:
+        try:
+            await consumer.stop(drain_timeout=settings.telegram_shutdown_timeout)
+        finally:
+            await connection.close()
+
+    if consumer.fatal_error is not None:
+        raise consumer.fatal_error
 
 
 async def _connect_until_stopped(

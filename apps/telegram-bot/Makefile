@@ -18,5 +18,5 @@ check: ## Проверить context, lockfile, формат, lint и типы
 test: ## Запустить unit и stub-integration тесты с покрытием
 	uv run pytest --cov=telegram_bot --cov-report=term-missing
 
-run: ## Запустить sending-only worker локально
+run: ## Запустить worker уведомлений и команд локально
 	uv run python -m telegram_bot.worker

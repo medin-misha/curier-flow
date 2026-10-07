@@ -46,7 +46,7 @@ class TelegramRateLimitError(TelegramTransientError):
 
 
 class TelegramBotClient:
-    """HTTP-клиент только для getMe и plain-text sendMessage."""
+    """HTTP-клиент для проверки token, команд и plain-text сообщений."""
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class TelegramBotClient:
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._token = token
+        self.username: str | None = None
         self._base_url = base_url.rstrip("/")
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout),
@@ -82,7 +83,19 @@ class TelegramBotClient:
 
     async def get_me(self) -> None:
         """Проверить bot token до подключения consumer."""
-        await self._call("getMe", {})
+        result = await self._call("getMe", {})
+        if isinstance(result, dict) and isinstance(result.get("username"), str):
+            self.username = result["username"]
+
+    async def get_updates(self, *, offset: int | None) -> list[dict[str, Any]]:
+        """Получить новые сообщения long polling без сохранения их в логах."""
+        payload: dict[str, Any] = {"timeout": 20, "allowed_updates": ["message"]}
+        if offset is not None:
+            payload["offset"] = offset
+        result = await self._call("getUpdates", payload, request_timeout=25)
+        if not isinstance(result, list) or any(not isinstance(update, dict) for update in result):
+            raise TelegramTransientError()
+        return result
 
     async def send_message(self, *, telegram_id: int, text: str) -> None:
         """Отправить plain text с отключённым preview ссылок."""
@@ -95,19 +108,24 @@ class TelegramBotClient:
             },
         )
 
-    async def _call(self, method: str, payload: dict[str, Any]) -> None:
+    async def _call(
+        self, method: str, payload: dict[str, Any], *, request_timeout: float | None = None
+    ) -> Any:
         """Выполнить Bot API вызов и классифицировать безопасную ошибку."""
         token = self._token.get_secret_value()
         url = f"{self._base_url}/bot{token}/{method}"
         try:
-            response = await self._client.post(url, json=payload)
+            if request_timeout is None:
+                response = await self._client.post(url, json=payload)
+            else:
+                response = await self._client.post(url, json=payload, timeout=request_timeout)
         except httpx.TransportError:
             # Не сохраняем исходное исключение: его URL содержит bot token.
             raise TelegramNetworkError() from None
 
         response_payload = _response_payload(response)
         if response.status_code == HTTP_OK and response_payload.get("ok") is True:
-            return
+            return response_payload.get("result")
 
         status_code = _error_code(response.status_code, response_payload)
         if status_code == HTTP_UNAUTHORIZED:

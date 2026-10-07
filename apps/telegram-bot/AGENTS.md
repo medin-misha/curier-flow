@@ -19,8 +19,8 @@
 
 ## Неподвижные границы
 
-- Сервис только отправляет сообщения: polling/webhook входящих Telegram updates
-  и привязка Admin через `/start` в MVP не входят.
+- Сервис отправляет уведомления и через long polling отвечает на `/start`
+  строкой `chat_id: <id текущего чата>`. Привязка Admin и webhook не входят.
 - Topology создаёт backend. Bot пассивно проверяет точную очередь
   `telegram.notifications` и не объявляет AMQP-сущности с другими аргументами.
 - Доставка at-least-once: ACK/retry/DLQ и graceful shutdown должны сохранять

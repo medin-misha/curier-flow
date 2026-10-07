@@ -482,6 +482,13 @@ class LifecycleTelegram:
     def __init__(self, events: list[str], error: Exception | None = None) -> None:
         self.events = events
         self.error = error
+        self.username = "courier_bot"
+
+    async def get_updates(self, *, offset: int | None) -> list[dict[str, Any]]:
+        """Имитировать ожидание входящих команд до отмены polling."""
+        del offset
+        await asyncio.Event().wait()
+        return []
 
     async def __aenter__(self) -> "LifecycleTelegram":
         """Открыть fake client."""
@@ -591,3 +598,88 @@ async def test_startup_401_never_connects_or_consumes() -> None:
         )
 
     assert events == ["http_open", "get_me", "http_close"]
+
+
+async def test_runtime_polling_auth_failure_stops_consumer() -> None:
+    """401 polling после запуска AMQP сохраняет порядок graceful shutdown."""
+    events: list[str] = []
+    stop_event = asyncio.Event()
+    consuming = asyncio.Event()
+
+    class PollingTelegram(LifecycleTelegram):
+        async def get_updates(self, *, offset: int | None) -> list[dict[str, Any]]:
+            del offset
+            await consuming.wait()
+            raise TelegramAuthError(status_code=401)
+
+    class RunningConsumer(LifecycleConsumer):
+        async def start(self) -> None:
+            self.events.append("consume")
+            consuming.set()
+
+    async def open_rabbit(_settings: Settings) -> Any:
+        events.append("rabbit_open")
+        return LifecycleConnection(events)
+
+    def make_consumer(
+        _connection: Any,
+        _telegram: Any,
+        _settings: Settings,
+        consumer_stop_event: asyncio.Event,
+    ) -> Any:
+        return RunningConsumer(events, consumer_stop_event)
+
+    with pytest.raises(TelegramAuthError):
+        await asyncio.wait_for(
+            run_service(
+                settings(),
+                stop_event=stop_event,
+                connection_opener=open_rabbit,
+                telegram_factory=lambda _settings: PollingTelegram(events),  # type: ignore[arg-type]
+                consumer_factory=make_consumer,
+            ),
+            timeout=1,
+        )
+    assert events[-3:] == ["consumer_stop", "rabbit_close", "http_close"]
+
+
+async def test_shutdown_cancels_pending_command_poll_before_http_close() -> None:
+    """Открытый long poll отменяется перед закрытием HTTP client."""
+    events: list[str] = []
+    stop_event = asyncio.Event()
+    polling = asyncio.Event()
+
+    class PollingTelegram(LifecycleTelegram):
+        async def get_updates(self, *, offset: int | None) -> list[dict[str, Any]]:
+            del offset
+            polling.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                events.append("poll_cancelled")
+            return []
+
+    async def open_rabbit(_settings: Settings) -> Any:
+        await polling.wait()
+        events.append("rabbit_open")
+        return LifecycleConnection(events)
+
+    def make_consumer(
+        _connection: Any,
+        _telegram: Any,
+        _settings: Settings,
+        consumer_stop_event: asyncio.Event,
+    ) -> Any:
+        return LifecycleConsumer(events, consumer_stop_event)
+
+    await asyncio.wait_for(
+        run_service(
+            settings(),
+            stop_event=stop_event,
+            connection_opener=open_rabbit,
+            telegram_factory=lambda _settings: PollingTelegram(events),  # type: ignore[arg-type]
+            consumer_factory=make_consumer,
+        ),
+        timeout=1,
+    )
+    assert events[-4:] == ["consumer_stop", "rabbit_close", "poll_cancelled", "http_close"]
