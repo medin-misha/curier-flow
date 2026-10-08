@@ -30,7 +30,7 @@ from app.modules.notes.services import (
 #: `scope="function"` — не украшение, а инвариант «коммит → ответ». С областью
 #: по умолчанию FastAPI закрывает зависимость уже после отправки ответа, и
 #: упавший коммит достаётся клиенту как 2xx. Проверяет это
-#: `tests/test_architecture.py::test_uow_dependencies_close_before_the_response`.
+#: `tests/architecture/test_architecture.py::test_uow_dependencies_close_before_the_response`.
 Uow = Annotated[AsyncSession, Depends(get_uow, scope="function")]
 RoSession = Annotated[AsyncSession, Depends(get_ro_session)]
 PageQuery = Annotated[PageParams, Depends()]

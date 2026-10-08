@@ -88,7 +88,7 @@ def test_the_write_transaction_closes_before_the_response_is_sent() -> None:
     """Область по умолчанию закрывает зависимость уже после отправки ответа.
 
     То есть упавший коммит уехал бы клиенту как 2xx. Что этого не происходит,
-    доказывает `tests/test_commit_before_response.py` на настоящем сервере;
+    доказывает `tests/api/test_commit_before_response.py` на настоящем сервере;
     здесь — дешёвая страховка от случайного снятия области при правке.
     """
     _, depends = get_args(Uow)

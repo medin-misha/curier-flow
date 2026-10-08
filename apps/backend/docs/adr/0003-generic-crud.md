@@ -41,7 +41,7 @@
   можно потерять» слишком важное, чтобы прятать его за параметром общего метода.
 - **Вызывать `CRUD` вправе только `services.py`.** Хендлер, дошедший до CRUD в
   обход сервиса, обходит вместе с ним и все бизнес-правила. Проверяет это
-  `tests/test_architecture.py::test_handlers_never_import_crud`.
+  `tests/architecture/test_architecture.py::test_handlers_never_import_crud`.
 - **`update` работает по белому списку `__patchable__` модели.** Поле вне
   списка — `Conflict`, а не тихая фильтрация: клиент, попросивший сменить
   `status`, должен узнать, что этого не произошло.

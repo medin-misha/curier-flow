@@ -2,7 +2,7 @@
 
 ## Проверяемые сценарии
 
-Основные тесты — `tests/test_admin.py` и `tests/test_authentication.py`. При
+Основные тесты — `tests/admin/test_admin.py` и `tests/api/test_authentication.py`. При
 изменении механизма сохраняй проверки:
 
 - одинакового `401` и dummy verify;

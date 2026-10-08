@@ -5,8 +5,12 @@ description: Проверить backend перед коммитом — lint, т
 
 # Проверка backend
 
-Рабочий каталог — `apps/backend/`. Сначала `make check` и `make test`
-(testcontainers требуют Docker; kernel coverage ≥85%). Недоступность Docker
+Рабочий каталог — `apps/backend/`. Сначала `make check` и тесты только областей
+изменений: `make test scope="courier"` или `make test-courier` (секции — в
+`make help`). Правка модуля не требует тестов ядра. При изменении общего слоя
+добавь его секцию и тесты затронутых потребителей. Полный `make test-all` с
+kernel coverage ≥85% — только по явному запросу.
+Testcontainers требуют Docker. Недоступность Docker
 означает невыполненную проверку, а не успех.
 
 Засчитывай успешные проверки из этой задачи, если после них не менялись
@@ -35,7 +39,7 @@ uv run alembic check
 - Эффект: обоснован выбор outbox/after_commit и допустимость потери.
 - Пагинация: миграция индекса `(created_at DESC, id DESC)`.
 - Внешний I/O: тест отсутствия открытой транзакции; образец —
-  `tests/test_storage.py::test_s3_calls_never_happen_inside_a_transaction`.
+  `tests/storage/test_storage.py::test_s3_calls_never_happen_inside_a_transaction`.
 
 При ошибке читай соответствующее правило по backend AGENTS;
 [правило → проверка](references/rule-to-check.md) нужно только для диагностики.

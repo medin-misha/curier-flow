@@ -24,8 +24,8 @@
 манифест. Проверка из `apps/backend/`:
 
 ```bash
-uv run ruff format src/app/modules/finance tests/test_finance.py
+uv run ruff format src/app/modules/finance tests/finance/test_finance.py
 make check
-make test
+make test-finance
 uv run alembic check
 ```

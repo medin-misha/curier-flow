@@ -18,5 +18,5 @@
 
 **Проверяют:** `uv run lint-imports` (контракты `Layers` и
 `Business modules never import each other`),
-`tests/test_kernel_isolation.py`, `tests/test_process_isolation.py`,
-`tests/test_project_layout.py`.
+`tests/architecture/test_kernel_isolation.py`, `tests/architecture/test_process_isolation.py`,
+`tests/architecture/test_project_layout.py`.

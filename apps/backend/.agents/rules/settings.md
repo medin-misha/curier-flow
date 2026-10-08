@@ -15,8 +15,8 @@
   после `git clone`.
 
 **Проверяют:** `make check` (ruff `banned-api` на `os.getenv`/`os.environ`),
-`tests/test_config.py`, `tests/test_platform_settings.py`,
-`tests/test_worker.py::test_defaults_match_the_env_example`.
+`tests/kernel/test_config.py`, `tests/platform/test_platform_settings.py`,
+`tests/worker/test_worker.py::test_defaults_match_the_env_example`.
 
 Полнота `.env.example` для **новых** настроек **проверяется ревью**: сверка
 «каждое поле каждого Settings-класса упомянуто в файле» существует только для

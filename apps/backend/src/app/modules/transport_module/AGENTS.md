@@ -23,8 +23,8 @@
 `module.py` — манифест. Проверка из `apps/backend`:
 
 ```bash
-uv run ruff format src/app/modules/transport_module tests/test_transport_module.py
+uv run ruff format src/app/modules/transport_module tests/transport/test_transport_module.py
 make check
-make test
+make test-transport
 uv run alembic check
 ```

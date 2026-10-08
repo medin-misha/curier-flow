@@ -4,7 +4,7 @@
 src/app/modules/<name>/**      новый каталог целиком
 src/app/modules/__init__.py    импорт манифеста + его имя в MODULES
 alembic/versions/<...>.py      новая миграция
-tests/test_<name>.py           тесты модуля
+tests/<name>/test_<name>.py           тесты модуля
 .env.example                   только если у модуля есть настройки
 ```
 

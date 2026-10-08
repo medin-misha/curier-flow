@@ -307,7 +307,7 @@ src/app/modules/transport_module/
 
 ## Тесты
 
-Файл `tests/test_transport_module.py` должен покрывать:
+Файл `tests/transport/test_transport_module.py` должен покрывать:
 
 - `401` для каждого endpoint без Admin JWT;
 - CRUD транспорта и комплектующих;
@@ -361,9 +361,9 @@ src/app/modules/transport_module/
 ## Проверка
 
 ```bash
-uv run ruff format src/app/modules/transport_module tests/test_transport_module.py
+uv run ruff format src/app/modules/transport_module tests/transport/test_transport_module.py
 make check
-make test
+make test-transport
 uv run alembic check
 uv run alembic downgrade -1
 uv run alembic upgrade head

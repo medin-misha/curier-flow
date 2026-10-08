@@ -7,7 +7,9 @@ FastAPI, SQLAlchemy async, PostgreSQL. Применяются [общие пра
 ## Проверка
 
 `make install` — зависимости и хуки; `make check` — формат, lint, типы и
-импорты; `make test` — pytest/testcontainers (нужен Docker, kernel coverage ≥85%).
+импорты; `make test-courier` / `make test scope="courier api"` — только области
+изменений. Ядро при правке модуля не проверяй. `make test-all` — только по
+явному запросу (kernel coverage ≥85%). Интеграции — с Docker.
 Миграция: `make revision m="..."`; применение: `make -C ../../infra migrate`.
 Перед backend-коммитом используй `pre-commit`; уже успешные проверки актуального
 состояния повторять не нужно.

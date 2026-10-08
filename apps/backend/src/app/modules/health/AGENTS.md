@@ -25,4 +25,4 @@
 В модуле намеренно нет моделей, request-схем, событий, подписчиков и задач. Не
 создавай пустые файлы для симметрии.
 
-Проверка: `uv run pytest tests/test_health.py -v` из `apps/backend/`.
+Проверка: `make test-health` из `apps/backend/`.

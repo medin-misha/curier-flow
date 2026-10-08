@@ -83,4 +83,4 @@ consumers). Правильный конечный вид для большого
 
 **Фон в uvicorn через `BackgroundTasks` или `lifespan`.** Отвергнут по причинам
 из раздела «Контекст». Проверяется тестом:
-`tests/test_process_isolation.py::test_lifespan_opens_no_connections`.
+`tests/architecture/test_process_isolation.py::test_lifespan_opens_no_connections`.

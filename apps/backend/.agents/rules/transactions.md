@@ -25,11 +25,11 @@
 сообщение дважды. Исключение описано в докстринге модуля; повторять его в
 бизнес-коде нельзя.
 
-**Проверяют:** `tests/test_architecture.py::test_modules_never_commit_the_session`
+**Проверяют:** `tests/architecture/test_architecture.py::test_modules_never_commit_the_session`
 (коммит), `::test_uow_dependencies_close_before_the_response`
-(область зависимости в любом модуле), `tests/test_deps.py`,
-`tests/test_session.py`, `tests/test_commit_before_response.py` (граница
-транзакции на настоящем uvicorn), `tests/test_storage.py::test_s3_calls_never_happen_inside_a_transaction`
+(область зависимости в любом модуле), `tests/api/test_deps.py`,
+`tests/kernel/test_session.py`, `tests/api/test_commit_before_response.py` (граница
+транзакции на настоящем uvicorn), `tests/storage/test_storage.py::test_s3_calls_never_happen_inside_a_transaction`
 (внешний I/O вне транзакции — в модуле `storage`).
 
 Запрет внешнего I/O в транзакции для **нового** модуля автоматически не

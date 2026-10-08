@@ -29,8 +29,8 @@
 контракт, `module.py` — lifespan и манифест. Проверка из `apps/backend/`:
 
 ```bash
-uv run ruff format src/app/modules/documents tests/test_documents.py
+uv run ruff format src/app/modules/documents tests/documents/test_documents.py
 make check
-make test
+make test-documents
 uv run alembic check
 ```

@@ -31,8 +31,8 @@ Uow = Annotated[AsyncSession, Depends(get_uow, scope="function")]
 коммита тоже, ломаться при закрытии нечему, а сессия, живущая до конца отправки,
 оставляет возможность отдавать ответ потоком.
 
-Сторожат инвариант `tests/test_commit_before_response.py` и
-`tests/test_architecture.py::test_uow_dependencies_close_before_the_response`.
+Сторожат инвариант `tests/api/test_commit_before_response.py` и
+`tests/architecture/test_architecture.py::test_uow_dependencies_close_before_the_response`.
 Первый поднимает **настоящий uvicorn** (`tests/asgi.py::app_client(live=True)`),
 а не `ASGITransport`: транспорт httpx собирает ответ целиком и лишь потом решает
 судьбу исключения, случившегося после отправки, поэтому «клиент уже получил

@@ -14,9 +14,9 @@
 - имя в `MODULES` без каталога `src/app/modules/<name>/module.py` — тоже ошибка;
 - модуль ничего не регистрирует на импорте: манифест только описывает себя.
 
-**Проверяют:** `tests/test_registry.py::test_every_module_on_disk_is_registered`,
+**Проверяют:** `tests/architecture/test_registry.py::test_every_module_on_disk_is_registered`,
 `::test_every_registered_module_exists_on_disk`,
-`tests/test_architecture.py::test_every_module_package_is_registered`.
+`tests/architecture/test_architecture.py::test_every_module_package_is_registered`.
 
 ## Слои внутри модуля
 
@@ -55,7 +55,7 @@ src/app/modules/<name>/
 - получает сессию (или фабрику сессий) и клиентов аргументами, не создаёт их
   внутри.
 
-**Проверяют:** `tests/test_architecture.py::test_handlers_never_import_crud`,
+**Проверяют:** `tests/architecture/test_architecture.py::test_handlers_never_import_crud`,
 `::test_services_never_raise_http_exceptions`,
 `::test_modules_never_commit_the_session`,
 `::test_every_module_carries_agent_instructions`; `make check` — ruff

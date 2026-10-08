@@ -28,5 +28,5 @@
   не заменяется.
 - Клиент не задаёт `key`, `owner_id` и статусы.
 
-Основная проверка: `uv run pytest tests/test_storage.py -v` из
+Основная проверка: `make test-storage` из
 `apps/backend/`.

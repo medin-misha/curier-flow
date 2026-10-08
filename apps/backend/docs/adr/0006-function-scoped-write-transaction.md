@@ -62,10 +62,10 @@ Uow = Annotated[AsyncSession, Depends(get_uow, scope="function")]
   есть `RoSession`, для записи потоковый ответ бессмыслен.
 - Один забытый `scope` в новом модуле снимает инвариант целиком и молча.
   Поэтому правило проверяется разбором исходников:
-  `tests/test_architecture.py::test_uow_dependencies_close_before_the_response`
+  `tests/architecture/test_architecture.py::test_uow_dependencies_close_before_the_response`
   падает на любом `Depends(get_uow)` без области, в любом файле.
 - Сам инвариант проверяется от поведения, а не от кода:
-  `tests/test_commit_before_response.py` поднимает **настоящий uvicorn** и
+  `tests/api/test_commit_before_response.py` поднимает **настоящий uvicorn** и
   ломает `COMMIT` отложенным ограничением Postgres. `ASGITransport` здесь не
   годится — он собирает ответ целиком и лишь потом решает судьбу исключения,
   поэтому «клиент уже получил 2xx» и «клиент получил 500» на нём неразличимы.

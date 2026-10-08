@@ -120,7 +120,7 @@ async def delete_note(note_id: UUID, *, session: AsyncSession) -> None:
   Если операция сочетает базу и сеть, модуль держит границы сам и порядок
   всегда такой: короткая читающая сессия → закрыли → внешний вызов → короткая
   пишущая транзакция. Образец — `modules/storage/services.py`; вместе с ним
-  скопируй сторож `guard_transactions` из `tests/test_storage.py`.
+  скопируй сторож `guard_transactions` из `tests/storage/test_storage.py`.
 
 **Физическое удаление против мягкого.** `CRUD.delete` удаляет строку. Если на
 неё ссылаются журналы или внешние системы — нужен `SoftDeleteMixin`, и тогда

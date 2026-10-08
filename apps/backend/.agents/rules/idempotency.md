@@ -103,8 +103,8 @@ async def create_order(body: OrderCreate, uow: Uow) -> OrderResponse:
 описаны в `.env.example`. Срок хранения ключа — это верхняя граница разумного
 ретрая: повтор через сутки является уже намерением клиента, а не сбоем сети.
 
-**Проверяют:** `tests/test_http_idempotency.py` (ключи HTTP),
-`tests/test_idempotency.py` (отметки сообщений),
-`tests/test_commit_before_response.py` (ключ и данные в одном коммите).
+**Проверяют:** `tests/api/test_http_idempotency.py` (ключи HTTP),
+`tests/platform/test_idempotency.py` (отметки сообщений),
+`tests/api/test_commit_before_response.py` (ключ и данные в одном коммите).
 Поимённая таблица «утверждение → тест» —
 `.agents/skills/pre-commit/references/rule-to-check.md` от `apps/backend/`.

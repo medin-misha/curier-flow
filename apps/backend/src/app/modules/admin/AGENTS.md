@@ -33,8 +33,8 @@ backend skill `admin-auth`; он выбирает нужную часть кон
 Проверка из `apps/backend`:
 
 ```bash
-uv run ruff format src/app/modules/admin tests/test_admin.py
+uv run ruff format src/app/modules/admin tests/admin/test_admin.py
 make check
-make test
+make test-admin
 uv run alembic check
 ```

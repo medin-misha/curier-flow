@@ -26,4 +26,4 @@ description: "Изменить существующий backend-модуль sto
 Для событий и задач используй также `background-effect`, для схемы БД —
 `db-migration`. Перед завершением прочитай
 [change-checklist.md](references/change-checklist.md) и выполни
-`uv run pytest tests/test_storage.py -v` из `apps/backend/`.
+`uv run pytest tests/storage/test_storage.py -v` из `apps/backend/`.

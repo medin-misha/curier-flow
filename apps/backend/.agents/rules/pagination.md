@@ -14,7 +14,7 @@
 - `id` входит в ключ обязательно: `created_at` не уникален, и без второго
   компонента строки теряются на границе страниц.
 
-**Проверяют:** `tests/test_pagination.py`, `tests/test_list_page.py`
+**Проверяют:** `tests/kernel/test_pagination.py`, `tests/kernel/test_list_page.py`
 (в том числе поведение при одинаковых `created_at` и отказ на модели без
 нужных колонок).
 

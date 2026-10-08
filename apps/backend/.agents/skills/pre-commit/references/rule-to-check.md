@@ -9,27 +9,27 @@
 | --- | --- |
 | Слои `api → modules → platform → kernel` | `uv run lint-imports` |
 | Модули не импортируют друг друга | `uv run lint-imports` |
-| `kernel` не знает про fastapi/starlette | `tests/test_kernel_isolation.py` |
-| Процесс uvicorn не знает про `platform` | `tests/test_process_isolation.py` |
-| Раскладка пакетов не разъехалась | `tests/test_project_layout.py` |
-| Каждый модуль в `MODULES`, и наоборот | `tests/test_registry.py`, `tests/test_architecture.py` |
-| У каждого модуля есть `AGENTS.md` | `tests/test_architecture.py::test_every_module_carries_agent_instructions` |
-| `handlers.py` не импортирует `CRUD` | `tests/test_architecture.py::test_handlers_never_import_crud` |
-| `services.py` не знает про HTTP | `tests/test_architecture.py::test_services_never_raise_http_exceptions` |
-| Бизнес-код не вызывает `commit()` | `tests/test_architecture.py::test_modules_never_commit_the_session` |
-| Пишущая зависимость закрывается до ответа | `tests/test_architecture.py::test_uow_dependencies_close_before_the_response`, `tests/test_commit_before_response.py` |
+| `kernel` не знает про fastapi/starlette | `tests/architecture/test_kernel_isolation.py` |
+| Процесс uvicorn не знает про `platform` | `tests/architecture/test_process_isolation.py` |
+| Раскладка пакетов не разъехалась | `tests/architecture/test_project_layout.py` |
+| Каждый модуль в `MODULES`, и наоборот | `tests/architecture/test_registry.py`, `tests/architecture/test_architecture.py` |
+| У каждого модуля есть `AGENTS.md` | `tests/architecture/test_architecture.py::test_every_module_carries_agent_instructions` |
+| `handlers.py` не импортирует `CRUD` | `tests/architecture/test_architecture.py::test_handlers_never_import_crud` |
+| `services.py` не знает про HTTP | `tests/architecture/test_architecture.py::test_services_never_raise_http_exceptions` |
+| Бизнес-код не вызывает `commit()` | `tests/architecture/test_architecture.py::test_modules_never_commit_the_session` |
+| Пишущая зависимость закрывается до ответа | `tests/architecture/test_architecture.py::test_uow_dependencies_close_before_the_response`, `tests/api/test_commit_before_response.py` |
 | `HTTPException` не используется | `make check` (ruff `banned-api`) |
 | Наивный UTC не используется | `make check` (ruff `banned-api`) |
 | Конфигурация читается только через pydantic-settings | `make check` (ruff `banned-api` на `os.getenv`/`os.environ`) |
-| Все ошибки — problem+json | `tests/test_api_errors.py` |
-| Keyset-пагинация работает и на дубликатах меток | `tests/test_pagination.py`, `tests/test_list_page.py` |
-| Событие и данные в одной транзакции | `tests/test_storage.py::test_confirmation_and_the_event_share_one_transaction` |
-| Релей не теряет и не дублирует события | `tests/test_outbox.py` |
-| Повторная доставка безвредна | `tests/test_idempotency.py`, `tests/test_domain_events.py` |
-| `Idempotency-Key` защищает запись | `tests/test_http_idempotency.py` |
+| Все ошибки — problem+json | `tests/api/test_api_errors.py` |
+| Keyset-пагинация работает и на дубликатах меток | `tests/kernel/test_pagination.py`, `tests/kernel/test_list_page.py` |
+| Событие и данные в одной транзакции | `tests/storage/test_storage.py::test_confirmation_and_the_event_share_one_transaction` |
+| Релей не теряет и не дублирует события | `tests/kernel/test_outbox.py` |
+| Повторная доставка безвредна | `tests/platform/test_idempotency.py`, `tests/worker/test_domain_events.py` |
+| `Idempotency-Key` защищает запись | `tests/api/test_http_idempotency.py` |
 | Модели совпадают с миграциями | `uv run alembic check` |
 | Изменённая миграция откатывается | `uv run alembic downgrade -1 && uv run alembic upgrade head` на отдельной локальной базе |
-| Покрытие `app.kernel` не ниже 85% | `make test` |
+| Покрытие `app.kernel` не ниже 85% | `make test-all` |
 | Типы, формат, докстринги ядра | `make check` |
 | Внешний I/O вне транзакции (новый модуль) | ревью + сторож в тестах модуля |
 | Выбор `emit()` против `after_commit` | ревью |
@@ -40,10 +40,10 @@
 ## Идемпотентность и порядок коммита — поимённо
 
 ```bash
-uv run pytest tests/test_http_idempotency.py -v      # ключи HTTP (нужен docker)
-uv run pytest tests/test_commit_before_response.py -v # коммит раньше ответа (docker)
-uv run pytest tests/test_idempotency.py -v           # отметки сообщений
-uv run pytest tests/test_security.py -v              # пароли и JWT
+uv run pytest tests/api/test_http_idempotency.py -v      # ключи HTTP (нужен docker)
+uv run pytest tests/api/test_commit_before_response.py -v # коммит раньше ответа (docker)
+uv run pytest tests/platform/test_idempotency.py -v           # отметки сообщений
+uv run pytest tests/kernel/test_security.py -v              # пароли и JWT
 make -C ../../infra migrate && uv run alembic check
 ```
 

@@ -41,9 +41,9 @@
 - событие, на которое никто не подписан, — не ошибка: очередь связана с обменом
   по `#`, такое сообщение подтверждается с warning и в DLQ не едет.
 
-**Проверяют:** `tests/test_events_bus.py`, `tests/test_events_registry.py`,
-`tests/test_outbox.py`, `tests/test_domain_events.py`,
-`tests/test_storage.py::test_confirmation_and_the_event_share_one_transaction`
+**Проверяют:** `tests/kernel/test_events_bus.py`, `tests/kernel/test_events_registry.py`,
+`tests/kernel/test_outbox.py`, `tests/worker/test_domain_events.py`,
+`tests/storage/test_storage.py::test_confirmation_and_the_event_share_one_transaction`
 (событие и данные в одной транзакции, доказано откатом).
 
 Выбор между `emit()` и `after_commit` **проверяется ревью**: «потерю переживём»

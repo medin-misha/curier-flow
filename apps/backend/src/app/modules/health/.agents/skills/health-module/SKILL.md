@@ -23,4 +23,4 @@ description: "Изменить существующий backend-модуль hea
 
 Перед завершением прочитай
 [change-checklist.md](references/change-checklist.md) и выполни
-`uv run pytest tests/test_health.py -v` из `apps/backend/`.
+`uv run pytest tests/health/test_health.py -v` из `apps/backend/`.

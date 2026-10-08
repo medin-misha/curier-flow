@@ -13,7 +13,7 @@
 - `mypy` здесь строже, чем в остальном проекте: дополнительно включены
   `disallow_any_generics`, `disallow_subclassing_any`, `disallow_untyped_calls`,
   `disallow_untyped_decorators`;
-- покрытие `app.kernel` не опускается ниже 85% — отдельный порог в `make test`.
+- покрытие `app.kernel` не опускается ниже 85% — отдельный порог в `make test-all`.
 
 **Проверяют:** `make check` (`ruff check` с правилом `D`, `mypy` с секциями для
-`app.kernel` и `app.platform` из `pyproject.toml`), `make test` (порог покрытия).
+`app.kernel` и `app.platform` из `pyproject.toml`), `make test-all` (порог покрытия).

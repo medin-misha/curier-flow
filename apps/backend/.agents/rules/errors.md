@@ -17,5 +17,5 @@
   можно по `request_id`, он есть и в теле, и в логе.
 
 **Проверяют:** `make check` (ruff `banned-api` на все три написания
-`HTTPException`), `tests/test_api_errors.py`, `tests/test_errors.py`,
-`tests/test_architecture.py::test_services_never_raise_http_exceptions`.
+`HTTPException`), `tests/api/test_api_errors.py`, `tests/kernel/test_errors.py`,
+`tests/architecture/test_architecture.py::test_services_never_raise_http_exceptions`.

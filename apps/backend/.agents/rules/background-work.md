@@ -20,8 +20,8 @@
 Работа, которую нельзя потерять, ставится строкой в таблице (статус, outbox), а
 не постановкой задачи в брокер.
 
-**Проверяют:** `tests/test_process_isolation.py::test_http_entrypoint_does_not_import_platform`,
-`::test_lifespan_opens_no_connections`, `tests/test_taskiq.py`,
-`tests/test_worker.py`.
+**Проверяют:** `tests/architecture/test_process_isolation.py::test_http_entrypoint_does_not_import_platform`,
+`::test_lifespan_opens_no_connections`, `tests/platform/test_taskiq.py`,
+`tests/worker/test_worker.py`.
 
 Выбор механизма под конкретный эффект — скилл `background-effect`.

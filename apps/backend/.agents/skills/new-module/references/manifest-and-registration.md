@@ -63,5 +63,5 @@ MODULES: Final[tuple[Module, ...]] = (health_module, storage_module, notes_modul
 метаданные Alembic, задачи, подписчики и топология подключатся сами.
 
 Пакет без записи в `MODULES` роняет
-`tests/test_registry.py::test_every_module_on_disk_is_registered`, запись без
+`tests/architecture/test_registry.py::test_every_module_on_disk_is_registered`, запись без
 пакета — `::test_every_registered_module_exists_on_disk`.

@@ -42,7 +42,7 @@ description: Создать новый backend-модуль с API, манифе
 - `src/app/modules/<name>/**`;
 - импорт и элемент в `src/app/modules/__init__.py`;
 - миграцию;
-- `tests/test_<name>.py`;
+- `tests/<name>/test_<name>.py`;
 - `.env.example`, только если появились настройки.
 
 Перед завершением прочитай [change-scope.md](references/change-scope.md) и

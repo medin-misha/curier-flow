@@ -1,7 +1,7 @@
 ## Шаг 13. Контекст модуля
 
 `src/app/modules/<name>/AGENTS.md` обязателен — без него падает
-`tests/test_architecture.py::test_every_module_carries_agent_instructions`.
+`tests/architecture/test_architecture.py::test_every_module_carries_agent_instructions`.
 
 Держи этот файл коротким: ориентир 1–2,5 KiB. В обязательный контекст входят только:
 

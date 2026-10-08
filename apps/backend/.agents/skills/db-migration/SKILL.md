@@ -83,8 +83,8 @@ make -C ../../infra migrate
 uv run alembic check    # «No new upgrade operations detected»
 ```
 
-`alembic check` ловит расхождение моделей и миграций, из-за которого `make test`
-упал бы на создании схемы: `tests/conftest.py` строит схему прогона именно
+`alembic check` ловит расхождение моделей и миграций, из-за которого тесты модуля
+упали бы на создании схемы: `tests/conftest.py` строит схему прогона именно
 миграциями.
 
 ## 6. Проверь откат

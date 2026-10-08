@@ -1,7 +1,7 @@
 ## Команды
 
 ```bash
-uv run pytest tests/test_storage.py -v      # тесты модуля (нужен docker)
+uv run pytest tests/storage/test_storage.py -v      # тесты модуля (нужен docker)
 make -C ../../infra migrate                 # таблица files в окружении стека
 uv run alembic check                        # схема совпадает с моделями
 

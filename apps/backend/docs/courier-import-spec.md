@@ -153,7 +153,7 @@ API допускает от 1 до 1000 записей; source_row и legacy_id 
 - API на PostgreSQL: Admin auth, dry run без записи/outbox, сохранение статусов
   и исторической даты, повторы, identity-split, split внутри пачки,
   параллельные импорты, откат при ошибке и отсутствие registration events.
-- Проверить совместимость прежнего POST и OpenAPI, `make check`, `make test`,
+- Проверить совместимость прежнего POST и OpenAPI, `make check`, `make test-courier`,
   `alembic check`. Управлять контейнерами только из `infra/`.
 
 ## Выполненная загрузка, 2026-10-06

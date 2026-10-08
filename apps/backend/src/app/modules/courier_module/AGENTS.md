@@ -36,8 +36,8 @@ HTTP-путями `/courier` и `/import-courier`. ORM `File`, S3 primitives и 
 `.agents/skills/courier-module/SKILL.md`. Проверка из `apps/backend`:
 
 ```bash
-uv run ruff format src/app/modules/courier_module tests/test_courier_module.py
+uv run ruff format src/app/modules/courier_module tests/courier/test_courier_module.py
 make check
-make test
+make test-courier
 uv run alembic check
 ```
