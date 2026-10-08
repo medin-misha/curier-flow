@@ -34,6 +34,8 @@ x-backend: &backend
     - path: .env
       required: false
   environment:
+    # Автоматическое удаление документов включается только явно.
+    COURIER_MODULE_RETENTION_ENABLED: ${COURIER_MODULE_RETENTION_ENABLED:-false}
     DATABASE_DSN: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@postgres:5432/${POSTGRES_DB:-app}
     RABBITMQ_DSN: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672/
     REDIS_DSN: redis://redis:6379/0

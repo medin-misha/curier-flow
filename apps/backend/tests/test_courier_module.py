@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import Any, Final
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -29,6 +30,7 @@ from app.kernel.idempotency import IdempotencyKey, is_idempotent
 from app.kernel.security.authentication import is_authenticated
 from app.kernel.security.tokens import issue_tokens, jwt_settings
 from app.modules.courier_module import handlers as courier_handlers
+from app.modules.courier_module import tasks as courier_tasks
 from app.modules.courier_module.models import (
     Courier,
     CourierDocument,
@@ -68,6 +70,7 @@ POLICY: Final = FilePolicy(
 TEST_SETTINGS: Final = CourierModuleSettings(
     max_documents=3,
     max_total_upload_size=2048,
+    retention_enabled=True,
     retention_platform_onboarding_days=90,
     retention_employment_compliance_days=1825,
     retention_other_days=365,
@@ -1147,6 +1150,43 @@ async def _retention_document(
             .values(created_at=created_at)
         )
     return document_id, file_id
+
+
+async def test_retention_disabled_by_default_does_not_open_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("COURIER_MODULE_RETENTION_ENABLED", raising=False)
+    config = CourierModuleSettings(_env_file=None)
+    factory = Mock(spec=async_sessionmaker)
+
+    assert config.retention_enabled is False
+    assert await purge_expired_documents(session_factory=factory, settings=config) == 0
+    factory.assert_not_called()
+
+
+async def test_disabled_retention_task_preserves_expired_document(
+    sessions: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document_id, file_id = await _retention_document(
+        email="disabled-retention@example.com",
+        phone="+420700001008",
+        purpose=DocumentPurpose.OTHER,
+        age_days=2000,
+    )
+    monkeypatch.setattr(
+        courier_tasks,
+        "courier_module_settings",
+        TEST_SETTINGS.model_copy(update={"retention_enabled": False}),
+    )
+
+    assert await retention_task() == 0
+
+    async with sessions() as session:
+        assert await session.get(CourierDocument, document_id) is not None
+        stored_file = await session.get(File, file_id)
+        assert stored_file is not None
+        assert stored_file.status is FileStatus.READY
 
 
 async def test_retention_boundaries_legal_hold_and_batch(

@@ -27,7 +27,11 @@ async def purge_expired_documents(
 
     Ошибка одного элемента откатывает только savepoint этого элемента. S3 не
     вызывается: физический lifecycle остаётся универсальной задачей storage.
+    При отключённом retention задача завершается без обращения к БД.
     """
+    if not settings.retention_enabled:
+        return 0
+
     current = now or datetime.now(tz=UTC)
     retention_days = {
         DocumentPurpose.PLATFORM_ONBOARDING: settings.retention_platform_onboarding_days,

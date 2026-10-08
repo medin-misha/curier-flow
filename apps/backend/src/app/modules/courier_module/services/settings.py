@@ -16,6 +16,7 @@ class CourierModuleSettings(BaseSettings):
 
     max_documents: int = Field(default=20, ge=0)
     max_total_upload_size: int = Field(default=104_857_600, gt=0)
+    retention_enabled: bool = False
     retention_platform_onboarding_days: int = Field(default=90, ge=1)
     retention_employment_compliance_days: int = Field(default=1825, ge=1)
     retention_other_days: int = Field(default=365, ge=1)
