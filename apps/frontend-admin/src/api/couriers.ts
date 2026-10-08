@@ -169,9 +169,7 @@ export function mapCourier(response: CourierResponse): Courier {
 function searchParams(query: string): Record<string, string> {
   const normalized = query.trim()
   if (!normalized) return {}
-  if (normalized.includes('@')) return { email: normalized }
-  if (/^[+\d\s().-]+$/.test(normalized)) return { phone: normalized }
-  return { full_name: normalized }
+  return { query: normalized }
 }
 
 export async function listCouriers(options: {

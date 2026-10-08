@@ -30,7 +30,7 @@ onMounted(() => void load())
 
 <template>
   <div class="courier-picker">
-    <div class="courier-picker-search"><input v-model="query" class="input" type="search" placeholder="Точное имя, email или телефон" aria-label="Поиск курьера" @keydown.enter.prevent="load" /><button class="btn btn-secondary" type="button" :disabled="loading" @click="load">Найти</button></div>
+    <div class="courier-picker-search"><input v-model="query" class="input" type="search" placeholder="Имя, email или телефон" aria-label="Поиск курьера" @keydown.enter.prevent="load" /><button class="btn btn-secondary" type="button" :disabled="loading" @click="load">Найти</button></div>
     <select v-model="selectedId" class="select" :disabled="loading" aria-label="Курьер"><option value="">Выберите курьера</option><option v-for="courier in options" :key="courier.id" :value="courier.id">{{ courier.fullName }} · {{ courier.email || courier.id }}</option></select>
     <span v-if="error" class="field-error courier-picker-error" role="alert">{{ error }}</span>
   </div>

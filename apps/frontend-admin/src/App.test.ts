@@ -721,11 +721,13 @@ const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit 
 
   if (url.pathname === '/courier' && method === 'GET') {
     const status = url.searchParams.get('status')
+    const query = url.searchParams.get('query')?.toLowerCase()
+    const searchableCouriers = serverCouriers.filter((item) => !query || [item.full_name, item.email, item.phone].some((value) => value.toLowerCase().includes(query)))
     const filteredCouriers = status
-      ? serverCouriers.filter((item) =>
+      ? searchableCouriers.filter((item) =>
           item.platform_accounts.some((account) => account.status === status),
         )
-      : serverCouriers
+      : searchableCouriers
     const start = url.searchParams.get('cursor') === 'cursor-2' ? 5 : 0
     const items = filteredCouriers.slice(start, start + 5)
     return jsonResponse({

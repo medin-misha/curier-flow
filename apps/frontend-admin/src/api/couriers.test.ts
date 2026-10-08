@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { configureAccessRecovery, setAccessToken } from './client'
-import { bulkDeleteCouriers, bulkUpdateCourierStatus } from './couriers'
+import { bulkDeleteCouriers, bulkUpdateCourierStatus, listCouriers } from './couriers'
 
 afterEach(() => {
   setAccessToken(null)
@@ -35,5 +35,18 @@ describe('Авторизация массовых Courier API запросов',
     }
     expect(new Headers(first[1].headers).get('Authorization')).toBe('Bearer expired-token')
     expect(new Headers(second[1].headers).get('Authorization')).toBe('Bearer fresh-token')
+  })
+})
+
+
+describe('Единый query контракт списка курьеров', () => {
+  it.each(['n', 'eva@example', '111', '+420 (777) 111-222', '%', '_'])('отправляет %s только в query', async (query) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], next_cursor: null })))
+    vi.stubGlobal('fetch', fetchMock)
+    setAccessToken('admin-token')
+    await listCouriers({ query, status: 'active', limit: 5, cursor: 'cursor-next' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const params = new URL(String(fetchMock.mock.calls[0][0]), 'https://admin.test').searchParams
+    expect(Object.fromEntries(params)).toEqual({ query, status: 'active', limit: '5', cursor: 'cursor-next' })
   })
 })

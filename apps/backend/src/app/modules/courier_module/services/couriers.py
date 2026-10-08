@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import func, select, tuple_, update
+from sqlalchemy import func, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -155,13 +155,23 @@ async def list_couriers(
     page: PageParams,
     *,
     session: AsyncSession,
+    query: str | None = None,
     email: str | None = None,
     phone: str | None = None,
     full_name: str | None = None,
     status: PlatformAccountStatus | None = None,
 ) -> Page[Courier]:
-    """Вернуть keyset-страницу aggregates с точными scalar/status-фильтрами."""
+    """Вернуть keyset-страницу с частичным поиском и точными scalar/status-фильтрами."""
     where = []
+    if query is not None and (search := query.strip()):
+        matches = [
+            Courier.full_name.icontains(search, autoescape=True),
+            Courier.email.icontains(search, autoescape=True),
+        ]
+        phone_fragment = search.translate(str.maketrans("", "", " -()"))
+        if phone_fragment:
+            matches.append(Courier.phone.contains(phone_fragment, autoescape=True))
+        where.append(or_(*matches))
     if email is not None:
         where.append(Courier.email == normalize_email(email))
     if phone is not None:

@@ -15,6 +15,7 @@ let bulkGate: Promise<void> | null
 let commands: Array<{ path: string; init: RequestInit; body: { courier_ids: string[] } & Partial<CourierBulkStatusInput> }>
 let listQueries: URLSearchParams[]
 let savedResults: Map<string, unknown>
+let listGates: Map<string, Promise<Response>>
 
 function courier(index: number): CourierResponse {
   const id = `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
@@ -47,10 +48,19 @@ const fetchMock = vi.fn(async (path: string, init: RequestInit = {}) => {
   const url = new URL(path, 'https://admin.test')
   if (url.pathname === '/courier') {
     listQueries.push(url.searchParams)
+    const gate = listGates.get(url.searchParams.get('query') || '')
+    if (gate) return gate
     if (failList) return json({ status: 503 }, 503)
     const status = url.searchParams.get('status')
+    const query = url.searchParams.get('query')?.toLowerCase()
     const name = url.searchParams.get('full_name')
-    const filtered = couriers.filter((item) => (!status || item.platform_accounts.some((account) => account.status === status)) && (!name || item.full_name === name))
+    const normalizedPhoneQuery = query?.replace(/[\s()-]/g, '')
+    const filtered = couriers.filter((item) =>
+      (!status || item.platform_accounts.some((account) => account.status === status)) &&
+      (!name || item.full_name === name) &&
+      (!query || [item.full_name, item.email].some((value) => value.toLowerCase().includes(query)) ||
+        Boolean(normalizedPhoneQuery && item.phone.replace(/[\s()-]/g, '').includes(normalizedPhoneQuery))),
+    )
     const offset = Number(url.searchParams.get('cursor') || 0)
     const limit = Number(url.searchParams.get('limit'))
     return json({ items: filtered.slice(offset, offset + limit), next_cursor: offset + limit < filtered.length ? String(offset + limit) : null })
@@ -131,6 +141,7 @@ beforeEach(() => {
   commands = []
   listQueries = []
   savedResults = new Map()
+  listGates = new Map()
   fetchMock.mockClear()
   vi.stubGlobal('fetch', fetchMock)
   setAccessToken('admin-token')
@@ -166,7 +177,6 @@ describe('Массовые операции реестра курьеров', ()
     await pageCheckbox(page).setValue(false)
     expect(page.get('.courier-bulk-toolbar').text()).toContain('Выбрано: 1 / 100')
     await page.get('[data-od-id="courier-search"]').setValue('Курьер 1')
-    await page.get('[data-od-id="couriers-filters"]').trigger('submit')
     await flushPromises()
     expect(page.get('.courier-bulk-toolbar').text()).toContain('Выбрано: 0 / 100')
     expect(page.findAll('tbody tr')).toHaveLength(1)
@@ -300,7 +310,6 @@ describe('Массовые операции реестра курьеров', ()
   it('обновляет фильтрованный реестр после смены статуса', async () => {
     const page = await mountRegistry()
     await page.get('[data-od-id="courier-status-filter"]').setValue('active')
-    await page.get('[data-od-id="couriers-filters"]').trigger('submit')
     await flushPromises()
     await pageCheckbox(page).setValue(true)
     const dialog = await openBulk(page, 'status')
@@ -358,4 +367,145 @@ describe('Массовые операции реестра курьеров', ()
     expect(commands[0].body.courier_ids).not.toContain(courier(100).id)
     expect(commands[0].body.courier_ids).toContain(courier(101).id)
   }, 20_000)
+})
+
+function deferredResponse() {
+  let resolve!: (response: Response) => void
+  const promise = new Promise<Response>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+function searchInput(page: VueWrapper) {
+  return page.get<HTMLInputElement>('[data-od-id="courier-search"]')
+}
+
+function resetButton(page: VueWrapper) {
+  return page.findAll('button').find((button) => button.text() === 'Сбросить')!
+}
+
+describe('Автоматический частичный поиск курьеров', () => {
+  it('отправляет первый символ и последующий ввод без submit и кнопки Найти', async () => {
+    const page = await mountRegistry()
+    expect(page.findAll('button').some((button) => button.text() === 'Найти')).toBe(false)
+    await searchInput(page).setValue('К')
+    await flushPromises()
+    expect(listQueries).toHaveLength(2)
+    expect(listQueries.at(-1)?.get('query')).toBe('К')
+    await searchInput(page).setValue('Курьер 1')
+    await flushPromises()
+    expect(listQueries).toHaveLength(3)
+    expect(listQueries.at(-1)?.get('query')).toBe('Курьер 1')
+    expect(listQueries.at(-1)?.has('full_name')).toBe(false)
+    expect(page.findAll('tbody tr')).toHaveLength(1)
+    expect(page.get('tbody').text()).toContain('Курьер 1')
+  })
+
+  it('сохраняет текст при статусе, очищает поле и сбрасывает оба фильтра одним запросом', async () => {
+    const page = await mountRegistry()
+    await searchInput(page).setValue('Курьер')
+    await flushPromises()
+    await page.get('[data-od-id="courier-status-filter"]').setValue('active')
+    await flushPromises()
+    expect(listQueries.at(-1)?.get('query')).toBe('Курьер')
+    expect(listQueries.at(-1)?.get('status')).toBe('active')
+    expect(page.findAll('tbody tr')).toHaveLength(1)
+    await searchInput(page).setValue('')
+    await flushPromises()
+    expect(listQueries.at(-1)?.has('query')).toBe(false)
+    expect(listQueries.at(-1)?.get('status')).toBe('active')
+    await searchInput(page).setValue('Курьер 1')
+    await flushPromises()
+    const before = listQueries.length
+    await resetButton(page).trigger('click')
+    await flushPromises()
+    expect(listQueries).toHaveLength(before + 1)
+    expect(listQueries.at(-1)?.has('query')).toBe(false)
+    expect(listQueries.at(-1)?.has('status')).toBe(false)
+    expect(page.findAll('tbody tr')).toHaveLength(5)
+  })
+
+  it.each(['text', 'status'])('сбрасывает страницу и выбор при изменении %s', async (filter) => {
+    const page = await mountRegistry()
+    await nextPage(page)
+    await checkbox(page, 6).setValue(true)
+    if (filter === 'text') await searchInput(page).setValue('Курьер')
+    else await page.get('[data-od-id="courier-status-filter"]').setValue('pending')
+    await flushPromises()
+    expect(listQueries.at(-1)?.has('cursor')).toBe(false)
+    expect(page.get('.pagination-summary').text()).toContain('Страница 1')
+    expect(page.get('.courier-bulk-toolbar').text()).toContain('Выбрано: 0 / 100')
+  })
+
+  it.each([false, true])('сохраняет последний успех после устаревшего ответа (ошибка=%s)', async (staleError) => {
+    const page = await mountRegistry()
+    const old = deferredResponse()
+    const current = deferredResponse()
+    listGates.set('К', old.promise)
+    listGates.set('Курьер 2', current.promise)
+    await searchInput(page).setValue('К')
+    await flushPromises()
+    expect(listQueries.at(-1)?.get('query')).toBe('К')
+    expect(searchInput(page).element.disabled).toBe(false)
+    await searchInput(page).setValue('Курьер 2')
+    await flushPromises()
+    expect(listQueries.at(-1)?.get('query')).toBe('Курьер 2')
+    current.resolve(json({ items: [courier(2)], next_cursor: null }))
+    await flushPromises()
+    expect(page.get('tbody').text()).toContain('Курьер 2')
+    old.resolve(staleError ? json({ status: 503 }, 503) : json({ items: [courier(1)], next_cursor: null }))
+    await flushPromises()
+    expect(page.findAll('tbody tr')).toHaveLength(1)
+    expect(page.get('tbody').text()).toContain('Курьер 2')
+    expect(page.find('[role="alert"]').exists()).toBe(false)
+  })
+
+  it('повторяет поиск новым вводом после ошибки', async () => {
+    const page = await mountRegistry()
+    failList = true
+    await searchInput(page).setValue('К')
+    await flushPromises()
+    expect(page.get('[role="alert"]').text()).toContain('Не удалось загрузить реестр')
+    failList = false
+    await searchInput(page).setValue('Курьер 3')
+    await flushPromises()
+    expect(listQueries.at(-1)?.get('query')).toBe('Курьер 3')
+    expect(page.find('[role="alert"]').exists()).toBe(false)
+    expect(page.get('tbody').text()).toContain('Курьер 3')
+  })
+})
+
+
+describe('Частичные контакты и загрузка поиска', () => {
+  it.each([['courier2', 'Курьер 2', 1], ['@example', 'Курьер 1', 5], ['000-003', 'Курьер 3', 1]])('ищет %s общим query', async (query, name, count) => {
+    const page = await mountRegistry()
+    await searchInput(page).setValue(query)
+    await flushPromises()
+    expect(listQueries.at(-1)?.get('query')).toBe(query)
+    expect(page.findAll('tbody tr')).toHaveLength(count)
+    expect(page.get('tbody').text()).toContain(name)
+  })
+
+  it('оставляет loading последнего запроса после старого успеха и допускает смену статуса', async () => {
+    const page = await mountRegistry()
+    const old = deferredResponse()
+    const current = deferredResponse()
+    listGates.set('К', old.promise)
+    listGates.set('Курьер', current.promise)
+    await searchInput(page).setValue('К')
+    await flushPromises()
+    await searchInput(page).setValue('Курьер')
+    await flushPromises()
+    expect(listQueries).toHaveLength(3)
+    old.resolve(json({ items: [courier(1)], next_cursor: 'old-cursor' }))
+    await flushPromises()
+    expect(page.get('[aria-label="Следующая страница"]').attributes('disabled')).toBeDefined()
+    expect(searchInput(page).element.disabled).toBe(false)
+    expect(page.get<HTMLSelectElement>('[data-od-id="courier-status-filter"]').element.disabled).toBe(false)
+    await page.get('[data-od-id="courier-status-filter"]').setValue('active')
+    await flushPromises()
+    expect(listQueries.at(-1)?.get('status')).toBe('active')
+    expect(listQueries.at(-1)?.get('query')).toBe('Курьер')
+    current.resolve(json({ items: [courier(1)], next_cursor: null }))
+    await flushPromises()
+  })
 })

@@ -321,7 +321,7 @@ onMounted(() => {
             <div v-if="needsCourier" class="field field-wide">
               <label for="document-courier">Курьер</label>
               <div class="document-context-search">
-                <input v-model="courierQuery" class="input" type="search" placeholder="Точное имя, email или телефон" :disabled="courierLoading || rendering" @keydown.enter.prevent="loadCouriers(true)" />
+                <input v-model="courierQuery" class="input" type="search" placeholder="Имя, email или телефон" :disabled="courierLoading || rendering" @keydown.enter.prevent="loadCouriers(true)" />
                 <button class="btn btn-secondary" type="button" :disabled="courierLoading || rendering" @click="loadCouriers(true)">Найти</button>
               </div>
               <select id="document-courier" v-model="courierId" class="select" :disabled="courierLoading || courierHydrating || rendering" @change="selectCourier">

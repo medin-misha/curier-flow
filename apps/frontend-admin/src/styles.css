@@ -418,7 +418,7 @@ h3 {
 }
 
 .toolbar-api {
-  grid-template-columns: minmax(260px, 1fr) minmax(150px, 190px) auto auto minmax(150px, auto);
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 190px) auto minmax(150px, auto);
 }
 
 .bikes-toolbar {

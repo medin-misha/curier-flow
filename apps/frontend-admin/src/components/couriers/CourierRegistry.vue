@@ -20,6 +20,7 @@ const props = defineProps<{
   error: string
   selectedIds: string[]
   bulkBusy: boolean
+  filtersDisabled: boolean
 }>()
 
 const pageSelectedCount = computed(
@@ -44,7 +45,6 @@ defineEmits<{
   select: [courier: Courier, event: Event]
   page: [page: number]
   retry: []
-  search: []
   toggle: [courier: Courier]
   togglePage: []
   clearSelection: []
@@ -78,8 +78,7 @@ defineEmits<{
         v-model:search-query="searchQuery"
         v-model:status="status"
         :summary="filterSummary"
-        :loading="loading || bulkBusy"
-        @search="$emit('search')"
+        :disabled="filtersDisabled"
       />
 
       <div class="card" data-od-id="couriers-table-card">

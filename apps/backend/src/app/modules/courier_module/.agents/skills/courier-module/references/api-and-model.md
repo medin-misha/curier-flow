@@ -2,7 +2,11 @@
 
 Префикс `/courier`. Полные aggregates возвращают только POST корня, GET item и
 GET list; отдельных nested GET нет. Список — keyset по
-`(created_at DESC, id DESC)` и точные фильтры email/phone/full_name/status;
+`(created_at DESC, id DESC)` и точные фильтры email/phone/full_name/status.
+Необязательный `query` (до 320 символов) ищет буквальную подстроку имени/email
+без учёта регистра и телефона без пробелов, скобок и дефисов; пустой после
+trim запрос не ограничивает список. `%` и `_` остаются буквальными символами.
+Поиск, точные фильтры и status объединяются через AND;
 `status` выбирает Courier с хотя бы одной platform-регистрацией в этом статусе.
 
 Манифест имеет пустой prefix: module router объединяет прежние пути `/courier`

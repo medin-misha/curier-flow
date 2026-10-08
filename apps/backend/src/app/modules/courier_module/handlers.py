@@ -116,15 +116,17 @@ async def list_page(
     page: PageQuery,
     session: RoSession,
     *,
+    query: Annotated[str | None, Query(max_length=320)] = None,
     email: Annotated[str | None, Query(max_length=320)] = None,
     phone: Annotated[str | None, Query(max_length=32)] = None,
     full_name: Annotated[str | None, Query(max_length=255)] = None,
     status: Annotated[PlatformAccountStatus | None, Query()] = None,
 ) -> Page[CourierAggregateResponse]:
-    """Отдать keyset-страницу полных aggregates с точными фильтрами."""
+    """Отдать keyset-страницу aggregates с частичным поиском и точными фильтрами."""
     found = await list_couriers(
         page,
         session=session,
+        query=query,
         email=email,
         phone=phone,
         full_name=full_name,

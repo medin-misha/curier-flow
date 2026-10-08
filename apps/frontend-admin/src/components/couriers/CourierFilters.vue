@@ -4,11 +4,7 @@ import type { PlatformStatus } from '../../types/courier'
 
 defineProps<{
   summary: string
-  loading: boolean
-}>()
-
-const emit = defineEmits<{
-  search: []
+  disabled: boolean
 }>()
 
 const searchQuery = defineModel<string>('searchQuery', { required: true })
@@ -26,30 +22,32 @@ const statusOptions: Array<{ value: PlatformStatus; label: string }> = [
 function clear() {
   searchQuery.value = ''
   status.value = ''
-  emit('search')
 }
 </script>
 
 <template>
-  <form class="toolbar toolbar-api" data-od-id="couriers-filters" @submit.prevent="$emit('search')">
+  <form class="toolbar toolbar-api" data-od-id="couriers-filters" @submit.prevent>
     <label class="control-wrap">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
         <circle cx="11" cy="11" r="6.5" />
         <path d="m16 16 4 4" />
       </svg>
-      <span class="visually-hidden">Точный поиск курьеров</span>
+      <span class="visually-hidden">Поиск курьеров</span>
       <input
         v-model="searchQuery"
         class="input"
         type="search"
-        placeholder="Точное имя, email или телефон"
+        placeholder="Имя, email или телефон"
         autocomplete="off"
+        maxlength="320"
+        :disabled="disabled"
         data-od-id="courier-search"
       />
     </label>
     <select
       v-model="status"
       class="select"
+      :disabled="disabled"
       aria-label="Статус курьера"
       data-od-id="courier-status-filter"
     >
@@ -58,11 +56,10 @@ function clear() {
         {{ option.label }}
       </option>
     </select>
-    <button class="btn btn-secondary" type="submit" :disabled="loading">Найти</button>
     <button
       class="btn btn-ghost"
       type="button"
-      :disabled="loading || !hasFilters"
+      :disabled="disabled || !hasFilters"
       @click="clear"
     >
       Сбросить

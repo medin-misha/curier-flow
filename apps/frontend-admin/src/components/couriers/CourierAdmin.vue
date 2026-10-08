@@ -45,6 +45,16 @@ watch(bulkBusy, (busy) => emit('busyChange', busy))
 const couriers = ref<Courier[]>([])
 const searchQuery = ref('')
 const statusFilter = ref<PlatformStatus | ''>('')
+const filtersDisabled = computed(() => bulkBusy.value || Boolean(bulkAction.value))
+const editableQuery = computed({
+  get: () => searchQuery.value,
+  set: (value: string) => { if (!filtersDisabled.value) searchQuery.value = value },
+})
+const editableStatus = computed({
+  get: () => statusFilter.value,
+  set: (value: PlatformStatus | '') => { if (!filtersDisabled.value) statusFilter.value = value },
+})
+let suppressFilterSearch = false
 const appliedQuery = ref('')
 const appliedStatus = ref<PlatformStatus | ''>('')
 const currentPage = ref(1)
@@ -87,7 +97,7 @@ const platformStatusLabels: Record<PlatformStatus, string> = {
 
 const filterSummary = computed(() => {
   const filters = []
-  if (appliedQuery.value) filters.push(`Точное совпадение: ${appliedQuery.value}`)
+  if (appliedQuery.value) filters.push(`Поиск: ${appliedQuery.value}`)
   if (appliedStatus.value) {
     filters.push(`Статус: ${platformStatusLabels[appliedStatus.value]}`)
   }
@@ -169,6 +179,10 @@ async function search() {
   currentPage.value = 1
   await loadPage(1)
 }
+
+watch([searchQuery, statusFilter], () => {
+  if (!suppressFilterSearch) void search()
+})
 
 async function pageTo(page: number) {
   if (page < 1 || loading.value || bulkBusy.value || bulkAction.value) return
@@ -253,12 +267,12 @@ async function submitCreate(input: CourierCreateInput) {
     const created = await createCourier(input)
     createOpen.value = false
     bulk.clearSelection()
+    suppressFilterSearch = true
     searchQuery.value = ''
     statusFilter.value = ''
-    appliedQuery.value = ''
-    appliedStatus.value = ''
-    cursors.value = [null]
-    await loadPage(1)
+    await nextTick()
+    suppressFilterSearch = false
+    await search()
     showToast('Курьер сохранён', `${created.fullName} добавлен в реестр.`)
     restoreFocus()
   } catch (error) {
@@ -537,6 +551,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  loadSequence += 1
   emit('busyChange', false)
   document.body.classList.remove('modal-open')
   revokePreviewUrls(previewUrls.value)
@@ -547,8 +562,8 @@ onBeforeUnmount(() => {
 <template>
   <main id="content">
     <CourierRegistry
-      v-model:search-query="searchQuery"
-      v-model:status="statusFilter"
+      v-model:search-query="editableQuery"
+      v-model:status="editableStatus"
       :couriers="couriers"
       :filter-summary="filterSummary"
       :current-page="currentPage"
@@ -558,11 +573,11 @@ onBeforeUnmount(() => {
       :error="loadError"
       :selected-ids="bulk.selectedIds.value"
       :bulk-busy="bulkBusy"
+      :filters-disabled="filtersDisabled"
       @create="openCreate"
       @select="openDetails"
       @page="pageTo"
       @retry="loadPage(currentPage)"
-      @search="search"
       @toggle="toggleSelection"
       @toggle-page="togglePageSelection"
       @clear-selection="bulk.clearSelection"
